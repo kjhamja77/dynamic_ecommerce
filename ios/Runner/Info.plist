@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+		</dict>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Kardosi</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>Kardosi</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<!-- Network and HTTP permissions -->
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+			<key>NSAllowsArbitraryLoadsInWebContent</key>
+			<true/>
+			<key>NSExceptionDomains</key>
+			<dict>
+				<key>192.168.1.59:8069</key>
+				<dict>
+					<key>NSIncludesSubdomains</key>
+					<true/>
+					<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+					<true/>
+					<key>NSTemporaryExceptionMinimumTLSVersion</key>
+					<string>TLSv1.1</string>
+				</dict>
+			</dict>
+		</dict>
+		<!-- Camera permissions -->
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs access to camera to take photos of products and for profile pictures.</string>
+		<!-- Photo library permissions -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>This app needs access to photo library to select images for products and profile pictures.</string>
+		<!-- Photo library add permissions -->
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>This app needs permission to save images to your photo library.</string>
+		<!-- Location permissions (for delivery addresses) -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>This app uses location to provide better delivery options and local store information.</string>
+		<!-- Microphone permissions (for voice search) -->
+		<key>NSMicrophoneUsageDescription</key>
+		<string>This app needs microphone access for voice search functionality.</string>
+		<!-- Face ID / Touch ID permissions -->
+		<key>NSFaceIDUsageDescription</key>
+		<string>Use Face ID to authenticate and secure your account.</string>
+		<!-- Contacts permissions (for sharing and referrals) -->
+		<key>NSContactsUsageDescription</key>
+		<string>This app needs access to contacts to share products with friends and family.</string>
+		<!-- Bluetooth permissions (for connected devices) -->
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>This app uses Bluetooth to connect with wearable devices and accessories.</string>
+		<!-- Motion permissions (for fitness tracking) -->
+		<key>NSMotionUsageDescription</key>
+		<string>This app uses motion data to track fitness activities and provide health insights.</string>
+		<!-- Calendar permissions (for reminders and events) -->
+		<key>NSCalendarsUsageDescription</key>
+		<string>This app needs calendar access to set reminders for sales and product launches.</string>
+		<!-- Supported URL schemes for deep linking -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>Kardosi</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>zalandoclone</string>
+					<string>com.zalandoclone.app</string>
+				</array>
+			</dict>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.124510041370-4bun2k4m0hue26j3sv7jjar0egbejd9o</string>
+				</array>
+			</dict>
+		</array>
+		<!-- Background app refresh -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>background-fetch</string>
+			<string>background-processing</string>
+			<string>remote-notification</string>
+		</array>
+		<!-- Status bar style -->
+		<key>UIStatusBarStyle</key>
+		<string>UIStatusBarStyleDefault</string>
+		<!-- Hide status bar -->
+		<key>UIStatusBarHidden</key>
+		<true/>
+		<!-- Launch screen configuration -->
+		<key>UILaunchScreen</key>
+		<dict>
+			<key>UIImageName</key>
+			<string>LaunchImage</string>
+			<key>UIImageRespectsSafeAreaInsets</key>
+			<true/>
+		</dict>
+		<key>UIViewControllerBasedStatusBarAppearance</key>
+		<false/>
+	</dict>
+</plist>

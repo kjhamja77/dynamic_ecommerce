@@ -1,0 +1,5010 @@
+{
+  "@@locale": "en",
+  "appTitle": "Kardosi",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "welcome": "Welcome,",
+  "@welcome": {
+    "description": "Welcome message"
+  },
+  
+  "signInPrompt": "sign in?",
+  "@signInPrompt": {
+    "description": "Sign in prompt text"
+  },
+  
+  "signInToUnlockDeals": "Sign in to unlock deals",
+  "@signInToUnlockDeals": {
+    "description": "Promotional message for sign in"
+  },
+  
+  "freeDeliveryOver": "Free delivery over €29.90",
+  "@freeDeliveryOver": {
+    "description": "Free delivery promotion"
+  },
+  
+  "newArrivalsDaily": "New arrivals daily",
+  "@newArrivalsDaily": {
+    "description": "New arrivals promotion"
+  },
+  
+  "extraOffSelectedStyles": "Extra 20% off selected styles",
+  "@extraOffSelectedStyles": {
+    "description": "Discount promotion"
+  },
+  
+  "somethingWentWrong": "Something went wrong",
+  "@somethingWentWrong": {
+    "description": "Generic error message"
+  },
+  
+  "noProductsAvailable": "No products available",
+  "@noProductsAvailable": {
+    "description": "Message when no products are found"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings page title"
+  },
+  
+  "languageRegion": "Language & Region",
+  "@languageRegion": {
+    "description": "Language and region settings"
+  },
+  
+  "appearance": "Appearance",
+  "@appearance": {
+    "description": "Appearance settings"
+  },
+  
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications settings"
+  },
+  
+  "appSettings": "App Settings",
+  "@appSettings": {
+    "description": "App settings section"
+  },
+  
+  "about": "About",
+  "@about": {
+    "description": "About section"
+  },
+  
+  "selectLanguage": "Select Language",
+  "@selectLanguage": {
+    "description": "Language selection prompt"
+  },
+  
+  "changingLanguage": "Changing language...",
+  "@changingLanguage": {
+    "description": "Message shown while changing language"
+  },
+  
+  "languageChanged": "Language changed successfully!",
+  "@languageChanged": {
+    "description": "Success message after language change"
+  },
+  
+  "errorChangingLanguage": "Error changing language. Please try again.",
+  "@errorChangingLanguage": {
+    "description": "Error message when language change fails"
+  },
+  
+  "specialOffers": "Special Offers",
+  "@specialOffers": {
+    "description": "Special offers section title"
+  },
+  
+  "limitedTimeDeals": "Limited time deals",
+  "@limitedTimeDeals": {
+    "description": "Special offers section subtitle"
+  },
+  
+  "flashSale": "Flash Sale",
+  "@flashSale": {
+    "description": "Flash sale offer title"
+  },
+  
+  "newCustomer": "New Customer",
+  "@newCustomer": {
+    "description": "New customer offer title"
+  },
+  
+  "weekendSpecial": "Weekend Special",
+  "@weekendSpecial": {
+    "description": "Weekend special offer title"
+  },
+  
+  "free": "Free",
+  "@free": {
+    "description": "Free discount label"
+  },
+  
+  "limitedTime": "Limited time",
+  "@limitedTime": {
+    "description": "Limited time label"
+  },
+  
+  "selectOptions": "Select options",
+  "@selectOptions": {
+    "description": "Select options prompt"
+  },
+  
+  "errorLoadingPage": "Error loading page",
+  "@errorLoadingPage": {
+    "description": "Error message when page fails to load"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "errorLoadingPages": "Error loading pages",
+  "@errorLoadingPages": {
+    "description": "Error message when pages fail to load"
+  },
+  
+  "noPagesAvailable": "No pages available",
+  "@noPagesAvailable": {
+    "description": "Message when no pages are available"
+  },
+  
+  "priceRangeNotAvailable": "Price range not available",
+  "@priceRangeNotAvailable": {
+    "description": "Message when price range is not available"
+  },
+  
+  "sortBy": "Sort by",
+  "@sortBy": {
+    "description": "Sort options title"
+  },
+  
+  "apply": "Apply",
+  "@apply": {
+    "description": "Apply button text"
+  },
+  
+  "all": "All",
+  "@all": {
+    "description": "All option label"
+  },
+  
+  "continueAsGuest": "Continue as Guest",
+  "@continueAsGuest": {
+    "description": "Guest login button text"
+  },
+  
+  "guest": "Guest",
+  "@guest": {
+    "description": "Guest user label"
+  },
+  
+  "guestUser": "Guest User",
+  "@guestUser": {
+    "description": "Guest user title"
+  },
+  
+  "guestMode": "Guest Mode",
+  "@guestMode": {
+    "description": "Guest mode label"
+  },
+  
+  "signInToUnlockFeatures": "Sign in to unlock all features",
+  "@signInToUnlockFeatures": {
+    "description": "Prompt to sign in for full features"
+  },
+  
+  "guestLimitations": "Guest users have limited access to some features",
+  "@guestLimitations": {
+    "description": "Guest limitations notice"
+  },
+  
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account button"
+  },
+  
+  "alreadyHaveAccount": "Already have an account?",
+  "@alreadyHaveAccount": {
+    "description": "Login prompt for existing users"
+  },
+  
+  "signInNow": "Sign in now",
+  "@signInNow": {
+    "description": "Sign in link text"
+  },
+  
+  "guestCheckout": "Guest Checkout",
+  "@guestCheckout": {
+    "description": "Guest checkout option"
+  },
+  
+  "signInForBetterExperience": "Sign in for a better shopping experience",
+  "@signInForBetterExperience": {
+    "description": "Promotional message for sign in"
+  },
+  
+  "guestFavorites": "Sign in to save your favorites",
+  "@guestFavorites": {
+    "description": "Guest favorites limitation"
+  },
+  
+  "guestCart": "Your cart will be saved locally",
+  "@guestCart": {
+    "description": "Guest cart limitation notice"
+  },
+  
+  "guestProfile": "Sign in to access your profile",
+  "@guestProfile": {
+    "description": "Guest profile limitation"
+  },
+  
+  "theme": "Theme",
+  "@theme": {
+    "description": "Theme setting"
+  },
+  
+  "light": "Light",
+  "@light": {
+    "description": "Light theme option"
+  },
+  
+  "dark": "Dark",
+  "@dark": {
+    "description": "Dark theme option"
+  },
+  
+  "system": "System",
+  "@system": {
+    "description": "System theme option"
+  },
+  
+  "useLightTheme": "Use light theme",
+  "@useLightTheme": {
+    "description": "Light theme description"
+  },
+  
+  "useDarkTheme": "Use dark theme",
+  "@useDarkTheme": {
+    "description": "Dark theme description"
+  },
+  
+  "followSystemTheme": "Follow system theme",
+  "@followSystemTheme": {
+    "description": "System theme description"
+  },
+  
+  "pushNotifications": "Push Notifications",
+  "@pushNotifications": {
+    "description": "Push notifications setting"
+  },
+  
+  "receivePushNotifications": "Receive push notifications",
+  "@receivePushNotifications": {
+    "description": "Push notifications description"
+  },
+  
+  "emailNotifications": "Email Notifications",
+  "@emailNotifications": {
+    "description": "Email notifications setting"
+  },
+  
+  "receiveEmailNotifications": "Receive email notifications",
+  "@receiveEmailNotifications": {
+    "description": "Email notifications description"
+  },
+  
+  "sound": "Sound",
+  "@sound": {
+    "description": "Sound setting"
+  },
+  
+  "playSoundForNotifications": "Play sound for notifications",
+  "@playSoundForNotifications": {
+    "description": "Sound setting description"
+  },
+  
+  "vibration": "Vibration",
+  "@vibration": {
+    "description": "Vibration setting"
+  },
+  
+  "vibrateForNotifications": "Vibrate for notifications",
+  "@vibrateForNotifications": {
+    "description": "Vibration setting description"
+  },
+  
+  "autoUpdate": "Auto Update",
+  "@autoUpdate": {
+    "description": "Auto update setting"
+  },
+  
+  "automaticallyUpdateTheApp": "Automatically update the app",
+  "@automaticallyUpdateTheApp": {
+    "description": "Auto update description"
+  },
+  
+  "locationServices": "Location Services",
+  "@locationServices": {
+    "description": "Location services setting"
+  },
+  
+  "allowAppToAccessLocation": "Allow app to access location",
+  "@allowAppToAccessLocation": {
+    "description": "Location services description"
+  },
+  
+  "analytics": "Analytics",
+  "@analytics": {
+    "description": "Analytics setting"
+  },
+  
+  "helpImproveTheAppWithAnalytics": "Help improve the app with analytics",
+  "@helpImproveTheAppWithAnalytics": {
+    "description": "Analytics description"
+  },
+  
+  "appVersion": "App Version",
+  "@appVersion": {
+    "description": "App version label"
+  },
+  
+  "privacyPolicy": "Privacy Policy",
+  "@privacyPolicy": {
+    "description": "Privacy policy link"
+  },
+  
+  "readOurPrivacyPolicy": "Read our privacy policy",
+  "@readOurPrivacyPolicy": {
+    "description": "Privacy policy description"
+  },
+  
+  "termsOfService": "Terms of Service",
+  "@termsOfService": {
+    "description": "Terms of service link"
+  },
+  
+  "readOurTermsOfService": "Read our terms of service",
+  "@readOurTermsOfService": {
+    "description": "Terms of service description"
+  },
+  
+  "home": "Home",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "search": "Search",
+  "@search": {
+    "description": "Search tab label"
+  },
+  
+  "favorites": "Favorites",
+  "@favorites": {
+    "description": "Favorites tab label"
+  },
+  
+  "cart": "Cart",
+  "@cart": {
+    "description": "Cart tab label"
+  },
+  
+  "profile": "Profile",
+  "@profile": {
+    "description": "Profile tab label"
+  },
+  
+  "addToCart": "Add to Cart",
+  "@addToCart": {
+    "description": "Add to cart button text"
+  },
+  
+  "removeFromCart": "Remove from Cart",
+  "@removeFromCart": {
+    "description": "Remove from cart button text"
+  },
+  
+  "addToFavorites": "Add to Favorites",
+  "@addToFavorites": {
+    "description": "Add to favorites button text"
+  },
+  
+  "removeFromFavorites": "Remove from Favorites",
+  "@removeFromFavorites": {
+    "description": "Remove from favorites button text"
+  },
+  
+  "price": "Price",
+  "@price": {
+    "description": "Price label"
+  },
+  
+  "quantity": "Quantity",
+  "@quantity": {
+    "description": "Quantity label"
+  },
+  
+  "size": "Size",
+  "@size": {
+    "description": "Size label"
+  },
+  
+  "color": "Color",
+  "@color": {
+    "description": "Color label"
+  },
+  
+  "selected": "Selected",
+  "@selected": {
+    "description": "Selected label for options"
+  },
+  
+  "brand": "Brand",
+  "@brand": {
+    "description": "Brand label"
+  },
+  
+  "category": "Category",
+  "@category": {
+    "description": "Category label"
+  },
+  
+  "rating": "Rating",
+  "@rating": {
+    "description": "Rating label"
+  },
+  
+  "reviews": "Reviews",
+  "@reviews": {
+    "description": "Reviews label"
+  },
+  
+  "description": "Description",
+  "@description": {
+    "description": "Description label"
+  },
+  
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading message"
+  },
+  
+  "error": "Error",
+  "@error": {
+    "description": "Error message"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button text"
+  },
+  
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Confirm button text"
+  },
+  
+  "save": "Save",
+  "@save": {
+    "description": "Save button text"
+  },
+  
+  "edit": "Edit",
+  "@edit": {
+    "description": "Edit button text"
+  },
+  
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button text"
+  },
+  
+  "back": "Back",
+  "@back": {
+    "description": "Back button text"
+  },
+  
+  "next": "Next",
+  "@next": {
+    "description": "Next button text"
+  },
+  
+  "previous": "Previous",
+  "@previous": {
+    "description": "Previous button text"
+  },
+  
+  "skip": "Skip",
+  "@skip": {
+    "description": "Skip button text for onboarding"
+  },
+  
+  "getStarted": "Get Started",
+  "@getStarted": {
+    "description": "Get started button text for onboarding"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading text"
+  },
+  
+  "failedToLoadImage": "Failed to load image",
+  "@failedToLoadImage": {
+    "description": "Error message when image fails to load"
+  },
+  
+  "onboardingError": "Error loading onboarding",
+  "@onboardingError": {
+    "description": "Error message for onboarding loading failure"
+  },
+  
+  "done": "Done",
+  "@done": {
+    "description": "Done button text"
+  },
+  
+  "searchResults": "Search Results",
+  "@searchResults": {
+    "description": "Search results page title"
+  },
+  
+  "noProductsFound": "No products found",
+  "@noProductsFound": {
+    "description": "Message when no products are found in search"
+  },
+  
+  "tryDifferentSearchTerms": "Try different search terms or filters",
+  "@tryDifferentSearchTerms": {
+    "description": "Suggestion when no search results found"
+  },
+  
+  "endOfResults": "You have reached the end",
+  "@endOfResults": {
+    "description": "End of search results message"
+  },
+  
+  "filters": "Filters",
+  "@filters": {
+    "description": "Filters title"
+  },
+  
+  "advancedFiltersComingSoon": "Advanced filters coming soon!",
+  "@advancedFiltersComingSoon": {
+    "description": "Message for upcoming advanced filters"
+  },
+  
+  "clearAll": "Clear all",
+  "@clearAll": {
+    "description": "Clear all filters button"
+  },
+  
+  "onSale": "On Sale",
+  "@onSale": {
+    "description": "On sale filter"
+  },
+  
+  "inStock": "In Stock",
+  "@inStock": {
+    "description": "In stock filter"
+  },
+  
+  "newArrivals": "New Arrivals",
+  "@newArrivals": {
+    "description": "New arrivals filter"
+  },
+  
+  "trending": "Trending",
+  "@trending": {
+    "description": "Trending filter"
+  },
+  
+  "search": "Search",
+  "@search": {
+    "description": "Search button text"
+  },
+  
+  "searchHint": "Search for products...",
+  "@searchHint": {
+    "description": "Search field hint text"
+  },
+  
+  "startSearching": "Start Searching",
+  "@startSearching": {
+    "description": "Empty search state title"
+  },
+  
+  "enterSearchTerm": "Enter a search term above to find products",
+  "@enterSearchTerm": {
+    "description": "Empty search state description"
+  },
+  
+  "popularSearches": "Popular Searches",
+  "@popularSearches": {
+    "description": "Popular searches section title"
+  },
+  
+  "recentSearches": "Recent Searches",
+  "@recentSearches": {
+    "description": "Recent searches section title"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button text"
+  },
+  
+  "open": "Open",
+  "@open": {
+    "description": "Open button text"
+  },
+  
+  "view": "View",
+  "@view": {
+    "description": "View button text"
+  },
+  
+  "share": "Share",
+  "@share": {
+    "description": "Share button text"
+  },
+  
+  "copy": "Copy",
+  "@copy": {
+    "description": "Copy button text"
+  },
+  
+  "paste": "Paste",
+  "@paste": {
+    "description": "Paste button text"
+  },
+  
+  "select": "Select",
+  "@select": {
+    "description": "Select button text"
+  },
+  
+  "selectAll": "Select All",
+  "@selectAll": {
+    "description": "Select all button text"
+  },
+  
+  "clear": "Clear",
+  "@clear": {
+    "description": "Clear button text"
+  },
+  
+  "reset": "Reset",
+  "@reset": {
+    "description": "Reset button text"
+  },
+  
+  "refresh": "Refresh",
+  "@refresh": {
+    "description": "Refresh button text"
+  },
+  
+  "searchHint": "Search products...",
+  "@searchHint": {
+    "description": "Search input hint text"
+  },
+  
+  "noResultsFound": "No results found",
+  "@noResultsFound": {
+    "description": "No search results message"
+  },
+  
+  "tryAgain": "Try again",
+  "@tryAgain": {
+    "description": "Try again button text"
+  },
+  
+  "networkError": "Network error",
+  "@networkError": {
+    "description": "Network error message"
+  },
+  
+  "serverError": "Server error",
+  "@serverError": {
+    "description": "Server error message"
+  },
+  
+  "unknownError": "Unknown error occurred",
+  "@unknownError": {
+    "description": "Unknown error message"
+  },
+  
+  "success": "Success",
+  "@success": {
+    "description": "Success message"
+  },
+  
+  "itemAddedToCart": "Item added to cart",
+  "@itemAddedToCart": {
+    "description": "Item added to cart success message"
+  },
+  
+  "itemRemovedFromCart": "Item removed from cart",
+  "@itemRemovedFromCart": {
+    "description": "Item removed from cart success message"
+  },
+  
+  "itemAddedToFavorites": "Item added to favorites",
+  "@itemAddedToFavorites": {
+    "description": "Item added to favorites success message"
+  },
+  
+  "itemRemovedFromFavorites": "Item removed from favorites",
+  "@itemRemovedFromFavorites": {
+    "description": "Item removed from favorites success message"
+  },
+  
+  "cartIsEmpty": "Your cart is empty",
+  "@cartIsEmpty": {
+    "description": "Empty cart message"
+  },
+  
+  "favoritesIsEmpty": "Your favorites list is empty",
+  "@favoritesIsEmpty": {
+    "description": "Empty favorites message"
+  },
+  
+  "favoritesEmptyDescription": "Start building your wishlist by adding products you love to your favorites.",
+  "@favoritesEmptyDescription": {
+    "description": "Empty favorites description message"
+  },
+  
+  "total": "Total",
+  "@total": {
+    "description": "Total label"
+  },
+  
+  "subtotal": "Subtotal",
+  "@subtotal": {
+    "description": "Subtotal label"
+  },
+  
+  "tax": "Tax",
+  "@tax": {
+    "description": "Tax label"
+  },
+  
+  "shipping": "Shipping",
+  "@shipping": {
+    "description": "Shipping label"
+  },
+  
+  "discount": "Discount",
+  "@discount": {
+    "description": "Discount label"
+  },
+  
+  "results": "results",
+  "@results": {
+    "description": "Number of search results"
+  },
+  "sort": "Sort",
+  "@sort": {
+    "description": "Sort button tooltip"
+  },
+  "filterAndSort": "Filter & sort",
+  "@filterAndSort": {
+    "description": "Filter and sort button tooltip"
+  },
+  "brand": "Brand",
+  "@brand": {
+    "description": "Brand filter label"
+  },
+  "color": "Color",
+  "@color": {
+    "description": "Color filter label"
+  },
+  "onSale": "On sale",
+  "@onSale": {
+    "description": "On sale filter label"
+  },
+  "inStock": "In stock",
+  "@inStock": {
+    "description": "In stock filter label"
+  },
+  "under50": "Under 50",
+  "@under50": {
+    "description": "Price under 50 filter"
+  },
+  "min": "Min",
+  "@min": {
+    "description": "Minimum price prefix"
+  },
+  "max": "Max",
+  "@max": {
+    "description": "Maximum price prefix"
+  },
+  "onSaleFilter": "On Sale",
+  "@onSaleFilter": {
+    "description": "On sale filter chip"
+  },
+  "inStockFilter": "In Stock",
+  "@inStockFilter": {
+    "description": "In stock filter chip"
+  },
+  "sortBy": "Sort",
+  "@sortBy": {
+    "description": "Sort by label"
+  },
+  "clearAll": "Clear all",
+  "@clearAll": {
+    "description": "Clear all filters button"
+  },
+  "noProductsFound": "No products found",
+  "@noProductsFound": {
+    "description": "Empty state message when no products found"
+  },
+  "scrollToLoadMore": "Scroll to load more",
+  "@scrollToLoadMore": {
+    "description": "Message to scroll for more products"
+  },
+  "youHaveReachedTheEnd": "You have reached the end",
+  "@youHaveReachedTheEnd": {
+    "description": "End of products message"
+  },
+  "featured": "Featured",
+  "@featured": {
+    "description": "Featured sort option"
+  },
+  "priceLowToHigh": "Price: Low to High",
+  "@priceLowToHigh": {
+    "description": "Price low to high sort option"
+  },
+  "priceHighToLow": "Price: High to Low",
+  "@priceHighToLow": {
+    "description": "Price high to low sort option"
+  },
+  "newest": "Newest",
+  "@newest": {
+    "description": "Newest sort option"
+  },
+  "rating": "Rating",
+  "@rating": {
+    "description": "Rating sort option"
+  },
+  "recommendedForYou": "Recommended for you",
+  "@recommendedForYou": {
+    "description": "Featured sort subtitle"
+  },
+  "bestDealsFirst": "Best deals first",
+  "@bestDealsFirst": {
+    "description": "Price low to high sort subtitle"
+  },
+  "premiumPicksFirst": "Premium picks first",
+  "@premiumPicksFirst": {
+    "description": "Price high to low sort subtitle"
+  },
+  "latestArrivals": "Latest arrivals",
+  "@latestArrivals": {
+    "description": "Newest sort subtitle"
+  },
+  "editorsPicks": "Editor's picks",
+  "@editorsPicks": {
+    "description": "Editor's picks subtitle for sort options"
+  },
+  "topRated": "Top rated",
+  "@topRated": {
+    "description": "Rating sort subtitle"
+  },
+
+  "featuredCategories": "Featured categories",
+  "@featuredCategories": {
+    "description": "Home screen section title for featured categories"
+  },
+  
+  "featuredCategories": "Featured categories",
+  "@featuredCategories": {
+    "description": "Home screen section title for featured categories"
+  },
+  
+  "checkout": "Checkout",
+  "@checkout": {
+    "description": "Checkout button text"
+  },
+  
+  "continueShopping": "Continue Shopping",
+  "@continueShopping": {
+    "description": "Continue shopping button text"
+  },
+  
+  "viewCart": "View Cart",
+  "@viewCart": {
+    "description": "View cart button text"
+  },
+  
+  "proceedToCheckout": "Proceed to Checkout",
+  "@proceedToCheckout": {
+    "description": "Proceed to checkout button text"
+  },
+  
+  "orderSummary": "Order Summary",
+  "@orderSummary": {
+    "description": "Order summary title"
+  },
+  
+  "paymentMethod": "Payment Method",
+  "@paymentMethod": {
+    "description": "Payment method label"
+  },
+  
+  "shippingAddress": "Shipping Address",
+  "@shippingAddress": {
+    "description": "Shipping address label"
+  },
+  
+  "billingAddress": "Billing Address",
+  "@billingAddress": {
+    "description": "Billing address label"
+  },
+  
+  "orderConfirmation": "Order Confirmation",
+  "@orderConfirmation": {
+    "description": "Order confirmation title"
+  },
+  
+  "thankYouForYourOrder": "Thank you for your order!",
+  "@thankYouForYourOrder": {
+    "description": "Thank you message after order"
+  },
+  
+  "orderNumber": "Order Number",
+  "@orderNumber": {
+    "description": "Order number label"
+  },
+  
+  "estimatedDelivery": "Estimated Delivery",
+  "@estimatedDelivery": {
+    "description": "Estimated delivery label"
+  },
+  
+  "trackOrder": "Track Order",
+  "@trackOrder": {
+    "description": "Track order button text"
+  },
+  
+  "orderHistory": "Order History",
+  "@orderHistory": {
+    "description": "Order history title"
+  },
+  
+  "myOrders": "My Orders",
+  "@myOrders": {
+    "description": "My orders title"
+  },
+
+  "orderItemsTitle": "Order Items",
+  "@orderItemsTitle": {
+    "description": "Title for the order items section"
+  },
+  
+  "orderItemsSubtitle": "You ordered {count, plural, zero {no items} one {# item} other {# items}}",
+  "@orderItemsSubtitle": {
+    "description": "Subtitle showing how many items were ordered",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+
+  "orderStatus": "Order Status",
+  "@orderStatus": {
+    "description": "Order status label"
+  },
+
+  "paymentStatus": "Payment Status",
+  "@paymentStatus": {
+    "description": "Payment status label"
+  },
+
+  "paymentDetails": "Payment Details",
+  "@paymentDetails": {
+    "description": "Payment details section title"
+  },
+
+  "paymentCompletedSuccessfully": "Payment completed successfully",
+  "@paymentCompletedSuccessfully": {
+    "description": "Payment success message"
+  },
+
+  "orderProgress": "Order Progress",
+  "@orderProgress": {
+    "description": "Order timeline section title"
+  },
+
+  "orderPlaced": "Order Placed",
+  "@orderPlaced": {
+    "description": "Timeline label when order is placed"
+  },
+
+  "orderConfirmed": "Order Confirmed",
+  "@orderConfirmed": {
+    "description": "Timeline label when order is confirmed"
+  },
+
+  "orderPlacedOn": "Order placed on {date}",
+  "@orderPlacedOn": {
+    "description": "Label for when the order was placed",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+
+  "orderedOn": "Ordered on {date}",
+  "@orderedOn": {
+    "description": "Label for order date",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+
+  "dateAtTime": "{date} at {time}",
+  "@dateAtTime": {
+    "description": "Formats a date and time string",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+
+  "yesterdayAt": "Yesterday at {time}",
+  "@yesterdayAt": {
+    "description": "Relative time string for yesterday",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+
+  "justNow": "Just now",
+  "@justNow": {
+    "description": "Relative time string for current moment"
+  },
+
+  "minutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
+  "@minutesAgo": {
+    "description": "Relative time string for minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+  "@hoursAgo": {
+    "description": "Relative time string for hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "daysAgo": "{count, plural, one {# day ago} other {# days ago}}",
+  "@daysAgo": {
+    "description": "Relative time string for days ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "itemsCount": "{count, plural, one {# item} other {# items}}",
+  "@itemsCount": {
+    "description": "Displays the number of items",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "totalAmount": "Total Amount",
+  "@totalAmount": {
+    "description": "Label for total amount"
+  },
+
+  "shippingAndDelivery": "Shipping & Delivery",
+  "@shippingAndDelivery": {
+    "description": "Shipping and delivery section title"
+  },
+
+  "deliveryAddress": "Delivery Address",
+  "@deliveryAddress": {
+    "description": "Delivery address label"
+  },
+
+  "trackingNumber": "Tracking Number",
+  "@trackingNumber": {
+    "description": "Tracking number label"
+  },
+
+  "deliveredOn": "Delivered On",
+  "@deliveredOn": {
+    "description": "Delivered on label"
+  },
+
+  "orderOnWayMessage": "Your order is on its way! Track it using the tracking number above.",
+  "@orderOnWayMessage": {
+    "description": "Message shown when order is shipped"
+  },
+
+  "needHelp": "Need Help?",
+  "@needHelp": {
+    "description": "CTA for order help button"
+  },
+
+  "howCanWeHelp": "How can we help?",
+  "@howCanWeHelp": {
+    "description": "Help sheet header"
+  },
+
+  "orderNumberWithValue": "Order #{orderNumber}",
+  "@orderNumberWithValue": {
+    "description": "Displays the order number",
+    "placeholders": {
+      "orderNumber": {
+        "type": "String"
+      }
+    }
+  },
+
+  "callCustomerService": "Call Customer Service",
+  "@callCustomerService": {
+    "description": "Call customer service option"
+  },
+
+  "whatsappSupport": "WhatsApp Support",
+  "@whatsappSupport": {
+    "description": "WhatsApp support option"
+  },
+
+  "chatWithUsInstantly": "Chat with us instantly",
+  "@chatWithUsInstantly": {
+    "description": "Subtitle for chat option"
+  },
+
+  "requestReturn": "Request Return",
+  "@requestReturn": {
+    "description": "Request return option"
+  },
+
+  "returnThisOrder": "Return this order",
+  "@returnThisOrder": {
+    "description": "Subtitle for return option"
+  },
+
+  "couldNotLaunchPhoneDialer": "Could not launch phone dialer",
+  "@couldNotLaunchPhoneDialer": {
+    "description": "Phone error message"
+  },
+
+  "couldNotOpenWhatsapp": "Could not open WhatsApp",
+  "@couldNotOpenWhatsapp": {
+    "description": "WhatsApp error message"
+  },
+
+  "whatsappOrderHelpMessage": "Hi, I need help with Order #{orderNumber}",
+  "@whatsappOrderHelpMessage": {
+    "description": "Default WhatsApp help message",
+    "placeholders": {
+      "orderNumber": {
+        "type": "String"
+      }
+    }
+  },
+
+  "whatsappReturnMessage": "Hi, I would like to request a return for Order #{orderNumber}",
+  "@whatsappReturnMessage": {
+    "description": "WhatsApp return request message",
+    "placeholders": {
+      "orderNumber": {
+        "type": "String"
+      }
+    }
+  },
+
+  "orderHelpErrorTitle": "Oops! Something went wrong.",
+  "@orderHelpErrorTitle": {
+    "description": "Generic help error title"
+  },
+
+  "orderHelpSubject": "Order #{orderNumber} - Customer needs assistance.",
+  "@orderHelpSubject": {
+    "description": "WhatsApp error fallback message",
+    "placeholders": {
+      "orderNumber": {
+        "type": "String"
+      }
+    }
+  },
+
+  "filterByStatus": "Filter by status",
+  "@filterByStatus": {
+    "description": "Filter by status label"
+  },
+
+  "cancelOrderQuestion": "Are you sure you want to cancel this order? This action cannot be undone.",
+  "@cancelOrderQuestion": {
+    "description": "Cancel order confirmation question"
+  },
+
+  "keepOrder": "No, keep order",
+  "@keepOrder": {
+    "description": "Keep order button label"
+  },
+
+  "confirmCancelOrder": "Yes, cancel order",
+  "@confirmCancelOrder": {
+    "description": "Confirm cancel order button label"
+  },
+
+  "backToOrders": "Back to Orders",
+  "@backToOrders": {
+    "description": "Back to orders button label"
+  },
+  
+  "pending": "Pending",
+  "@pending": {
+    "description": "Pending status"
+  },
+  
+  "processing": "Processing",
+  "@processing": {
+    "description": "Processing status"
+  },
+  
+  "shipped": "Shipped",
+  "@shipped": {
+    "description": "Shipped status"
+  },
+  
+  "delivered": "Delivered",
+  "@delivered": {
+    "description": "Delivered status"
+  },
+  
+  "cancelled": "Cancelled",
+  "@cancelled": {
+    "description": "Cancelled status"
+  },
+  
+  "returned": "Returned",
+  "@returned": {
+    "description": "Returned status"
+  },
+  
+  "paid": "Paid",
+  "@paid": {
+    "description": "Paid payment status"
+  },
+  
+  "failed": "Failed",
+  "@failed": {
+    "description": "Failed payment status"
+  },
+  
+  "refunded": "Refunded",
+  "@refunded": {
+    "description": "Refunded payment status"
+  },
+  
+  "cancelOrder": "Cancel Order",
+  "@cancelOrder": {
+    "description": "Cancel order button label"
+  },
+  
+  "tryAgain": "Try Again",
+  "@tryAgain": {
+    "description": "Try again button text"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "refresh": "Refresh",
+  "@refresh": {
+    "description": "Refresh button text"
+  },
+  
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading message"
+  },
+  
+  "loadingImage": "Loading image...",
+  "@loadingImage": {
+    "description": "Loading image message"
+  },
+  
+  "loadingRecommendations": "Loading recommendations...",
+  "@loadingRecommendations": {
+    "description": "Loading recommendations message"
+  },
+  
+  "loadingCategoryDetails": "Loading category details...",
+  "@loadingCategoryDetails": {
+    "description": "Loading category details message"
+  },
+  
+  "ok": "OK",
+  "@ok": {
+    "description": "OK button text"
+  },
+  
+  "remove": "Remove",
+  "@remove": {
+    "description": "Remove button text"
+  },
+  
+  "details": "Details",
+  "@details": {
+    "description": "Details button text"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button text"
+  },
+  
+  "saveItemsForLater": "Save items for later",
+  "@saveItemsForLater": {
+    "description": "Save items for later subtitle"
+  },
+  
+  "findGreatOffers": "Find great offers",
+  "@findGreatOffers": {
+    "description": "Find great offers subtitle"
+  },
+  
+  "deals": "Deals",
+  "@deals": {
+    "description": "Deals section title"
+  },
+  
+  "clearAll": "Clear All",
+  "@clearAll": {
+    "description": "Clear all button text"
+  },
+  
+  "whatAreYouLookingFor": "What are you looking for?",
+  "@whatAreYouLookingFor": {
+    "description": "Search bar hint text"
+  },
+  
+  "newBadge": "New",
+  "optionalItems": "Optional Items",
+  "alternativeItems": "Alternative Items",
+  "inStock": "In stock",
+  "outOfStock": "Out of stock",
+  "lowStock": "Low stock",
+  "availableCount": "({count} available)",
+  "@newBadge": {
+    "description": "New badge text"
+  },
+  
+  "welcomeBack": "Welcome Back!",
+  "@welcomeBack": {
+    "description": "Welcome back message on login page"
+  },
+  
+  "signInToContinueShopping": "Sign in to continue shopping",
+  "@signInToContinueShopping": {
+    "description": "Subtitle on login page"
+  },
+  
+  "email": "Email",
+  "@email": {
+    "description": "Email label"
+  },
+  
+  "phone": "Phone",
+  "@phone": {
+    "description": "Phone label"
+  },
+  
+  "enterYourEmail": "Enter your email",
+  "@enterYourEmail": {
+    "description": "Email input hint"
+  },
+  
+  "enterYourPhoneNumber": "Enter your phone number",
+  "@enterYourPhoneNumber": {
+    "description": "Phone input hint"
+  },
+  
+  "phoneNumber": "Phone Number",
+  "@phoneNumber": {
+    "description": "Phone number label"
+  },
+  
+  "password": "Password",
+  "@password": {
+    "description": "Password label"
+  },
+  
+  "enterYourPassword": "Enter your password",
+  "@enterYourPassword": {
+    "description": "Password input hint"
+  },
+  
+  "pleaseEnterYourEmail": "Please enter your email",
+  "@pleaseEnterYourEmail": {
+    "description": "Email validation error"
+  },
+  
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "@pleaseEnterValidEmail": {
+    "description": "Email format validation error"
+  },
+  
+  "pleaseEnterYourPhoneNumber": "Please enter your phone number",
+  "@pleaseEnterYourPhoneNumber": {
+    "description": "Phone validation error"
+  },
+  
+  "pleaseEnterValidPhoneNumber": "Please enter a valid phone number",
+  "@pleaseEnterValidPhoneNumber": {
+    "description": "Phone format validation error"
+  },
+  
+  "pleaseEnterYourPassword": "Please enter your password",
+  "@pleaseEnterYourPassword": {
+    "description": "Password validation error"
+  },
+  
+  "passwordMustBeAtLeast6Characters": "Password must be at least 6 characters",
+  "@passwordMustBeAtLeast6Characters": {
+    "description": "Password length validation error"
+  },
+  
+  "forgotPassword": "Forgot Password?",
+  "@forgotPassword": {
+    "description": "Forgot password link"
+  },
+  
+  "signingIn": "Signing In...",
+  "@signingIn": {
+    "description": "Sign in loading state"
+  },
+  
+  "signIn": "Sign In",
+  "@signIn": {
+    "description": "Sign in button text"
+  },
+  
+  "or": "OR",
+  "@or": {
+    "description": "Divider text between login options"
+  },
+  
+  "google": "Google",
+  "@google": {
+    "description": "Google sign in button"
+  },
+  
+  "apple": "Apple",
+  "@apple": {
+    "description": "Apple sign in button"
+  },
+  
+  "phoneLoginNotSupportedYet": "Phone login is not supported yet",
+  "@phoneLoginNotSupportedYet": {
+    "description": "Phone login not supported message"
+  },
+  
+  "signInWithFingerprint": "Sign in with Fingerprint",
+  "@signInWithFingerprint": {
+    "description": "Fingerprint authentication button"
+  },
+  
+  "signInWithFaceId": "Sign in with Face ID",
+  "@signInWithFaceId": {
+    "description": "Face ID authentication button"
+  },
+  
+  "authenticating": "Authenticating...",
+  "@authenticating": {
+    "description": "Biometric authentication loading state"
+  },
+  
+  "biometricAuthenticationFailed": "Biometric authentication failed",
+  "@biometricAuthenticationFailed": {
+    "description": "Biometric authentication error"
+  },
+  
+  "dontHaveAnAccount": "Don't have an account? ",
+  "@dontHaveAnAccount": {
+    "description": "Sign up prompt text"
+  },
+  
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Sign up button text"
+  },
+  
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account page title"
+  },
+  
+  "joinUsToStartShopping": "Join us to start your shopping journey",
+  "@joinUsToStartShopping": {
+    "description": "Sign up page subtitle"
+  },
+  
+  "firstName": "First Name",
+  "@firstName": {
+    "description": "First name label"
+  },
+  
+  "lastName": "Last Name",
+  "@lastName": {
+    "description": "Last name label"
+  },
+  
+  "enterYourFirstName": "Enter your first name",
+  "@enterYourFirstName": {
+    "description": "First name input hint"
+  },
+  
+  "enterYourLastName": "Enter your last name",
+  "@enterYourLastName": {
+    "description": "Last name input hint"
+  },
+  
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Confirm password label"
+  },
+  
+  "enterConfirmPassword": "Enter confirm password",
+  "@enterConfirmPassword": {
+    "description": "Confirm password input hint"
+  },
+  
+  "pleaseEnterYourFirstName": "Please enter your first name",
+  "@pleaseEnterYourFirstName": {
+    "description": "First name validation error"
+  },
+  
+  "pleaseEnterYourLastName": "Please enter your last name",
+  "@pleaseEnterYourLastName": {
+    "description": "Last name validation error"
+  },
+  
+  "pleaseEnterConfirmPassword": "Please enter confirm password",
+  "@pleaseEnterConfirmPassword": {
+    "description": "Confirm password validation error"
+  },
+  
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": {
+    "description": "Password mismatch validation error"
+  },
+  
+  "creatingAccount": "Creating Account...",
+  "@creatingAccount": {
+    "description": "Sign up loading state"
+  },
+  
+  "alreadyHaveAnAccount": "Already have an account? ",
+  "@alreadyHaveAnAccount": {
+    "description": "Sign in prompt text"
+  },
+  
+  "resetYourPassword": "Reset your password",
+  "@resetYourPassword": {
+    "description": "Forgot password page title"
+  },
+  
+  "enterEmailForResetInstructions": "Enter your email and we'll send you reset instructions.",
+  "@enterEmailForResetInstructions": {
+    "description": "Forgot password page subtitle"
+  },
+  
+  "sendResetLink": "Send Reset Link",
+  "@sendResetLink": {
+    "description": "Send reset link button"
+  },
+  
+  "sendingResetLink": "Sending Reset Link...",
+  "@sendingResetLink": {
+    "description": "Sending reset link loading state"
+  },
+  
+  "resetLinkSentTo": "Reset link sent to",
+  "@resetLinkSentTo": {
+    "description": "Reset link sent success message"
+  },
+  
+  "yourCartIsEmpty": "Your cart is empty",
+  "@yourCartIsEmpty": {
+    "description": "Empty cart title message"
+  },
+  
+  "cartEmptyDescription": "Looks like you haven't added any items to your cart yet. Start shopping to fill it up!",
+  "@cartEmptyDescription": {
+    "description": "Empty cart description message"
+  },
+  
+  "startShopping": "Start Shopping",
+  "@startShopping": {
+    "description": "Start shopping button text"
+  },
+  
+  "clearFavorites": "Clear Favorites",
+  "@clearFavorites": {
+    "description": "Clear favorites button tooltip"
+  },
+  
+  "item": "item",
+  "@item": {
+    "description": "Single item label"
+  },
+  
+  "items": "items",
+  "@items": {
+    "description": "Multiple items label"
+  },
+  
+  "clearAllFavorites": "Clear All Favorites?",
+  "@clearAllFavorites": {
+    "description": "Clear all favorites confirmation title"
+  },
+  
+  "clearAllFavoritesDescription": "This action cannot be undone. All your favorite items will be removed.",
+  "@clearAllFavoritesDescription": {
+    "description": "Clear all favorites confirmation description"
+  },
+  
+  "featuredProducts": "Featured Products",
+  "@featuredProducts": {
+    "description": "Featured products section title"
+  },
+  
+  "viewAll": "View All",
+  "@viewAll": {
+    "description": "View all button text"
+  },
+  
+  "allFeaturedProducts": "All Featured Products",
+  "@allFeaturedProducts": {
+    "description": "All featured products page title"
+  },
+  
+  "newSeasonCollection": "New Season Collection",
+  "@newSeasonCollection": {
+    "description": "New season collection banner title"
+  },
+  
+  "discoverLatestFashionTrends": "Discover the latest fashion trends for this season",
+  "@discoverLatestFashionTrends": {
+    "description": "New season collection banner description"
+  },
+  
+  "shopNow": "Shop Now",
+  "@shopNow": {
+    "description": "Shop now button text"
+  },
+  
+  "trendingStyles": "Trending Styles",
+  "@trendingStyles": {
+    "description": "Trending styles banner title"
+  },
+  
+  "stayAheadWithPopularStyles": "Stay ahead with the most popular fashion styles",
+  "@stayAheadWithPopularStyles": {
+    "description": "Trending styles banner description"
+  },
+  
+  "exploreTrends": "Explore Trends",
+  "@exploreTrends": {
+    "description": "Explore trends button text"
+  },
+  
+  "designerCollection": "Designer Collection",
+  "@designerCollection": {
+    "description": "Designer collection banner title"
+  },
+  
+  "exclusivePiecesFromDesigners": "Exclusive pieces from top fashion designers",
+  "@exclusivePiecesFromDesigners": {
+    "description": "Designer collection banner description"
+  },
+  
+  "viewCollection": "View Collection",
+  "@viewCollection": {
+    "description": "View collection button text"
+  },
+  
+  "streetStyle": "Street Style",
+  "@streetStyle": {
+    "description": "Street style banner title"
+  },
+  
+  "urbanFashionDefinesModernStyle": "Urban fashion that defines modern style",
+  "@urbanFashionDefinesModernStyle": {
+    "description": "Street style banner description"
+  },
+  
+  "getTheLook": "Get the Look",
+  "@getTheLook": {
+    "description": "Get the look button text"
+  },
+  
+  "summerFashionTrends2025": "Summer Fashion Trends 2025",
+  "@summerFashionTrends2025": {
+    "description": "Summer fashion trends story title"
+  },
+  
+  "fashionWeekly": "Fashion Weekly",
+  "@fashionWeekly": {
+    "description": "Fashion Weekly author name"
+  },
+  
+  "sustainableFashionGuide": "Sustainable Fashion Guide",
+  "@sustainableFashionGuide": {
+    "description": "Sustainable fashion guide story title"
+  },
+  
+  "ecoStyle": "Eco Style",
+  "@ecoStyle": {
+    "description": "Eco Style author name"
+  },
+  
+  "streetStyleInspiration": "Street Style Inspiration",
+  "@streetStyleInspiration": {
+    "description": "Street style inspiration story title"
+  },
+  
+  "urbanFashion": "Urban Fashion",
+  "@urbanFashion": {
+    "description": "Urban Fashion author name"
+  },
+  
+  "luxuryBrandSpotlight": "Luxury Brand Spotlight",
+  "@luxuryBrandSpotlight": {
+    "description": "Luxury brand spotlight story title"
+  },
+  
+  "premiumGuide": "Premium Guide",
+  "@premiumGuide": {
+    "description": "Premium Guide author name"
+  },
+  
+  "athleisureRevolution": "Athleisure Revolution",
+  "@athleisureRevolution": {
+    "description": "Athleisure revolution story title"
+  },
+  
+  "sportAndStyle": "Sport & Style",
+  "@sportAndStyle": {
+    "description": "Sport & Style author name"
+  },
+  
+  "women": "Women",
+  "@women": {
+    "description": "Women category tab"
+  },
+  
+  "men": "Men",
+  "@men": {
+    "description": "Men category tab"
+  },
+  
+  "kids": "Kids",
+  "@kids": {
+    "description": "Kids category tab"
+  },
+  
+  "noResultsFoundFor": "No results found for",
+  "@noResultsFoundFor": {
+    "description": "No search results found message"
+  },
+  
+  "noCategoriesAvailable": "No categories available",
+  "@noCategoriesAvailable": {
+    "description": "No categories available message"
+  },
+  
+  "navigateToProducts": "Navigate to products",
+  "@navigateToProducts": {
+    "description": "Navigate to products action"
+  },
+  
+  "loadingCategoryDetails": "Loading category details...",
+  "@loadingCategoryDetails": {
+    "description": "Loading category details message"
+  },
+  
+  "addedToCartSuccessfully": "Added to cart successfully!",
+  "@addedToCartSuccessfully": {
+    "description": "Success message when item is added to cart"
+  },
+  
+  "placeOrder": "Place Order",
+  "@placeOrder": {
+    "description": "Place order button text"
+  },
+  
+  "processingOrder": "Processing Order...",
+  "@processingOrder": {
+    "description": "Order processing dialog title"
+  },
+  
+  "pleaseWaitWhileWeProcessOrder": "Please wait while we process your order...",
+  "@pleaseWaitWhileWeProcessOrder": {
+    "description": "Order processing dialog message"
+  },
+  
+  "orderPlacedSuccessfully": "Order Placed Successfully!",
+  "@orderPlacedSuccessfully": {
+    "description": "Order success dialog title"
+  },
+  
+  "yourOrderHasBeenPlacedSuccessfully": "Your order has been placed successfully.",
+  "@yourOrderHasBeenPlacedSuccessfully": {
+    "description": "Order success dialog message"
+  },
+  
+  "orderId": "Order ID",
+  "@orderId": {
+    "description": "Order ID label"
+  },
+  
+  "downloadInvoice": "Download invoice",
+  "@downloadInvoice": {
+    "description": "Download invoice button text"
+  },
+  
+  "editProfile": "Edit Profile",
+  "@editProfile": {
+    "description": "Edit profile page title"
+  },
+  
+  "remove": "Remove",
+  "@remove": {
+    "description": "Remove button text"
+  },
+  
+  "details": "Details",
+  "@details": {
+    "description": "Details button text"
+  },
+  
+  "processingImage": "Processing image...",
+  "@processingImage": {
+    "description": "Image processing loading message"
+  },
+  
+  "photoSelectedSuccessfully": "Photo selected successfully",
+  "@photoSelectedSuccessfully": {
+    "description": "Photo selection success message"
+  },
+  
+  "photoRemoved": "Photo removed",
+  "@photoRemoved": {
+    "description": "Photo removal message"
+  },
+  
+  "imageDetails": "Image Details",
+  "@imageDetails": {
+    "description": "Image details dialog title"
+  },
+  
+  "type": "Type",
+  "@type": {
+    "description": "Type label"
+  },
+  
+  "networkImage": "Network Image",
+  "@networkImage": {
+    "description": "Network image type"
+  },
+  
+  "localImage": "Local Image",
+  "@localImage": {
+    "description": "Local image type"
+  },
+  
+  "status": "Status",
+  "@status": {
+    "description": "Status label"
+  },
+  
+  "readyForUpload": "Ready for upload",
+  "@readyForUpload": {
+    "description": "Ready for upload status"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button text"
+  },
+  
+  "cameraPermissionRequired": "Camera permission is required to take photos",
+  "@cameraPermissionRequired": {
+    "description": "Camera permission required message"
+  },
+  
+  "photoLibraryPermissionRequired": "Photo library permission is required to select images",
+  "@photoLibraryPermissionRequired": {
+    "description": "Photo library permission required message"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings button text"
+  },
+  
+  "errorPickingImage": "Error picking image",
+  "@errorPickingImage": {
+    "description": "Image picking error message"
+  },
+  
+  "cameraOrPhotoLibraryPermissionDenied": "Camera or photo library permission denied",
+  "@cameraOrPhotoLibraryPermissionDenied": {
+    "description": "Permission denied error message"
+  },
+  
+  "uploadingImage": "Uploading image...",
+  "@uploadingImage": {
+    "description": "Image upload loading message"
+  },
+  
+  "imageUploadedSuccessfully": "Image uploaded successfully",
+  "@imageUploadedSuccessfully": {
+    "description": "Image upload success message"
+  },
+  
+  "profileUpdatedSuccessfully": "Profile updated successfully",
+  "@profileUpdatedSuccessfully": {
+    "description": "Profile update success message"
+  },
+  
+  "errorUpdatingProfile": "Error updating profile",
+  "@errorUpdatingProfile": {
+    "description": "Profile update error message"
+  },
+  
+  "privacyAndSecurity": "Privacy & Security",
+  "@privacyAndSecurity": {
+    "description": "Privacy and security page title"
+  },
+  
+  "privacySettings": "Privacy Settings",
+  "@privacySettings": {
+    "description": "Privacy settings section title"
+  },
+  
+  "dataCollection": "Data Collection",
+  "@dataCollection": {
+    "description": "Data collection setting"
+  },
+  
+  "allowUsToCollectUsageData": "Allow us to collect usage data to improve your experience",
+  "@allowUsToCollectUsageData": {
+    "description": "Data collection setting description"
+  },
+  
+  "personalizedAds": "Personalized Ads",
+  "@personalizedAds": {
+    "description": "Personalized ads setting"
+  },
+  
+  "showPersonalizedAdvertisements": "Show personalized advertisements based on your interests",
+  "@showPersonalizedAdvertisements": {
+    "description": "Personalized ads setting description"
+  },
+  
+  "locationSharing": "Location Sharing",
+  "@locationSharing": {
+    "description": "Location sharing setting"
+  },
+  
+  "allowLocationBasedFeatures": "Allow location-based features and recommendations",
+  "@allowLocationBasedFeatures": {
+    "description": "Location sharing setting description"
+  },
+  
+  "securitySettings": "Security Settings",
+  "@securitySettings": {
+    "description": "Security settings section title"
+  },
+  
+  "twoFactorAuthentication": "Two-Factor Authentication",
+  "@twoFactorAuthentication": {
+    "description": "Two-factor authentication setting"
+  },
+  
+  "enableTwoFactorAuthentication": "Enable two-factor authentication for enhanced security",
+  "@enableTwoFactorAuthentication": {
+    "description": "Two-factor authentication setting description"
+  },
+  
+  "biometricAuthentication": "Biometric Authentication",
+  "@biometricAuthentication": {
+    "description": "Biometric authentication setting"
+  },
+  
+  "enableBiometricAuthentication": "Enable fingerprint or face recognition for quick access",
+  "@enableBiometricAuthentication": {
+    "description": "Biometric authentication setting description"
+  },
+  
+  "biometricAuthenticationEnabled": "Biometric authentication enabled",
+  "@biometricAuthenticationEnabled": {
+    "description": "Biometric authentication enabled message"
+  },
+  
+  "biometricAuthenticationDisabled": "Biometric authentication disabled",
+  "@biometricAuthenticationDisabled": {
+    "description": "Biometric authentication disabled message"
+  },
+  
+  "failedToLoadOrders": "Failed to load orders",
+  "@failedToLoadOrders": {
+    "description": "Orders loading error message"
+  },
+  
+  "filters": "Filters",
+  "@filters": {
+    "description": "Filters page title"
+  },
+  
+  "resetPrice": "Reset price",
+  "@resetPrice": {
+    "description": "Reset price button text"
+  },
+  
+  "applyFilters": "Apply Filters",
+  "@applyFilters": {
+    "description": "Apply filters button text"
+  },
+  
+  "errorLoadingCountriesStates": "Error loading countries/states",
+  "@errorLoadingCountriesStates": {
+    "description": "Countries/states loading error message"
+  },
+  
+  "pleaseSelectACountry": "Please select a country",
+  "@pleaseSelectACountry": {
+    "description": "Country selection validation message"
+  },
+  
+  "home": "Home",
+  "@home": {
+    "description": "Home address label"
+  },
+  
+  "office": "Office",
+  "@office": {
+    "description": "Office address label"
+  },
+  
+  
+  "other": "Other",
+  "@other": {
+    "description": "Other address label"
+  },
+  
+  "addToCart": "Add to Cart",
+  "@addToCart": {
+    "description": "Add to cart button text"
+  },
+  
+  "editAddress": "Edit Address",
+  "@editAddress": {
+    "description": "Edit address page title"
+  },
+  
+  "addNewAddress": "Add New Address",
+  "@addNewAddress": {
+    "description": "Add new address page title"
+  },
+  
+  "locationDetails": "Location Details",
+  "@locationDetails": {
+    "description": "Location details section header"
+  },
+  
+  "country": "Country",
+  "@country": {
+    "description": "Country field label"
+  },
+  
+  "city": "City",
+  "@city": {
+    "description": "City field label"
+  },
+  
+  "enterCityName": "Enter city name",
+  "@enterCityName": {
+    "description": "City field hint text"
+  },
+  
+  "cityIsRequired": "City is required",
+  "@cityIsRequired": {
+    "description": "City validation message"
+  },
+  
+  "streetName": "Street Name",
+  "@streetName": {
+    "description": "Street name field label"
+  },
+  
+  "enterStreetName": "Enter street name",
+  "@enterStreetName": {
+    "description": "Street name field hint text"
+  },
+  
+  "streetNameIsRequired": "Street name is required",
+  "@streetNameIsRequired": {
+    "description": "Street name validation message"
+  },
+  
+  "streetNumber": "Street Number",
+  "@streetNumber": {
+    "description": "Street number field label"
+  },
+  
+  "streetNumberIsRequired": "Street number is required",
+  "@streetNumberIsRequired": {
+    "description": "Street number validation message"
+  },
+  
+  "building": "Building",
+  "@building": {
+    "description": "Building field label"
+  },
+  
+  "floor": "Floor",
+  "@floor": {
+    "description": "Floor field label"
+  },
+  
+  "floorNumber": "Floor number",
+  "@floorNumber": {
+    "description": "Floor field hint text"
+  },
+  
+  "apartment": "Apartment",
+  "@apartment": {
+    "description": "Apartment field label"
+  },
+  
+  "apartmentNumber": "Apartment number",
+  "@apartmentNumber": {
+    "description": "Apartment field hint text"
+  },
+  
+  "addressLabel": "Address Label",
+  "@addressLabel": {
+    "description": "Address label section header"
+  },
+  
+  "addressSettings": "Address Settings",
+  "@addressSettings": {
+    "description": "Address settings section header"
+  },
+  
+  "setAsDefaultAddress": "Set as Default Address",
+  "@setAsDefaultAddress": {
+    "description": "Set as default address option"
+  },
+  
+  "defaultAddressDescription": "This address will be used for future orders",
+  "@defaultAddressDescription": {
+    "description": "Default address description"
+  },
+  
+  "updateAddress": "Update Address",
+  "@updateAddress": {
+    "description": "Update address button text"
+  },
+  
+  "saveAddress": "Save Address",
+  "@saveAddress": {
+    "description": "Save address button text"
+  },
+  
+  "saving": "Saving...",
+  "@saving": {
+    "description": "Loading text when saving"
+  },
+  
+  "stateRegion": "State / Region",
+  "@stateRegion": {
+    "description": "State or region field label"
+  },
+  
+  "failedToLoadCountries": "Failed to load countries. Please check your internet connection and try again.",
+  "@failedToLoadCountries": {
+    "description": "Error message when countries fail to load"
+  },
+  
+  "noStatesAvailable": "No states available for selected country",
+  "@noStatesAvailable": {
+    "description": "Message when no states are available for selected country"
+  },
+  
+  "number": "No.",
+  "@number": {
+    "description": "Short form for number"
+  },
+  
+  "buildingNameNumber": "Building name/number",
+  "@buildingNameNumber": {
+    "description": "Building field hint text"
+  },
+  
+  "zipPostalCode": "ZIP/Postal Code",
+  "@zipPostalCode": {
+    "description": "ZIP or postal code field label"
+  },
+  
+  "addressLabelAdditionalInfo": "Address Label / Additional Info",
+  "@addressLabelAdditionalInfo": {
+    "description": "Address label and additional info field label"
+  },
+  
+  "addressLabelHint": "e.g., Home, Office — plus landmarks if any",
+  "@addressLabelHint": {
+    "description": "Hint text for address label field"
+  },
+  
+  "errorSavingAddress": "Error saving address",
+  "@errorSavingAddress": {
+    "description": "Error message when saving address fails"
+  },
+  
+  "addressUpdatedSuccessfully": "Address updated successfully",
+  "@addressUpdatedSuccessfully": {
+    "description": "Success message when address is updated"
+  },
+  
+  "defaultAddressUpdatedSuccessfully": "Default address updated successfully",
+  "@defaultAddressUpdatedSuccessfully": {
+    "description": "Success message when default address is updated"
+  },
+  
+  "addressUpdated": "Address updated",
+  "@addressUpdated": {
+    "description": "Success message when address is updated (short version)"
+  },
+  
+  "addressDeletedSuccessfully": "Address deleted successfully",
+  "@addressDeletedSuccessfully": {
+    "description": "Success message when address is deleted"
+  },
+  
+  "addressDeleted": "Address deleted",
+  "@addressDeleted": {
+    "description": "Success message when address is deleted (short version)"
+  },
+  
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading text"
+  },
+  
+  "user": "User",
+  "@user": {
+    "description": "Default user name"
+  },
+  
+  "priceRange": "Price Range",
+  "@priceRange": {
+    "description": "Price range filter section header"
+  },
+  
+  "resetPrice": "Reset price",
+  "@resetPrice": {
+    "description": "Reset price button text"
+  },
+  
+  "category": "Category",
+  "@category": {
+    "description": "Category filter section header"
+  },
+  
+  "brand": "Brand",
+  "@brand": {
+    "description": "Brand filter section header"
+  },
+  
+  "gender": "Gender",
+  "@gender": {
+    "description": "Gender filter section header"
+  },
+  
+  "season": "Season",
+  "@season": {
+    "description": "Season filter section header"
+  },
+  
+  "material": "Material",
+  "@material": {
+    "description": "Material filter section header"
+  },
+  
+  "sizes": "Sizes",
+  "@sizes": {
+    "description": "Sizes filter section header"
+  },
+  
+  "colors": "Colors",
+  "@colors": {
+    "description": "Colors filter section header"
+  },
+  
+  "availability": "Availability",
+  "@availability": {
+    "description": "Availability filter section header"
+  },
+  
+  "onSale": "On sale",
+  "@onSale": {
+    "description": "On sale filter option"
+  },
+  
+  "inStock": "In stock",
+  "@inStock": {
+    "description": "In stock filter option"
+  },
+  
+  "reset": "Reset",
+  "@reset": {
+    "description": "Reset button text"
+  },
+  
+  "seeLess": "See less",
+  "@seeLess": {
+    "description": "See less button text"
+  },
+  
+  "seeMore": "See more",
+  "@seeMore": {
+    "description": "See more button text"
+  },
+  
+  "personalInformation": "Personal Information",
+  "@personalInformation": {
+    "description": "Personal information section header"
+  },
+  
+  "fullName": "Full Name",
+  "@fullName": {
+    "description": "Full name field label"
+  },
+  
+  "enterYourFullName": "Enter your full name",
+  "@enterYourFullName": {
+    "description": "Full name field hint text"
+  },
+  
+  "nameIsRequired": "Name is required",
+  "@nameIsRequired": {
+    "description": "Name validation message"
+  },
+  
+  "enterYourEmailAddress": "Enter your email address",
+  "@enterYourEmailAddress": {
+    "description": "Email field hint text"
+  },
+  
+  "emailIsRequired": "Email is required",
+  "@emailIsRequired": {
+    "description": "Email validation message"
+  },
+  
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "@pleaseEnterValidEmail": {
+    "description": "Email format validation message"
+  },
+  
+  "enterYourPhoneNumber": "Enter your phone number",
+  "@enterYourPhoneNumber": {
+    "description": "Phone number field hint text"
+  },
+  
+  "tapToChangePhoto": "Tap to change photo",
+  "@tapToChangePhoto": {
+    "description": "Photo change hint text"
+  },
+  
+  "dateOfBirth": "Date of Birth",
+  "@dateOfBirth": {
+    "description": "Date of birth field label"
+  },
+  
+  "selectDateOfBirth": "Select date of birth",
+  "@selectDateOfBirth": {
+    "description": "Date of birth field hint text"
+  },
+  
+  "choosePhoto": "Choose Photo",
+  "@choosePhoto": {
+    "description": "Choose photo dialog title"
+  },
+  
+  "camera": "Camera",
+  "@camera": {
+    "description": "Camera option text"
+  },
+  
+  "gallery": "Gallery",
+  "@gallery": {
+    "description": "Gallery option text"
+  },
+  
+  "cameraPermissionRequired": "Camera permission is required to take photos",
+  "@cameraPermissionRequired": {
+    "description": "Camera permission required message"
+  },
+  
+  "photoLibraryPermissionRequired": "Photo library permission is required to select images",
+  "@photoLibraryPermissionRequired": {
+    "description": "Photo library permission required message"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings button text"
+  },
+  
+  "photoSelectedSuccessfully": "Photo selected successfully",
+  "@photoSelectedSuccessfully": {
+    "description": "Photo selection success message"
+  },
+  
+  "errorPickingImage": "Error picking image",
+  "@errorPickingImage": {
+    "description": "Image picking error message"
+  },
+  
+  "permissionDenied": "Camera or photo library permission denied",
+  "@permissionDenied": {
+    "description": "Permission denied message"
+  },
+  
+  "photoRemoved": "Photo removed",
+  "@photoRemoved": {
+    "description": "Photo removal confirmation message"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button text"
+  },
+  
+  "imageUploadedSuccessfully": "Image uploaded successfully",
+  "@imageUploadedSuccessfully": {
+    "description": "Image upload success message"
+  },
+  
+  "profileUpdatedSuccessfully": "Profile updated successfully",
+  "@profileUpdatedSuccessfully": {
+    "description": "Profile update success message"
+  },
+  
+  "enterZipOrPostalCode": "Enter ZIP or postal code",
+  "@enterZipOrPostalCode": {
+    "description": "ZIP code field hint text"
+  },
+  
+  "tryAgain": "Try Again",
+  "@tryAgain": {
+    "description": "Try again button text"
+  },
+  
+  "noOrdersWithThisStatus": "No orders with this status",
+  "@noOrdersWithThisStatus": {
+    "description": "No orders with specific status message"
+  },
+  
+  "noOrdersYet": "No orders yet",
+  "@noOrdersYet": {
+    "description": "No orders message"
+  },
+  
+  "trySelectingDifferentStatus": "Try selecting a different status or view all orders",
+  "@trySelectingDifferentStatus": {
+    "description": "Try different status suggestion"
+  },
+  
+  "startShoppingToSeeOrders": "Start shopping to see your orders here",
+  "@startShoppingToSeeOrders": {
+    "description": "Start shopping suggestion"
+  },
+  
+  "viewAllOrders": "View All Orders",
+  "@viewAllOrders": {
+    "description": "View all orders button text"
+  },
+  
+  "failedToLoadWelcomeText": "Failed to load welcome text",
+  "@failedToLoadWelcomeText": {
+    "description": "Welcome text loading error message"
+  },
+  
+  "checkout": "Checkout",
+  "@checkout": {
+    "description": "Checkout page title"
+  },
+  
+  "shippingAddress": "Shipping Address",
+  "@shippingAddress": {
+    "description": "Shipping address section header"
+  },
+  
+  "paymentMethod": "Payment Method",
+  "@paymentMethod": {
+    "description": "Payment method section header"
+  },
+  
+  "continueShopping": "Continue Shopping",
+  "@continueShopping": {
+    "description": "Continue shopping button text"
+  },
+  
+  "noSubcategoriesFound": "No subcategories found",
+  "@noSubcategoriesFound": {
+    "description": "No subcategories message"
+  },
+  
+  "expandCategory": "Expand category",
+  "@expandCategory": {
+    "description": "Accessibility label for expanding a category to show subcategories"
+  },
+  
+  "collapseCategory": "Collapse category",
+  "@collapseCategory": {
+    "description": "Accessibility label for collapsing a category to hide subcategories"
+  },
+  
+  "subcategoryOne": "Subcategory 1",
+  "@subcategoryOne": {
+    "description": "Label for first level subcategories"
+  },
+  
+  "subcategoryTwo": "Subcategory 2",
+  "@subcategoryTwo": {
+    "description": "Label for second level subcategories"
+  },
+  
+  "subcategoryThree": "Subcategory 3",
+  "@subcategoryThree": {
+    "description": "Label for third level subcategories"
+  },
+  
+  "biometric": "Biometric",
+  "@biometric": {
+    "description": "Biometric user name"
+  },
+  
+  "processingImage": "Processing image...",
+  "@processingImage": {
+    "description": "Image processing message"
+  },
+  
+  "failedToGetCartItems": "Failed to get cart items",
+  "@failedToGetCartItems": {
+    "description": "Cart items loading error"
+  },
+  
+  "failedToAddItemToCart": "Failed to add item to cart",
+  "@failedToAddItemToCart": {
+    "description": "Add to cart error message"
+  },
+  
+  "cartItemNotFound": "Cart item not found",
+  "@cartItemNotFound": {
+    "description": "Cart item not found error"
+  },
+  
+  "failedToUpdateCartItemQuantity": "Failed to update cart item quantity",
+  "@failedToUpdateCartItemQuantity": {
+    "description": "Update cart quantity error"
+  },
+  
+  "failedToRemoveItemFromCart": "Failed to remove item from cart",
+  "@failedToRemoveItemFromCart": {
+    "description": "Remove from cart error"
+  },
+  
+  "failedToRemoveItemFromCartByQuantity": "Failed to remove item from cart by quantity",
+  "@failedToRemoveItemFromCartByQuantity": {
+    "description": "Remove cart item by quantity error"
+  },
+  
+  "failedToClearCart": "Failed to clear cart",
+  "@failedToClearCart": {
+    "description": "Clear cart error"
+  },
+  
+  "failedToReloadCart": "Failed to reload cart",
+  "@failedToReloadCart": {
+    "description": "Reload cart error"
+  },
+  
+  "itemNotFound": "Item not found",
+  "@itemNotFound": {
+    "description": "Item not found error"
+  },
+  
+  "officeFurniture": "Office Furniture",
+  "@officeFurniture": {
+    "description": "Office furniture brand"
+  },
+  
+  "officeChair": "Office Chair",
+  "@officeChair": {
+    "description": "Office chair product name"
+  },
+  
+  "black": "Black",
+  "@black": {
+    "description": "Black color option"
+  },
+  
+  "brown": "Brown",
+  "@brown": {
+    "description": "Brown color option"
+  },
+  
+  "white": "White",
+  "@white": {
+    "description": "White color option"
+  },
+  
+  "standard": "Standard",
+  "@standard": {
+    "description": "Standard size option"
+  },
+  
+  "officeTable": "Office Table",
+  "@officeTable": {
+    "description": "Office table product name"
+  },
+  
+  "ergonomicDesign": "Ergonomic design",
+  "@ergonomicDesign": {
+    "description": "Ergonomic design feature"
+  },
+  
+  "adjustableHeight": "Adjustable height",
+  "@adjustableHeight": {
+    "description": "Adjustable height feature"
+  },
+  
+  "lumbarSupport": "Lumbar support",
+  "@lumbarSupport": {
+    "description": "Lumbar support feature"
+  },
+  
+  "rollingCasters": "Rolling casters",
+  "@rollingCasters": {
+    "description": "Rolling casters feature"
+  },
+  
+  "meshAndPlastic": "Mesh and plastic",
+  "@meshAndPlastic": {
+    "description": "Mesh and plastic material"
+  },
+  
+  "meshBack": "Mesh back",
+  "@meshBack": {
+    "description": "Mesh back material"
+  },
+  
+  "plasticBase": "Plastic base",
+  "@plasticBase": {
+    "description": "Plastic base material"
+  },
+  
+  "metalFrame": "Metal frame",
+  "@metalFrame": {
+    "description": "Metal frame material"
+  },
+  
+  "mesh": "Mesh",
+  "@mesh": {
+    "description": "Mesh material option"
+  },
+  
+  "leather": "Leather",
+  "@leather": {
+    "description": "Leather material option"
+  },
+  
+  "fabric": "Fabric",
+  "@fabric": {
+    "description": "Fabric material option"
+  },
+  
+  "spaciousWorkspace": "Spacious workspace",
+  "@spaciousWorkspace": {
+    "description": "Spacious workspace feature"
+  },
+  
+  "cableManagement": "Cable management",
+  "@cableManagement": {
+    "description": "Cable management feature"
+  },
+  
+  "easyAssembly": "Easy assembly",
+  "@easyAssembly": {
+    "description": "Easy assembly feature"
+  },
+  
+  "durableConstruction": "Durable construction",
+  "@durableConstruction": {
+    "description": "Durable construction feature"
+  },
+  
+  "woodAndMetal": "Wood and metal",
+  "@woodAndMetal": {
+    "description": "Wood and metal material"
+  },
+  
+  "woodTop": "Wood top",
+  "@woodTop": {
+    "description": "Wood top material"
+  },
+  
+  "metalLegs": "Metal legs",
+  "@metalLegs": {
+    "description": "Metal legs material"
+  },
+  
+  "wood": "Wood",
+  "@wood": {
+    "description": "Wood material option"
+  },
+  
+  "glass": "Glass",
+  "@glass": {
+    "description": "Glass material option"
+  },
+  
+  "professionalGrade": "Professional grade",
+  "@professionalGrade": {
+    "description": "Professional grade feature"
+  },
+  
+  "advancedTechnology": "Advanced technology",
+  "@advancedTechnology": {
+    "description": "Advanced technology feature"
+  },
+  
+  "highEfficiency": "High efficiency",
+  "@highEfficiency": {
+    "description": "High efficiency feature"
+  },
+  
+  "ceramic": "Ceramic",
+  "@ceramic": {
+    "description": "Ceramic material"
+  },
+  
+  "ceramicComponents": "Ceramic components",
+  "@ceramicComponents": {
+    "description": "Ceramic components material"
+  },
+  
+  "metalHousing": "Metal housing",
+  "@metalHousing": {
+    "description": "Metal housing material"
+  },
+  
+  "nike": "Nike",
+  "@nike": {
+    "description": "Nike brand name"
+  },
+  
+  "red": "Red",
+  "@red": {
+    "description": "Red color option"
+  },
+  
+  "blue": "Blue",
+  "@blue": {
+    "description": "Blue color option"
+  },
+  
+  "green": "Green",
+  "@green": {
+    "description": "Green color option"
+  },
+  
+  "airMaxCushioning": "Air Max cushioning",
+  "@airMaxCushioning": {
+    "description": "Air Max cushioning feature"
+  },
+  
+  "breathableMeshUpper": "Breathable mesh upper",
+  "@breathableMeshUpper": {
+    "description": "Breathable mesh upper feature"
+  },
+  
+  "rubberOutsole": "Rubber outsole",
+  "@rubberOutsole": {
+    "description": "Rubber outsole feature"
+  },
+  
+  "lightweightDesign": "Lightweight design",
+  "@lightweightDesign": {
+    "description": "Lightweight design feature"
+  },
+  
+  "comfortableFit": "Comfortable fit",
+  "@comfortableFit": {
+    "description": "Comfortable fit feature"
+  },
+  
+  "meshAndSynthetic": "Mesh and synthetic",
+  "@meshAndSynthetic": {
+    "description": "Mesh and synthetic material"
+  },
+  
+  "tpuOverlays": "TPU overlays",
+  "@tpuOverlays": {
+    "description": "TPU overlays material"
+  },
+  
+  "foamMidsole": "Foam midsole",
+  "@foamMidsole": {
+    "description": "Foam midsole material"
+  },
+  
+  "meshAndSyntheticOption": "Mesh & Synthetic",
+  "@meshAndSyntheticOption": {
+    "description": "Mesh & Synthetic material option"
+  },
+  
+  "fullMesh": "Full Mesh",
+  "@fullMesh": {
+    "description": "Full Mesh material option"
+  },
+  
+  "meshAndLeather": "Mesh & Leather",
+  "@meshAndLeather": {
+    "description": "Mesh & Leather material option"
+  },
+  
+  "adidas": "Adidas",
+  "@adidas": {
+    "description": "Adidas brand name"
+  },
+  
+  "orange": "Orange",
+  "@orange": {
+    "description": "Orange color option"
+  },
+  
+  "energyReturnTechnology": "Energy return technology",
+  "@energyReturnTechnology": {
+    "description": "Energy return technology feature"
+  },
+  
+  "primeknitUpper": "Primeknit upper",
+  "@primeknitUpper": {
+    "description": "Primeknit upper feature"
+  },
+  
+  "continentalRubberOutsole": "Continental rubber outsole",
+  "@continentalRubberOutsole": {
+    "description": "Continental rubber outsole feature"
+  },
+  
+  "responsiveBoostMidsole": "Responsive Boost midsole",
+  "@responsiveBoostMidsole": {
+    "description": "Responsive Boost midsole feature"
+  },
+  
+  "primeknitAndBoost": "Primeknit and Boost",
+  "@primeknitAndBoost": {
+    "description": "Primeknit and Boost material"
+  },
+  
+  "tpuCage": "TPU cage",
+  "@tpuCage": {
+    "description": "TPU cage material"
+  },
+  
+  "boostMidsole": "Boost midsole",
+  "@boostMidsole": {
+    "description": "Boost midsole material"
+  },
+  
+  "grey": "Grey",
+  "@grey": {
+    "description": "Grey color option"
+  },
+  
+  "lightBlue": "Light Blue",
+  "@lightBlue": {
+    "description": "Light Blue color option"
+  },
+  
+  "classicStraightLeg": "Classic straight leg",
+  "@classicStraightLeg": {
+    "description": "Classic straight leg feature"
+  },
+  
+  "buttonFly": "Button fly",
+  "@buttonFly": {
+    "description": "Button fly feature"
+  },
+  
+  "apple": "Apple",
+  "@apple": {
+    "description": "Apple brand name"
+  },
+  
+  "silver": "Silver",
+  "@silver": {
+    "description": "Silver color option"
+  },
+  
+  "gold": "Gold",
+  "@gold": {
+    "description": "Gold color option"
+  },
+  
+  "healthMonitoring": "Health monitoring",
+  "@healthMonitoring": {
+    "description": "Health monitoring feature"
+  },
+  
+  "fitnessTracking": "Fitness tracking",
+  "@fitnessTracking": {
+    "description": "Fitness tracking feature"
+  },
+  
+  "gpsAndCellular": "GPS and cellular",
+  "@gpsAndCellular": {
+    "description": "GPS and cellular feature"
+  },
+  
+  "waterResistant": "Water resistant",
+  "@waterResistant": {
+    "description": "Water resistant feature"
+  },
+  
+  "aluminumAndGlass": "Aluminum and glass",
+  "@aluminumAndGlass": {
+    "description": "Aluminum and glass material"
+  },
+  
+  "steveMadden": "Steve Madden",
+  "@steveMadden": {
+    "description": "Steve Madden brand name"
+  },
+  
+  "nude": "Nude",
+  "@nude": {
+    "description": "Nude color option"
+  },
+  
+  "synthetic": "Synthetic",
+  "@synthetic": {
+    "description": "Synthetic material option"
+  },
+  
+  "stiletto": "Stiletto",
+  "@stiletto": {
+    "description": "Stiletto heel type"
+  },
+  
+  "pointedToe": "Pointed toe",
+  "@pointedToe": {
+    "description": "Pointed toe feature"
+  },
+  
+  "smoothLining": "Smooth lining",
+  "@smoothLining": {
+    "description": "Smooth lining feature"
+  },
+  
+  "cushionedInsole": "Cushioned insole",
+  "@cushionedInsole": {
+    "description": "Cushioned insole feature"
+  },
+  
+  "stilettoHeel": "Stiletto heel",
+  "@stilettoHeel": {
+    "description": "Stiletto heel feature"
+  },
+  
+  "syntheticAndLeather": "Synthetic and leather",
+  "@syntheticAndLeather": {
+    "description": "Synthetic and leather material"
+  },
+  
+  "michaelKors": "Michael Kors",
+  "@michaelKors": {
+    "description": "Michael Kors brand name"
+  },
+  
+  "bazarClone": "Kardosi",
+  "@bazarClone": {
+    "description": "App name"
+  },
+  
+  "selectLanguage": "Select Language",
+  "@selectLanguage": {
+    "description": "Language selection prompt"
+  },
+  
+  "english": "English",
+  "@english": {
+    "description": "English language name"
+  },
+  
+  "arabic": "Arabic",
+  "@arabic": {
+    "description": "Arabic language name"
+  },
+  
+  "localizedTextExample": "Localized Text Example",
+  "@localizedTextExample": {
+    "description": "Localized text example title"
+  },
+  
+  "usingAppLocalizations": "Using AppLocalizations",
+  "@usingAppLocalizations": {
+    "description": "Using AppLocalizations title"
+  },
+  
+  "usingLocalizationService": "Using Localization Service",
+  "@usingLocalizationService": {
+    "description": "Using localization service title"
+  },
+  
+  "rtlLayout": "RTL Layout",
+  "@rtlLayout": {
+    "description": "RTL layout title"
+  },
+  
+  "profile": "Profile",
+  "@profile": {
+    "description": "Profile page title"
+  },
+  
+  "errorLoadingProfile": "Error loading profile",
+  "@errorLoadingProfile": {
+    "description": "Profile loading error message"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "myOrders": "My Orders",
+  "@myOrders": {
+    "description": "My orders menu item"
+  },
+  
+  "orders": "orders",
+  "@orders": {
+    "description": "Orders count text"
+  },
+  
+  "addresses": "Addresses",
+  "@addresses": {
+    "description": "Addresses menu item"
+  },
+  
+  "manageDeliveryAddresses": "Manage delivery addresses",
+  "@manageDeliveryAddresses": {
+    "description": "Addresses subtitle"
+  },
+  
+  "paymentMethods": "Payment Methods",
+  "@paymentMethods": {
+    "description": "Payment methods menu item"
+  },
+  
+  "managePaymentOptions": "Manage payment options",
+  "@managePaymentOptions": {
+    "description": "Payment methods subtitle"
+  },
+  
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications menu item"
+  },
+  
+  "manageNotificationPreferences": "Manage notification preferences",
+  "@manageNotificationPreferences": {
+    "description": "Notifications subtitle"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings menu item"
+  },
+  
+  "appPreferencesAndConfiguration": "App preferences and configuration",
+  "@appPreferencesAndConfiguration": {
+    "description": "Settings subtitle"
+  },
+  
+  "privacyAndSecurity": "Privacy & Security",
+  "@privacyAndSecurity": {
+    "description": "Privacy and security menu item"
+  },
+  
+  "manageYourPrivacySettings": "Manage your privacy settings",
+  "@manageYourPrivacySettings": {
+    "description": "Privacy and security subtitle"
+  },
+  
+  "helpAndSupport": "Help & Support",
+  "@helpAndSupport": {
+    "description": "Help and support menu item"
+  },
+  
+  "getHelpAndContactSupport": "Get help and contact support",
+  "@getHelpAndContactSupport": {
+    "description": "Help and support subtitle"
+  },
+  
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout menu item"
+  },
+  
+  "signOutOfYourAccount": "Sign out of your account",
+  "@signOutOfYourAccount": {
+    "description": "Logout subtitle"
+  },
+  
+  "areYouSureYouWantToLogout": "Are you sure you want to logout?",
+  "@areYouSureYouWantToLogout": {
+    "description": "Logout confirmation message"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button text"
+  },
+  
+  "somethingWentWrong": "Something went wrong",
+  "@somethingWentWrong": {
+    "description": "General error message"
+  },
+  
+  "helpAndSupport": "Help & Support",
+  "@helpAndSupport": {
+    "description": "Help and support page title"
+  },
+  
+  "chatWithUs": "Chat with us",
+  "@chatWithUs": {
+    "description": "Chat tooltip"
+  },
+  
+  "howCanWeHelpYou": "How can we help you?",
+  "@howCanWeHelpYou": {
+    "description": "Help hero section title"
+  },
+  
+  "weAreHereToHelp": "We're here to help with any questions or concerns",
+  "@weAreHereToHelp": {
+    "description": "Help hero section subtitle"
+  },
+  
+  "twentyFourSevenSupportAvailable": "24/7 Support Available",
+  "@twentyFourSevenSupportAvailable": {
+    "description": "Support availability badge"
+  },
+  
+  "searchHelpArticlesAndFaqs": "Search help articles and FAQs",
+  "@searchHelpArticlesAndFaqs": {
+    "description": "Search placeholder text"
+  },
+  
+  "quickActions": "Quick Actions",
+  "@quickActions": {
+    "description": "Quick actions section title"
+  },
+  
+  "trackOrder": "Track Order",
+  "@trackOrder": {
+    "description": "Track order action"
+  },
+  
+  "checkYourOrderStatus": "Check your order status",
+  "@checkYourOrderStatus": {
+    "description": "Track order subtitle"
+  },
+  
+  "returns": "Returns",
+  "@returns": {
+    "description": "Returns action"
+  },
+  
+  "requestAReturn": "Request a return",
+  "@requestAReturn": {
+    "description": "Returns subtitle"
+  },
+  
+  "payments": "Payments",
+  "@payments": {
+    "description": "Payments action"
+  },
+  
+  "paymentIssues": "Payment issues",
+  "@paymentIssues": {
+    "description": "Payments subtitle"
+  },
+  
+  "account": "Account",
+  "@account": {
+    "description": "Account action"
+  },
+  
+  "accountSettings": "Account settings",
+  "@accountSettings": {
+    "description": "Account subtitle"
+  },
+  
+  "frequentlyAskedQuestions": "Frequently Asked Questions",
+  "@frequentlyAskedQuestions": {
+    "description": "FAQ section title"
+  },
+  
+  "howDoITrackMyOrder": "How do I track my order?",
+  "@howDoITrackMyOrder": {
+    "description": "FAQ question 1"
+  },
+  
+  "trackOrderAnswer": "Go to Orders > select your order > Track. You can also use the tracking number sent to your email.",
+  "@trackOrderAnswer": {
+    "description": "FAQ answer 1"
+  },
+  
+  "howDoIRequestAReturn": "How do I request a return?",
+  "@howDoIRequestAReturn": {
+    "description": "FAQ question 2"
+  },
+  
+  "returnAnswer": "Go to Orders > select order > Request Return. You have 30 days to return items in original condition.",
+  "@returnAnswer": {
+    "description": "FAQ answer 2"
+  },
+  
+  "howCanIChangeMyAddress": "How can I change my address?",
+  "@howCanIChangeMyAddress": {
+    "description": "FAQ question 3"
+  },
+  
+  "addressAnswer": "Go to Addresses and edit or add a new one. Changes take effect immediately for new orders.",
+  "@addressAnswer": {
+    "description": "FAQ answer 3"
+  },
+  
+  "whatPaymentMethodsDoYouAccept": "What payment methods do you accept?",
+  "@whatPaymentMethodsDoYouAccept": {
+    "description": "FAQ question 4"
+  },
+  
+  "paymentMethodsAnswer": "We accept all major credit cards, PayPal, and Apple Pay. All transactions are secure and encrypted.",
+  "@paymentMethodsAnswer": {
+    "description": "FAQ answer 4"
+  },
+  
+  "contactSupport": "Contact Support",
+  "@contactSupport": {
+    "description": "Contact support section title"
+  },
+  
+  "liveChat": "Live Chat",
+  "@liveChat": {
+    "description": "Live chat option"
+  },
+  
+  "chatWithOurSupportTeam": "Chat with our support team",
+  "@chatWithOurSupportTeam": {
+    "description": "Live chat subtitle"
+  },
+  
+  "emailSupport": "Email Support",
+  "@emailSupport": {
+    "description": "Email support option"
+  },
+  
+  "phoneSupport": "Phone Support",
+  "@phoneSupport": {
+    "description": "Phone support option"
+  },
+  
+  "privacyAndSecurity": "Privacy & Security",
+  "@privacyAndSecurity": {
+    "description": "Privacy and security page title"
+  },
+  
+  "privacySettings": "Privacy Settings",
+  "@privacySettings": {
+    "description": "Privacy settings section title"
+  },
+  
+  "securitySettings": "Security Settings",
+  "@securitySettings": {
+    "description": "Security settings section title"
+  },
+  
+  "dataCollection": "Data Collection",
+  "@dataCollection": {
+    "description": "Data collection setting"
+  },
+  
+  "allowUsToCollectUsageData": "Allow us to collect usage data to improve your experience",
+  "@allowUsToCollectUsageData": {
+    "description": "Data collection subtitle"
+  },
+  
+  "personalizedAds": "Personalized Ads",
+  "@personalizedAds": {
+    "description": "Personalized ads setting"
+  },
+  
+  "showAdsBasedOnYourInterests": "Show ads based on your interests and activity",
+  "@showAdsBasedOnYourInterests": {
+    "description": "Personalized ads subtitle"
+  },
+  
+  "locationSharing": "Location Sharing",
+  "@locationSharing": {
+    "description": "Location sharing setting"
+  },
+  
+  "shareYourLocationForBetterService": "Share your location for better service and delivery",
+  "@shareYourLocationForBetterService": {
+    "description": "Location sharing subtitle"
+  },
+  
+  "biometricAuthentication": "Biometric Authentication",
+  "@biometricAuthentication": {
+    "description": "Biometric authentication setting"
+  },
+  
+  "useFingerprintOrFaceId": "Use fingerprint or face ID to unlock the app",
+  "@useFingerprintOrFaceId": {
+    "description": "Biometric authentication subtitle"
+  },
+  
+  "biometricAuthenticationEnabled": "Biometric authentication enabled",
+  "@biometricAuthenticationEnabled": {
+    "description": "Biometric enabled message"
+  },
+  
+  "biometricAuthenticationDisabled": "Biometric authentication disabled",
+  "@biometricAuthenticationDisabled": {
+    "description": "Biometric disabled message"
+  },
+  
+  "twoFactorAuthentication": "Two-Factor Authentication",
+  "@twoFactorAuthentication": {
+    "description": "Two-factor authentication setting"
+  },
+  
+  "addAnExtraLayerOfSecurity": "Add an extra layer of security to your account",
+  "@addAnExtraLayerOfSecurity": {
+    "description": "Two-factor authentication subtitle"
+  },
+  
+  "changePassword": "Change Password",
+  "@changePassword": {
+    "description": "Change password action"
+  },
+  
+  "updateYourAccountPassword": "Update your account password",
+  "@updateYourAccountPassword": {
+    "description": "Change password subtitle"
+  },
+  
+  "activeSessions": "Active Sessions",
+  "@activeSessions": {
+    "description": "Active sessions action"
+  },
+  
+  "manageDevicesLoggedIntoYourAccount": "Manage devices logged into your account",
+  "@manageDevicesLoggedIntoYourAccount": {
+    "description": "Active sessions subtitle"
+  },
+  
+  "deleteAccount": "Delete Account",
+  "@deleteAccount": {
+    "description": "Delete account action"
+  },
+  
+  "permanentlyDeleteYourAccount": "Permanently delete your account",
+  "@permanentlyDeleteYourAccount": {
+    "description": "Delete account subtitle"
+  },
+  
+  "thisFeatureWillBeImplementedSoon": "This feature will be implemented soon. You can change your password in the app settings.",
+  "@thisFeatureWillBeImplementedSoon": {
+    "description": "Feature not implemented message"
+  },
+  
+  "manageYourActiveSessionsHere": "This feature will be implemented soon. You can manage your active sessions here.",
+  "@manageYourActiveSessionsHere": {
+    "description": "Active sessions not implemented message"
+  },
+  
+  "thisActionCannotBeUndone": "This action cannot be undone. All your data will be permanently deleted.",
+  "@thisActionCannotBeUndone": {
+    "description": "Delete account warning message"
+  },
+  
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button text"
+  },
+  
+  "ok": "OK",
+  "@ok": {
+    "description": "OK button text"
+  },
+  
+  "theme": "Theme",
+  "@theme": {
+    "description": "Theme section title"
+  },
+  
+  "light": "Light",
+  "@light": {
+    "description": "Light theme option"
+  },
+  
+  "useLightTheme": "Use light theme",
+  "@useLightTheme": {
+    "description": "Light theme description"
+  },
+  
+  "dark": "Dark",
+  "@dark": {
+    "description": "Dark theme option"
+  },
+  
+  "useDarkTheme": "Use dark theme",
+  "@useDarkTheme": {
+    "description": "Dark theme description"
+  },
+  
+  "system": "System",
+  "@system": {
+    "description": "System theme option"
+  },
+  
+  "followSystemTheme": "Follow system theme",
+  "@followSystemTheme": {
+    "description": "System theme description"
+  },
+  
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications page title"
+  },
+  
+  "stayInTheLoop": "Stay in the loop",
+  "@stayInTheLoop": {
+    "description": "Notifications subtitle"
+  },
+  
+  "enableNotifications": "Enable Notifications",
+  "notificationsDescription": "Turn on notifications to receive timely updates about your orders and offers.",
+  "@enableNotifications": {
+    "description": "Enable notifications setting"
+  },
+  
+  "receivePushNotifications": "Receive push notifications",
+  "@receivePushNotifications": {
+    "description": "Push notifications description"
+  },
+  
+  "loggedOutSuccessfully": "Logged out successfully",
+  "@loggedOutSuccessfully": {
+    "description": "Logout success message"
+  },
+  
+  "accountDeletedSuccessfully": "Account deleted successfully",
+  "@accountDeletedSuccessfully": {
+    "description": "Account deletion success message"
+  },
+  
+  "viewDetails": "View Details",
+  "@viewDetails": {
+    "description": "View details button text"
+  },
+  
+  "trackOrder": "Track Order",
+  "@trackOrder": {
+    "description": "Track order button text"
+  },
+  
+  "pending": "Pending",
+  "@pending": {
+    "description": "Order status - pending"
+  },
+  
+  "confirmed": "Confirmed",
+  "@confirmed": {
+    "description": "Order status - confirmed"
+  },
+  
+  "processing": "Processing",
+  "@processing": {
+    "description": "Order status - processing"
+  },
+  
+  "shipped": "Shipped",
+  "@shipped": {
+    "description": "Order status - shipped"
+  },
+  
+  "delivered": "Delivered",
+  "@delivered": {
+    "description": "Order status - delivered"
+  },
+  
+  "cancelled": "Cancelled",
+  "@cancelled": {
+    "description": "Order status - cancelled"
+  },
+  
+  "returned": "Returned",
+  "@returned": {
+    "description": "Order status - returned"
+  },
+  
+  "noCachedProfileData": "No cached profile data",
+  "@noCachedProfileData": {
+    "description": "No cached profile data error"
+  },
+  
+  "noInternetConnection": "No internet connection",
+  "@noInternetConnection": {
+    "description": "No internet connection error"
+  },
+  
+  "failedToGetUserProfile": "Failed to get user profile",
+  "@failedToGetUserProfile": {
+    "description": "Failed to get user profile error"
+  },
+  
+  "userProfileNotFound": "User profile not found",
+  "@userProfileNotFound": {
+    "description": "User profile not found error"
+  },
+  
+  "failedToUpdateUserProfile": "Failed to update user profile",
+  "@failedToUpdateUserProfile": {
+    "description": "Failed to update user profile error"
+  },
+  
+  "leaveAtFrontDoorIfNoAnswer": "Leave at front door if no answer",
+  "@leaveAtFrontDoorIfNoAnswer": {
+    "description": "Delivery note"
+  },
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Register page title"
+  },
+  "joinUsAndStartShopping": "Join us and start shopping",
+  "@joinUsAndStartShopping": {
+    "description": "Register page subtitle"
+  },
+  "firstName": "First Name",
+  "@firstName": {
+    "description": "First name field label"
+  },
+  "enterYourFirstName": "Enter your first name",
+  "@enterYourFirstName": {
+    "description": "First name field hint"
+  },
+  "pleaseEnterYourFirstName": "Please enter your first name",
+  "@pleaseEnterYourFirstName": {
+    "description": "First name validation message"
+  },
+  "firstNameMustBeAtLeastTwoCharacters": "First name must be at least 2 characters",
+  "@firstNameMustBeAtLeastTwoCharacters": {
+    "description": "First name length validation"
+  },
+  "lastName": "Last Name",
+  "@lastName": {
+    "description": "Last name field label"
+  },
+  "enterYourLastName": "Enter your last name",
+  "@enterYourLastName": {
+    "description": "Last name field hint"
+  },
+  "pleaseEnterYourLastName": "Please enter your last name",
+  "@pleaseEnterYourLastName": {
+    "description": "Last name validation message"
+  },
+  "lastNameMustBeAtLeastTwoCharacters": "Last name must be at least 2 characters",
+  "@lastNameMustBeAtLeastTwoCharacters": {
+    "description": "Last name length validation"
+  },
+  "enterYourEmailAddress": "Enter your email address",
+  "@enterYourEmailAddress": {
+    "description": "Email field hint"
+  },
+  "pleaseEnterYourEmail": "Please enter your email",
+  "@pleaseEnterYourEmail": {
+    "description": "Email validation message"
+  },
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "@pleaseEnterValidEmail": {
+    "description": "Email format validation"
+  },
+  "phoneNumber": "Phone Number",
+  "@phoneNumber": {
+    "description": "Phone number field label"
+  },
+  "enterYourPhoneNumber": "Enter your phone number",
+  "@enterYourPhoneNumber": {
+    "description": "Phone number field hint"
+  },
+  "pleaseEnterYourPhoneNumber": "Please enter your phone number",
+  "@pleaseEnterYourPhoneNumber": {
+    "description": "Phone number validation message"
+  },
+  "pleaseEnterValidPhoneNumber": "Please enter a valid phone number",
+  "@pleaseEnterValidPhoneNumber": {
+    "description": "Phone number format validation"
+  },
+  "createStrongPassword": "Create a strong password",
+  "@createStrongPassword": {
+    "description": "Password field hint"
+  },
+  "pleaseEnterPassword": "Please enter a password",
+  "@pleaseEnterPassword": {
+    "description": "Password validation message"
+  },
+  "passwordMustBeAtLeastEightCharacters": "Password must be at least 8 characters",
+  "@passwordMustBeAtLeastEightCharacters": {
+    "description": "Password length validation"
+  },
+  "passwordMustContainUppercaseLowercaseAndNumber": "Password must contain uppercase, lowercase, and number",
+  "@passwordMustContainUppercaseLowercaseAndNumber": {
+    "description": "Password complexity validation"
+  },
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Confirm password field label"
+  },
+  "confirmYourPassword": "Confirm your password",
+  "@confirmYourPassword": {
+    "description": "Confirm password field hint"
+  },
+  "pleaseConfirmYourPassword": "Please confirm your password",
+  "@pleaseConfirmYourPassword": {
+    "description": "Confirm password validation message"
+  },
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": {
+    "description": "Password match validation"
+  },
+  "iAgreeToThe": "I agree to the ",
+  "@iAgreeToThe": {
+    "description": "Terms agreement text"
+  },
+  "termsOfService": "Terms of Service",
+  "@termsOfService": {
+    "description": "Terms of service link text"
+  },
+  "and": " and ",
+  "@and": {
+    "description": "Conjunction between terms and privacy"
+  },
+  "privacyPolicy": "Privacy Policy",
+  "@privacyPolicy": {
+    "description": "Privacy policy link text"
+  },
+  "creatingAccount": "Creating Account...",
+  "@creatingAccount": {
+    "description": "Account creation loading text"
+  },
+  "or": "OR",
+  "@or": {
+    "description": "Divider text between registration options"
+  },
+  "google": "Google",
+  "@google": {
+    "description": "Google sign up button text"
+  },
+  "apple": "Apple",
+  "@apple": {
+    "description": "Apple sign up button text"
+  },
+  "alreadyHaveAnAccount": "Already have an account? ",
+  "@alreadyHaveAnAccount": {
+    "description": "Sign in link prefix text"
+  },
+  "signIn": "Sign In",
+  "@signIn": {
+    "description": "Sign in link text"
+  },
+  "myAddresses": "My Addresses",
+  "@myAddresses": {
+    "description": "Addresses page title"
+  },
+  "addAddress": "Add Address",
+  "@addAddress": {
+    "description": "Add address button text"
+  },
+  "noAddressesYet": "No addresses yet",
+  "@noAddressesYet": {
+    "description": "Empty addresses state title"
+  },
+  "addYourFirstDeliveryAddress": "Add your first delivery address to speed up checkout and get accurate shipping estimates",
+  "@addYourFirstDeliveryAddress": {
+    "description": "Empty addresses state description"
+  },
+  "addYourFirstAddress": "Add Your First Address",
+  "@addYourFirstAddress": {
+    "description": "Add first address button text"
+  },
+  "deleteAddress": "Delete Address",
+  "@deleteAddress": {
+    "description": "Delete address dialog title"
+  },
+  "areYouSureDeleteAddress": "Are you sure you want to delete this address? This action cannot be undone.",
+  "@areYouSureDeleteAddress": {
+    "description": "Delete address confirmation message"
+  },
+  "defaultAddress": "Default",
+  "@defaultAddress": {
+    "description": "Default address label"
+  },
+  "address": "Address",
+  "@address": {
+    "description": "Address label"
+  },
+
+  "noAddressesFound": "No addresses found",
+  "@noAddressesFound": {
+    "description": "Message when no addresses are found"
+  },
+  "noAddressIsSetYet": "No address is set yet",
+  "@noAddressIsSetYet": {
+    "description": "Message when no address is set yet in checkout"
+  },
+  "edit": "Edit",
+  "@edit": {
+    "description": "Edit button text"
+  },
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button text"
+  },
+  "paymentMethods": "Payment Methods",
+  "@paymentMethods": {
+    "description": "Payment methods page title"
+  },
+  "noPaymentMethods": "No Payment Methods",
+  "@noPaymentMethods": {
+    "description": "Empty payment methods state title"
+  },
+  "addYourFirstPaymentMethod": "Add your first payment method to get started",
+  "@addYourFirstPaymentMethod": {
+    "description": "Empty payment methods state description"
+  },
+  "addPaymentMethod": "Add Payment Method",
+  "@addPaymentMethod": {
+    "description": "Add payment method button text"
+  },
+  "scanCard": "Scan Card",
+  "@scanCard": {
+    "description": "Scan card button tooltip and page title"
+  },
+  
+  "deletePaymentMethodConfirmation": "Are you sure you want to delete this payment method?",
+  "@deletePaymentMethodConfirmation": {
+    "description": "Confirmation message for deleting payment method"
+  },
+  
+  "setDefaultPaymentMethodConfirmation": "Make this your default payment method?",
+  "@setDefaultPaymentMethodConfirmation": {
+    "description": "Confirmation message for setting default payment method"
+  },
+  
+  "zainCash": "Zain Cash",
+  "@zainCash": {
+    "description": "Zain Cash payment method name"
+  },
+  "alQaseh": "Al Qaseh",
+  "@alQaseh": {
+    "description": "Al Qaseh payment method name"
+  },
+  "comingSoon": "Coming Soon",
+  "@comingSoon": {
+    "description": "Coming soon label for unavailable features"
+  },
+  
+  "qiCard": "Qi Card",
+  "@qiCard": {
+    "description": "Qi Card payment method name"
+  },
+  
+  "scanCardPrivacyNote": "We only read the number and expiry — nothing is stored.",
+  "@scanCardPrivacyNote": {
+    "description": "Privacy note for card scanning"
+  },
+  
+  "scanCardTipLighting": "Use a well-lit area and avoid glare",
+  "@scanCardTipLighting": {
+    "description": "Card scanning tip about lighting"
+  },
+  
+  "scanCardTipSurface": "Place card on a flat, contrasting surface",
+  "@scanCardTipSurface": {
+    "description": "Card scanning tip about surface"
+  },
+  
+  "cardScanResult": "Card Number: {cardNumber}\nExpiry: {expiryDate}\nHolder: {cardHolderName}",
+  "@cardScanResult": {
+    "description": "Card scan result display format",
+    "placeholders": {
+      "cardNumber": {
+        "type": "String"
+      },
+      "expiryDate": {
+        "type": "String"
+      },
+      "cardHolderName": {
+        "type": "String"
+      }
+    }
+  },
+  "deletePaymentMethod": "Delete Payment Method",
+  "@deletePaymentMethod": {
+    "description": "Delete payment method dialog title"
+  },
+  "setAsDefault": "Set as Default",
+  "@setAsDefault": {
+    "description": "Set as default payment method dialog title"
+  },
+  "setDefault": "Set Default",
+  "@setDefault": {
+    "description": "Set default button text"
+  },
+  "defaultPaymentMethodUpdated": "Default payment method updated",
+  "@defaultPaymentMethodUpdated": {
+    "description": "Default payment method update message"
+  },
+  "scanCancelled": "Scan cancelled",
+  "@scanCancelled": {
+    "description": "Card scan cancelled message"
+  },
+  "positionYourCardWithinFrame": "Position your card within the frame",
+  "@positionYourCardWithinFrame": {
+    "description": "Card scanning instruction"
+  },
+  "alignCardEdgesWithGuides": "Align the card edges with the guides",
+  "@alignCardEdgesWithGuides": {
+    "description": "Card alignment instruction"
+  },
+  "quickTips": "Quick tips",
+  "@quickTips": {
+    "description": "Quick tips section title"
+  },
+  "makeSureNumbersAreClearlyVisible": "Make sure numbers are clearly visible",
+  "@makeSureNumbersAreClearlyVisible": {
+    "description": "Card scanning tip"
+  },
+  "scanning": "Scanning...",
+  "@scanning": {
+    "description": "Scanning in progress text"
+  },
+  "startScan": "Start scan",
+  "@startScan": {
+    "description": "Start scan button text"
+  },
+  "youCanEditDetailsBeforeSaving": "You can edit details before saving",
+  "@youCanEditDetailsBeforeSaving": {
+    "description": "Edit details instruction"
+  },
+  "lastResult": "Last result",
+  "@lastResult": {
+    "description": "Last scan result label"
+  },
+  "paymentMethodName": "Payment Method Name",
+  "@paymentMethodName": {
+    "description": "Payment method name field label"
+  },
+  "pleaseEnterName": "Please enter a name",
+  "@pleaseEnterName": {
+    "description": "Name field validation message"
+  },
+  "cardholderName": "Cardholder Name",
+  "@cardholderName": {
+    "description": "Cardholder name field label"
+  },
+  "pleaseEnterCardholderName": "Please enter cardholder name",
+  "@pleaseEnterCardholderName": {
+    "description": "Cardholder name validation message"
+  },
+  "cardNumber": "Card Number",
+  "@cardNumber": {
+    "description": "Card number field label"
+  },
+  "pleaseEnterCardNumber": "Please enter card number",
+  "@pleaseEnterCardNumber": {
+    "description": "Card number validation message"
+  },
+  "pleaseEnterValidCardNumber": "Please enter a valid card number",
+  "@pleaseEnterValidCardNumber": {
+    "description": "Card number format validation"
+  },
+  "expiryDate": "Expiry Date",
+  "@expiryDate": {
+    "description": "Expiry date field label"
+  },
+  "pleaseEnterExpiryDate": "Please enter expiry date",
+  "@pleaseEnterExpiryDate": {
+    "description": "Expiry date validation message"
+  },
+  "cvv": "CVV",
+  "@cvv": {
+    "description": "CVV field label"
+  },
+  "pleaseEnterCvv": "Please enter CVV",
+  "@pleaseEnterCvv": {
+    "description": "CVV validation message"
+  },
+  "pleaseEnterValidCvv": "Please enter valid CVV",
+  "@pleaseEnterValidCvv": {
+    "description": "CVV format validation"
+  },
+  "paymentMethodType": "Payment Method Type",
+  "@paymentMethodType": {
+    "description": "Payment method type field label"
+  },
+  "creditCard": "Credit Card",
+  "@creditCard": {
+    "description": "Credit card payment type"
+  },
+  "debitCard": "Debit Card",
+  "@debitCard": {
+    "description": "Debit card payment type"
+  },
+  "paypal": "PayPal",
+  "@paypal": {
+    "description": "PayPal payment type"
+  },
+  "applePay": "Apple Pay",
+  "@applePay": {
+    "description": "Apple Pay payment type"
+  },
+  "googlePay": "Google Pay",
+  "@googlePay": {
+    "description": "Google Pay payment type"
+  },
+  "bankTransfer": "Bank Transfer",
+  "@bankTransfer": {
+    "description": "Bank transfer payment type"
+  },
+  "cashOnDelivery": "Cash on Delivery",
+  "@cashOnDelivery": {
+    "description": "Cash on delivery payment type"
+  },
+  "cashPayment": "Cash Payment",
+  "@cashPayment": {
+    "description": "Cash payment type"
+  },
+  "cardHolder": "CARD HOLDER",
+  "@cardHolder": {
+    "description": "Card holder placeholder text"
+  },
+  "cash": "CASH",
+  "@cash": {
+    "description": "Cash payment label"
+  },
+  "payWithCashOnDelivery": "Pay with cash on delivery",
+  "@payWithCashOnDelivery": {
+    "description": "Cash on delivery description"
+  },
+  "payWhenYouReceive": "Pay when you receive",
+  "@payWhenYouReceive": {
+    "description": "Cash on delivery subtitle - pay when you receive"
+  },
+  "onlinePaymentService": "Online payment service",
+  "@onlinePaymentService": {
+    "description": "PayPal description"
+  },
+  "contactlessPayment": "Contactless payment",
+  "@contactlessPayment": {
+    "description": "Apple Pay description"
+  },
+  "mobilePaymentService": "Mobile payment service",
+  "@mobilePaymentService": {
+    "description": "Google Pay description"
+  },
+  "directBankTransfer": "Direct bank transfer",
+  "@directBankTransfer": {
+    "description": "Bank transfer description"
+  },
+  "quantity": "Quantity",
+  "@quantity": {
+    "description": "Quantity field label"
+  },
+  "product": "Product",
+  "@product": {
+    "description": "Product fallback name"
+  },
+  "addToCart": "Add to Cart",
+  "@addToCart": {
+    "description": "Add to cart button text"
+  },
+  "vatIncluded": "VAT included",
+  "@vatIncluded": {
+    "description": "VAT included label"
+  },
+  "selectSize": "Select Size",
+  "@selectSize": {
+    "description": "Size selection label"
+  },
+  "customerReviews": "Customer Reviews",
+  "@customerReviews": {
+    "description": "Customer reviews section title"
+  },
+  "dealsAndOffers": "Deals & Offers",
+  "@dealsAndOffers": {
+    "description": "Deals and offers section title"
+  },
+  "deliveryAndReturns": "Delivery & Returns",
+  "@deliveryAndReturns": {
+    "description": "Delivery and returns section title"
+  },
+  "productCareAndMaterials": "Product Care & Materials",
+  "@productCareAndMaterials": {
+    "description": "Product care and materials section title"
+  },
+  "turkey": "Turkey",
+  "@turkey": {
+    "description": "Country name Turkey"
+  },
+  "heelDetails": "Heel Details",
+  "@heelDetails": {
+    "description": "Heel details section title"
+  },
+  "heelType": "Heel type",
+  "@heelType": {
+    "description": "Heel type label"
+  },
+  "heelHeight": "Heel height",
+  "@heelHeight": {
+    "description": "Heel height label"
+  },
+  "cm": "cm",
+  "@cm": {
+    "description": "Centimeter unit"
+  },
+  "recommendedForYou": "Recommended for you",
+  "@recommendedForYou": {
+    "description": "Recommendations section title"
+  },
+  "failedToLoadRecommendations": "Failed to load recommendations",
+  "@failedToLoadRecommendations": {
+    "description": "Recommendations loading error"
+  },
+  "noRecommendations": "No recommendations",
+  "@noRecommendations": {
+    "description": "Empty recommendations state"
+  },
+  "viewAll": "View All",
+  "@viewAll": {
+    "description": "View all button text"
+  },
+  "whatCustomersAreSaying": "What customers are saying",
+  "@whatCustomersAreSaying": {
+    "description": "Customer reviews subtitle"
+  },
+  "verifiedPurchase": "Verified Purchase",
+  "@verifiedPurchase": {
+    "description": "Verified purchase badge"
+  },
+  "tomorrow": "Tomorrow",
+  "@tomorrow": {
+    "description": "Tomorrow delivery time"
+  },
+  "freeDelivery": "FREE Delivery",
+  "@freeDelivery": {
+    "description": "Free delivery label"
+  },
+  "fastDelivery": "Fast Delivery",
+  "@fastDelivery": {
+    "description": "Fast delivery label"
+  },
+  "standardDelivery": "Standard Delivery",
+  "@standardDelivery": {
+    "description": "Standard delivery option"
+  },
+  "free": "FREE",
+  "@free": {
+    "description": "Free price label"
+  },
+  "expressDelivery": "Express Delivery",
+  "@expressDelivery": {
+    "description": "Express delivery option"
+  },
+  "recommended": "RECOMMENDED",
+  "@recommended": {
+    "description": "Recommended badge"
+  },
+  "limitedTimeDeal": "Limited Time Deal!",
+  "@limitedTimeDeal": {
+    "description": "Limited time deal badge"
+  },
+  "specialOffers": "Special Offers",
+  "@specialOffers": {
+    "description": "Special offers section title"
+  },
+  "onSelectedItems": "On selected items",
+  "@onSelectedItems": {
+    "description": "Deal condition text"
+  },
+  "popular": "POPULAR",
+  "@popular": {
+    "description": "Popular badge"
+  },
+  "doubleRewardsOnThisPurchase": "Double rewards on this purchase",
+  "@doubleRewardsOnThisPurchase": {
+    "description": "Rewards offer description"
+  },
+  "bonus": "BONUS",
+  "@bonus": {
+    "description": "Bonus badge"
+  },
+  "careInstructions": "Care Instructions",
+  "@careInstructions": {
+    "description": "Care instructions section title"
+  },
+  "materialsAndComposition": "Materials & Composition",
+  "@materialsAndComposition": {
+    "description": "Materials and composition section title"
+  },
+  "originAndSustainability": "Origin & Sustainability",
+  "@originAndSustainability": {
+    "description": "Origin and sustainability section title"
+  },
+  "madeIn": "Made in",
+  "@madeIn": {
+    "description": "Made in label"
+  },
+  "ecoFriendly": "Eco-friendly",
+  "@ecoFriendly": {
+    "description": "Eco-friendly label"
+  },
+  "sustainableMaterialsUsed": "Sustainable materials used",
+  "@sustainableMaterialsUsed": {
+    "description": "Sustainable materials description"
+  },
+  "recyclable": "Recyclable",
+  "@recyclable": {
+    "description": "Recyclable label"
+  },
+  "certified": "Certified",
+  "@certified": {
+    "description": "Certified label"
+  },
+  "oekoTextStandard100": "OEKO-TEX Standard 100",
+  "@oekoTextStandard100": {
+    "description": "OEKO-TEX certification"
+  },
+  "sizeAndFitInformation": "Size & Fit Information",
+  "@sizeAndFitInformation": {
+    "description": "Size and fit information section title"
+  },
+  "fit": "Fit",
+  "@fit": {
+    "description": "Fit label"
+  },
+  "regularFit": "Regular fit",
+  "@regularFit": {
+    "description": "Regular fit description"
+  },
+  "modelSize": "Model size",
+  "@modelSize": {
+    "description": "Model size label"
+  },
+  "viewSizeGuide": "View Size Guide",
+  "@viewSizeGuide": {
+    "description": "View size guide button"
+  },
+  "doNotBleach": "Do not bleach",
+  "@doNotBleach": {
+    "description": "Care instruction - do not bleach"
+  },
+  "tumbleDryLowHeat": "Tumble dry low heat",
+  "@tumbleDryLowHeat": {
+    "description": "Care instruction - tumble dry low heat"
+  },
+  "styleItWith": "Style it with",
+  "@styleItWith": {
+    "description": "Style recommendations section title"
+  },
+  "completeYourLookWithTheseComplementaryPieces": "Complete your look with these complementary pieces",
+  "@completeYourLookWithTheseComplementaryPieces": {
+    "description": "Style recommendations subtitle"
+  },
+  "accessories": "Accessories",
+  "@accessories": {
+    "description": "Accessories category"
+  },
+  "addATouchOfElegance": "Add a touch of elegance",
+  "@addATouchOfElegance": {
+    "description": "Accessories description"
+  },
+  "classicWatch": "Classic Watch",
+  "@classicWatch": {
+    "description": "Classic watch product name"
+  },
+  "leatherBelt": "Leather Belt",
+  "@leatherBelt": {
+    "description": "Leather belt product name"
+  },
+  "silverNecklace": "Silver Necklace",
+  "@silverNecklace": {
+    "description": "Silver necklace product name"
+  },
+  "footwear": "Footwear",
+  "@footwear": {
+    "description": "Footwear category"
+  },
+  "stepUpYourStyleGame": "Step up your style game",
+  "@stepUpYourStyleGame": {
+    "description": "Footwear description"
+  },
+  "whiteSneakers": "White Sneakers",
+  "@whiteSneakers": {
+    "description": "White sneakers product name"
+  },
+  "blackBoots": "Black Boots",
+  "@blackBoots": {
+    "description": "Black boots product name"
+  },
+  "casualLoafers": "Casual Loafers",
+  "@casualLoafers": {
+    "description": "Casual loafers product name"
+  },
+  "outerwear": "Outerwear",
+  "@outerwear": {
+    "description": "Outerwear category"
+  },
+  "layerUpForAnyWeather": "Layer up for any weather",
+  "@layerUpForAnyWeather": {
+    "description": "Outerwear description"
+  },
+  "aboutThisProduct": "About this product",
+  "@aboutThisProduct": {
+    "description": "About product section title"
+  },
+  "readLess": "Read less",
+  "@readLess": {
+    "description": "Read less button"
+  },
+  "readMore": "Read more",
+  "@readMore": {
+    "description": "Read more button"
+  },
+  "selectColor": "Select Color",
+  "@selectColor": {
+    "description": "Color selection label"
+  },
+  "colorsAvailable": "colors available",
+  "@colorsAvailable": {
+    "description": "Available colors count suffix"
+  },
+  "defaultOption": "Default",
+  "@defaultOption": {
+    "description": "Default option"
+  },
+  "outOfStock": "Out of Stock",
+  "@outOfStock": {
+    "description": "Out of stock label"
+  },
+  "selectMaterial": "Select Material",
+  "@selectMaterial": {
+    "description": "Material selection label"
+  },
+  "selectHeelHeight": "Select Heel Height",
+  "@selectHeelHeight": {
+    "description": "Heel height selection label"
+  },
+  "shoppingCart": "Shopping Cart",
+  "@shoppingCart": {
+    "description": "Shopping cart page title"
+  },
+  "clearCart": "Clear Cart",
+  "@clearCart": {
+    "description": "Clear cart button tooltip"
+  },
+  "errorLoadingCart": "Error loading cart",
+  "@errorLoadingCart": {
+    "description": "Cart loading error message"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  "areYouSureClearCart": "Are you sure you want to clear all items from your cart? This action cannot be undone.",
+  "@areYouSureClearCart": {
+    "description": "Clear cart confirmation message"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button text"
+  },
+  "clear": "Clear",
+  "@clear": {
+    "description": "Clear button text"
+  },
+  "color": "Color",
+  "@color": {
+    "description": "Color attribute label"
+  },
+  "size": "Size",
+  "@size": {
+    "description": "Size attribute label"
+  },
+  "totalItems": "Total Items",
+  "@totalItems": {
+    "description": "Total items label"
+  },
+  "subtotal": "Subtotal",
+  "@subtotal": {
+    "description": "Subtotal label"
+  },
+  "vat15": "VAT (15%)",
+  "@vat15": {
+    "description": "VAT label with percentage"
+  },
+  "total": "Total",
+  "@total": {
+    "description": "Total price label"
+  },
+  "proceedToCheckout": "Proceed to Checkout",
+  "@proceedToCheckout": {
+    "description": "Proceed to checkout button text"
+  },
+  "youWillBeRedirectedToCheckout": "You will be redirected to the checkout page to complete your order.",
+  "@youWillBeRedirectedToCheckout": {
+    "description": "Checkout dialog message"
+  },
+  "continueButton": "Continue",
+  "@continueButton": {
+    "description": "Continue button text"
+  },
+  "shoppingCart": "Shopping Cart",
+  "@shoppingCart": {
+    "description": "Shopping cart page title"
+  },
+  "clearCart": "Clear Cart",
+  "@clearCart": {
+    "description": "Clear cart button text"
+  },
+  "errorLoadingCart": "Error loading cart",
+  "@errorLoadingCart": {
+    "description": "Error message when cart fails to load"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  "totalItems": "Total Items:",
+  "@totalItems": {
+    "description": "Total items label in cart summary"
+  },
+  "subtotal": "Subtotal: ",
+  "@subtotal": {
+    "description": "Subtotal label in cart summary"
+  },
+  "vat15": "VAT (15%): ",
+  "@vat15": {
+    "description": "VAT label in cart summary"
+  },
+
+  "totalWithTax": "Total with tax: ",
+  "@totalWithTax": {
+    "description": "Total with tax label for individual cart items"
+  },
+
+  "vatFallback": "VAT 15%",
+  "@vatFallback": {
+    "description": "Fallback VAT label when API data is not available"
+  },
+  "total": "Total: ",
+  "@total": {
+    "description": "Total label in cart summary"
+  },
+  "proceedToCheckout": "Proceed to Checkout",
+  "@proceedToCheckout": {
+    "description": "Proceed to checkout button text"
+  },
+  "youWillBeRedirectedToCheckout": "You will be redirected to the checkout page to complete your order.",
+  "@youWillBeRedirectedToCheckout": {
+    "description": "Checkout dialog message"
+  },
+  "areYouSureClearCart": "Are you sure you want to clear all items from your cart? This action cannot be undone.",
+  "@areYouSureClearCart": {
+    "description": "Clear cart confirmation dialog message"
+  },
+  "welcomeUser": "Welcome {userName}!",
+  "@welcomeUser": {
+    "description": "Welcome message with user name",
+    "placeholders": {
+      "userName": {
+        "type": "String",
+        "description": "The user's name"
+      }
+    }
+  },
+  "welcomeUserComma": "Welcome {userName}, ",
+  "@welcomeUserComma": {
+    "description": "Welcome message with user name and comma",
+    "placeholders": {
+      "userName": {
+        "type": "String",
+        "description": "The user's name"
+      }
+    }
+  },
+  "filtering": "Filtering...",
+  "@filtering": {
+    "description": "Text shown when filtering products"
+  },
+  
+  "emailVerificationRequired": "Email Verification Required",
+  "@emailVerificationRequired": {
+    "description": "Title for email verification dialog"
+  },
+  
+  "emailNotVerifiedMessage": "Your email address needs to be verified before you can continue. Please check your email and click the verification link.",
+  "@emailNotVerifiedMessage": {
+    "description": "Message explaining email verification requirement"
+  },
+  
+  "resendEmail": "Resend Email",
+  "@resendEmail": {
+    "description": "Button to resend verification email"
+  },
+  
+  "verificationEmailSent": "Verification email sent! Please check your inbox.",
+  "@verificationEmailSent": {
+    "description": "Message shown when verification email is resent"
+  },
+  
+  "noProductDescription": "No Description Available",
+  "@noProductDescription": {
+    "description": "Title shown when product has no description"
+  },
+  
+  "productDescriptionComingSoon": "Product description will be available soon.",
+  "@productDescriptionComingSoon": {
+    "description": "Message shown when product description is not available"
+  },
+
+  "noInternetConnection": "No Internet Connection",
+  "@noInternetConnection": {
+    "description": "Message shown when there is no internet connection"
+  },
+
+  "checkInternetConnection": "Please check your internet connection and try again.",
+  "@checkInternetConnection": {
+    "description": "Instructions for user when offline"
+  },
+
+  "retrying": "Retrying...",
+  "@retrying": {
+    "description": "Text shown while retrying connection"
+  },
+
+  "quickTips": "Quick Tips:",
+  "@quickTips": {
+    "description": "Title for tips section on offline page"
+  },
+
+  "checkWiFiConnection": "Check your WiFi connection",
+  "@checkWiFiConnection": {
+    "description": "Tip to check WiFi connection"
+  },
+
+  "verifyMobileDataEnabled": "Verify mobile data is enabled",
+  "@verifyMobileDataEnabled": {
+    "description": "Tip to verify mobile data"
+  },
+
+  "tryDifferentLocation": "Try moving to a different location",
+  "@tryDifferentLocation": {
+    "description": "Tip to try different location"
+  },
+
+  "restartInternetConnection": "Restart your internet connection",
+  "@restartInternetConnection": {
+    "description": "Tip to restart internet connection"
+  },
+
+  "stillNoInternetConnection": "Still no internet connection. Please check your network settings.",
+  "@stillNoInternetConnection": {
+    "description": "Message when retry fails"
+  },
+
+  "connectedToInternet": "Connected to internet",
+  "@connectedToInternet": {
+    "description": "Status message when connected"
+  },
+
+  "checkingConnection": "Checking connection...",
+  "@checkingConnection": {
+    "description": "Status message when checking connection"
+  },
+
+  "noTermsAvailable": "No Terms Available",
+  "@noTermsAvailable": {
+    "description": "Message shown when no terms and conditions are available"
+  },
+
+  "noTermsAvailableDescription": "Terms and conditions are currently not available. Please try again later.",
+  "@noTermsAvailableDescription": {
+    "description": "Description when no terms and conditions are available"
+  },
+  
+  "categoryContainsBoth": "This category contains both subcategories and products. What would you like to explore?",
+  "@categoryContainsBoth": {
+    "description": "Description for category selection dialog"
+  },
+  
+  "browseSubcategories": "Browse Subcategories",
+  "@browseSubcategories": {
+    "description": "Button text to browse subcategories"
+  },
+  
+  "viewProducts": "View Products",
+  "compare": "Compare",
+  "vs": "VS",
+  "selectAtLeastTwoToCompare": "Select at least 2 products to compare",
+  "failedToLoadProductDetails": "Failed to load product details",
+  "@viewProducts": {
+    "description": "Button text to view products"
+  },
+  
+  "subcategoriesAvailable": "subcategories available",
+  "@subcategoriesAvailable": {
+    "description": "Text indicating number of subcategories available"
+  },
+  
+  "productsAvailable": "products available",
+  "@productsAvailable": {
+    "description": "Text indicating number of products available"
+  },
+  
+  "noSubcategoriesAvailable": "No subcategories available",
+  "@noSubcategoriesAvailable": {
+    "description": "Message when no subcategories are available"
+  },
+  
+  "browseProducts": "Browse products",
+  "@browseProducts": {
+    "description": "Text for browsing products in a category"
+  },
+  
+  "subcategories": "subcategories",
+  "@subcategories": {
+    "description": "Text for subcategories count"
+  },
+  
+  "popularSubcategories": "Popular subcategories:",
+  "@popularSubcategories": {
+    "description": "Label for popular subcategories section"
+  },
+  
+  "viewAllSubcategories": "View all subcategories",
+  "@viewAllSubcategories": {
+    "description": "Text for viewing all subcategories"
+  },
+  
+  "browseProductsInCategory": "Browse products in this category",
+  "@browseProductsInCategory": {
+    "description": "Text for browsing products in a specific category"
+  },
+  
+  "products": "products",
+  "@products": {
+    "description": "Text for products count"
+  },
+  
+  "tags": "Tags",
+  "@tags": {
+    "description": "Label for product tags section"
+  },
+  
+  "deliveryStatus": "Delivery Status",
+  "@deliveryStatus": {
+    "description": "Delivery status label"
+  },
+  
+  "currentLocation": "Current Location",
+  "@currentLocation": {
+    "description": "Current location label"
+  },
+  
+  "carrier": "Carrier",
+  "@carrier": {
+    "description": "Carrier label"
+  },
+  
+  "shippedOn": "Shipped On",
+  "@shippedOn": {
+    "description": "Shipped on label"
+  },
+  
+  "outForDeliveryOn": "Out for Delivery On",
+  "@outForDeliveryOn": {
+    "description": "Out for delivery on label"
+  },
+  
+  "trackYourOrder": "Track Your Order",
+  "@trackYourOrder": {
+    "description": "Track your order button text"
+  },
+  
+  "viewTrackingDetails": "View tracking details",
+  "@viewTrackingDetails": {
+    "description": "View tracking details text"
+  },
+  
+  "viewDetailedTrackingInformation": "View detailed tracking information",
+  "@viewDetailedTrackingInformation": {
+    "description": "View detailed tracking information text"
+  },
+  
+  "recipientName": "Recipient name",
+  "@recipientName": {
+    "description": "Recipient name label in shipping section"
+  },
+
+  "mobileNumber": "Mobile number",
+  "@mobileNumber": {
+    "description": "Mobile number label in shipping section"
+  },
+
+  "street": "Street",
+  "@street": {
+    "description": "Street label"
+  },
+
+  "street2": "Street 2",
+  "@street2": {
+    "description": "Second street line label"
+  },
+
+  "state": "State",
+  "@state": {
+    "description": "State label"
+  },
+
+  "zipCode": "ZIP code",
+  "@zipCode": {
+    "description": "Postal/ZIP code label"
+  },
+
+  "validityDate": "Validity date",
+  "@validityDate": {
+    "description": "Order validity date label"
+  },
+
+  "invoiceStatus": "Invoice status",
+  "@invoiceStatus": {
+    "description": "Invoice status label"
+  },
+
+  "shippingMethod": "Shipping method",
+  "@shippingMethod": {
+    "description": "Shipping method label"
+  },
+
+  "shippingCost": "Shipping cost",
+  "@shippingCost": {
+    "description": "Shipping cost label"
+  },
+
+  "transactionId": "Transaction ID",
+  "@transactionId": {
+    "description": "Transaction ID label"
+  },
+  
+  "statusHistory": "Status History",
+  "@statusHistory": {
+    "description": "Status history label"
+  },
+  
+  "notStarted": "Not Started",
+  "@notStarted": {
+    "description": "Not started delivery state"
+  },
+  
+  "preparing": "Preparing",
+  "@preparing": {
+    "description": "Preparing delivery state"
+  },
+  
+  "readyToShip": "Ready to Ship",
+  "@readyToShip": {
+    "description": "Ready to ship delivery state"
+  },
+  
+  "inTransit": "In Transit",
+  "@inTransit": {
+    "description": "In transit delivery state"
+  },
+  
+  "outForDelivery": "Out for Delivery",
+  "@outForDelivery": {
+    "description": "Out for delivery state"
+  },
+  
+  "deliveryFailed": "Delivery Failed",
+  "@deliveryFailed": {
+    "description": "Delivery failed state"
+  },
+  
+  "confirmed": "Confirmed",
+  "@confirmed": {
+    "description": "Confirmed status"
+  },
+  
+  "payment": "Payment",
+  "@payment": {
+    "description": "Payment page title"
+  },
+  
+  "paymentUrlMissing": "Payment URL is missing. Please try again.",
+  "@paymentUrlMissing": {
+    "description": "Error message when payment URL is missing"
+  },
+  
+  "invalidPaymentUrl": "Invalid payment URL. Please try again.",
+  "@invalidPaymentUrl": {
+    "description": "Error message when payment URL is invalid"
+  },
+  
+  "failedToLoadPaymentPage": "Failed to load payment page: {error}",
+  "@failedToLoadPaymentPage": {
+    "description": "Error message when payment page fails to load",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  
+  "loadingPaymentPage": "Loading payment page...",
+  "@loadingPaymentPage": {
+    "description": "Loading message for payment page"
+  },
+  
+  "paymentError": "Payment Error",
+  "@paymentError": {
+    "description": "Payment error title"
+  },
+  
+  "failedToLoadPaymentPageGeneric": "Failed to load payment page. Please try again.",
+  "@failedToLoadPaymentPageGeneric": {
+    "description": "Generic error message when payment page fails to load"
+  },
+  
+  "cancelPayment": "Cancel Payment",
+  "@cancelPayment": {
+    "description": "Cancel payment dialog title"
+  },
+  
+  "cancelPaymentConfirmation": "Are you sure you want to cancel this payment?",
+  "@cancelPaymentConfirmation": {
+    "description": "Cancel payment confirmation message"
+  },
+  
+  "yes": "Yes",
+  "@yes": {
+    "description": "Yes button text"
+  },
+  
+  "no": "No",
+  "@no": {
+    "description": "No button text"
+  },
+  
+  "paymentCancelledOrFailed": "Payment was cancelled or failed",
+  "@paymentCancelledOrFailed": {
+    "description": "Message when payment is cancelled or fails"
+  },
+  
+  "noComponentsYet": "No components yet",
+  "@noComponentsYet": {
+    "description": "Empty state title when no page components are available"
+  },
+  
+  "addComponentsFromDashboard": "Add components from dashboard to populate this page.",
+  "@addComponentsFromDashboard": {
+    "description": "Empty state description instructing to add components from dashboard"
+  },
+  
+  "noInvoiceFoundForOrder": "No invoice found for this order",
+  "@noInvoiceFoundForOrder": {
+    "description": "Error message when invoice is not found for an order"
+  },
+  
+  "invalidInvoiceFileFormat": "Invalid invoice file format",
+  "@invalidInvoiceFileFormat": {
+    "description": "Error message when invoice file format is invalid"
+  },
+  
+  "couldNotAccessStorageDirectory": "Could not access storage directory",
+  "@couldNotAccessStorageDirectory": {
+    "description": "Error message when storage directory cannot be accessed"
+  },
+  
+  "invoiceDownloadedAndOpened": "Invoice downloaded and opened",
+  "@invoiceDownloadedAndOpened": {
+    "description": "Success message when invoice is downloaded and opened"
+  },
+  
+  "invoiceSavedChooseHowToOpen": "Invoice saved. Choose how to open it.",
+  "@invoiceSavedChooseHowToOpen": {
+    "description": "Message when invoice is saved and user needs to choose how to open it"
+  },
+  
+  "invoiceSavedButCouldNotOpen": "Invoice saved but could not open. Please install a PDF viewer.",
+  "@invoiceSavedButCouldNotOpen": {
+    "description": "Message when invoice is saved but cannot be opened"
+  },
+  
+  "tryOpeningFromFileManager": "Try opening from your file manager.",
+  "@tryOpeningFromFileManager": {
+    "description": "Message suggesting to open file from file manager"
+  },
+  
+  "invoiceDownloaded": "Invoice downloaded",
+  "@invoiceDownloaded": {
+    "description": "Success message prefix for invoice download"
+  },
+  
+  "failedToDownloadInvoice": "Failed to download invoice",
+  "@failedToDownloadInvoice": {
+    "description": "Error message when invoice download fails"
+  },
+  
+  "authenticationRequiredPleaseLogin": "Authentication required. Please log in again.",
+  "@authenticationRequiredPleaseLogin": {
+    "description": "Error message when authentication is required"
+  },
+  
+  "trackingUrlNotAvailable": "Tracking URL not available. Please try again later.",
+  "@trackingUrlNotAvailable": {
+    "description": "Error message when tracking URL is not available"
+  },
+  
+  "invalidTrackingUrlFormat": "Invalid tracking URL format",
+  "@invalidTrackingUrlFormat": {
+    "description": "Error message when tracking URL format is invalid"
+  },
+  
+  "couldNotOpenTrackingLink": "Could not open tracking link",
+  "@couldNotOpenTrackingLink": {
+    "description": "Error message when tracking link cannot be opened"
+  },
+  
+  "failedToOpenTrackingLink": "Failed to open tracking link",
+  "@failedToOpenTrackingLink": {
+    "description": "Error message when opening tracking link fails"
+  },
+  
+  "invoiceForOrder": "Invoice for Order",
+  "@invoiceForOrder": {
+    "description": "Text prefix for invoice sharing"
+  },
+  
+  "deliveryStatusNew": "Order created",
+  "@deliveryStatusNew": {
+    "description": "Delivery status - new order created"
+  },
+  
+  "deliveryStatusScheduled": "Order scheduled for pick-up",
+  "@deliveryStatusScheduled": {
+    "description": "Delivery status - scheduled for pick-up"
+  },
+  
+  "deliveryStatusCollecting": "Pick-up agent heading to collect the order",
+  "@deliveryStatusCollecting": {
+    "description": "Delivery status - collecting"
+  },
+  
+  "deliveryStatusCollected": "Pick-up agent collected the order",
+  "@deliveryStatusCollected": {
+    "description": "Delivery status - collected"
+  },
+  
+  "deliveryStatusInTransit": "Order received at warehouse and in transit",
+  "@deliveryStatusInTransit": {
+    "description": "Delivery status - in-transit"
+  },
+  
+  "deliveryStatusOnHold": "Unexpected event happened and order is on hold",
+  "@deliveryStatusOnHold": {
+    "description": "Delivery status - on-hold"
+  },
+  
+  "deliveryStatusOutForDelivery": "Order out for delivery to the customer",
+  "@deliveryStatusOutForDelivery": {
+    "description": "Delivery status - out-for-delivery"
+  },
+  
+  "deliveryStatusPartiallyDelivered": "Order partially delivered",
+  "@deliveryStatusPartiallyDelivered": {
+    "description": "Delivery status - partially-delivered"
+  },
+  
+  "deliveryStatusReturnedWarehouse": "RTO received at warehouse from the last-mile carrier",
+  "@deliveryStatusReturnedWarehouse": {
+    "description": "Delivery status - returned-warehouse"
+  },
+  
+  "deliveryStatusReturningOrigin": "RTO scheduled to delivery to merchant",
+  "@deliveryStatusReturningOrigin": {
+    "description": "Delivery status - returning-origin"
+  },
+  
+  "deliveryStatusPartiallyReturned": "RTO partially returned to merchant",
+  "@deliveryStatusPartiallyReturned": {
+    "description": "Delivery status - partially-returned"
+  },
+  
+  "deliveryStatusPostponed": "Order re-scheduled for another date for delivery",
+  "@deliveryStatusPostponed": {
+    "description": "Delivery status - postponed"
+  }
+}

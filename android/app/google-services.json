@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "124510041370",
+    "project_id": "shoes-f3cf8",
+    "storage_bucket": "shoes-f3cf8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:124510041370:android:54598c78c0b412eb8ba8a3",
+        "android_client_info": {
+          "package_name": "com.borderlesssecurity.bazar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "124510041370-fo150o1f2t647hr442rhr5pdgbqc7jps.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.borderlesssecurity.bazar",
+            "certificate_hash": "48e2a3bc40777a44d12c6bd50c70d75f184cdd86"
+          }
+        },
+        {
+          "client_id": "124510041370-msm6j9ulanj7ho1mecf0bs9i46eu0r09.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAB50lKxtN3ndtsmTSF4n2IPdXcm7wN7eQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "124510041370-msm6j9ulanj7ho1mecf0bs9i46eu0r09.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "124510041370-4bun2k4m0hue26j3sv7jjar0egbejd9o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.borderlesssecurity.bazar"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

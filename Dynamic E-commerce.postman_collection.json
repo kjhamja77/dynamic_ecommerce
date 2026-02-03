@@ -1,0 +1,2416 @@
+{
+	"info": {
+		"_postman_id": "6723be07-0536-45ad-98dd-3a56e303c5d6",
+		"name": "Dynamic E-commerce",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "48286195",
+		"_collection_link": "https://daleelm-api.postman.co/workspace/Dynamic-Ecomerce~ce8b2cd2-c9c3-40f4-ba5b-d21eaa000062/collection/37647115-6723be07-0536-45ad-98dd-3a56e303c5d6?action=share&source=collection_link&creator=48286195"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Mobile number login",
+					"item": [
+						{
+							"name": "Verify mobile code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"user_id\": 17,\r\n        \"verification_code\": \"4369\"\r\n        }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/portal/verify/mobile-code",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"portal",
+										"verify",
+										"mobile-code"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Resend mobile verification",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"user_id\": 2\r\n        }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/portal/resend/mobile-verification",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"portal",
+										"resend",
+										"mobile-verification"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"email\": \"jamesm@gm.com\",\r\n        \"password\": \"Abc12345\",\r\n        \"device_id\": \"qwqwq112\",\r\n        \"device_token\": \"eeqwqeq12\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{bazar}}/ecom/portal/login",
+							"host": [
+								"{{bazar}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"first_name\": \"Joe\",\r\n        \"last_name\": \"L\",\r\n        \"email\": \"joe@gm.com\",\r\n        \"password\": \"12345678\",\r\n        \"phone\": \"971589538389\",\r\n        \"country_code\":\"971\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{TestDbUrl}}/ecom/portal/register",
+							"host": [
+								"{{TestDbUrl}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer ea0d6ff577504152560dd193b019702e",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"user_id\": 9\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/portal/logout",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer ea0d6ff577504152560dd193b019702e",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"email\": \"john@example.com\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/portal/reset/password",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"reset",
+								"password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Token Verification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer ea0d6ff577504152560dd193b019702e",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"api_token\": \"ea0d6ff577504152560dd193b019702e\",\r\n        \"user_id\": \"9\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/portal/verify-token",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"verify-token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Resend mail verification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"user_id\": 9\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/portal/resend/mail-verification",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"portal",
+								"resend",
+								"mail-verification"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Google login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"id_token\": \"21weqeq\", // this id you will get from google, by using google sdk for login\r\n        \"device_id\": \"qwqwq112\",\r\n        \"device_token\": \"eeqwqeq12\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/auth/google",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"auth",
+								"google"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Guest Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"device_id\": \"qwqwq112\",\r\n        \"device_token\": \"eeqwqeq12\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/guest/login",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"guest",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Design APIs",
+			"item": [
+				{
+					"name": "Get Pages",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							},
+							{
+								"key": "Accept-Language",
+								"value": "ar_001",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"user_id\": 9\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/pages",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"pages"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Page Components",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{bazartoken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"component_id\": 1,\r\n        \"page\":1,\r\n        \"page_size\":10\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{bazar}}/ecom/get/component",
+							"host": [
+								"{{bazar}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"component"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Onboarding",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {}\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/onboarding",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"onboarding"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Welcome Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {}\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/welcome-message",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"welcome-message"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Profile",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"get\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/profile",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"update\",\r\n        \"name\": \"John Doe\",\r\n        \"phone\": \"+1 555 123 4567\",\r\n        \"street\": \"123 Main St\",\r\n        \"city\": \"Los Angeles\",\r\n        \"zip\": \"90001\",\r\n        \"image\": \"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\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/profile",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Master Data",
+			"item": [
+				{
+					"name": "Get Country List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {}\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/country-list",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"country-list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get State List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"country_id\":2\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/state-list",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"state-list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Available Language",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/language-list",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"language-list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Terms&Conditions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/terms-conditions",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"terms-conditions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Iq Provinces",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": []
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/iq_provice-list",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"iq_provice-list"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Address",
+			"item": [
+				{
+					"name": "Get Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"list\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/address",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"address"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n            \"action\": \"update\",\r\n            \"address_id\": 67,\r\n            \"street\": \"456 New St\",\r\n            \"zip\": \"90002\",\r\n            \"province_id\":1,\r\n            \"delivery_instruction\":\"\",\r\n            \"default_address\": true\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/address",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"address"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"delete\",\r\n        \"address_id\": 72\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/address",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"address"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"create\",\r\n        \"addresses\": [\r\n            {\"name\": \"Home\", \"street\": \"123 Main\", \"city\": \"LA\", \"zip\": \"90001\", \"country_id\": 233, \"state_id\": 1415, \"type\": \"delivery\", \"province_id\":1},\r\n            {\"name\": \"Office\", \"street\": \"1 Market\", \"city\": \"SF\", \"zip\": \"94105\", \"country_id\": 233, \"state_id\": 1415, \"type\": \"invoice\", \"province_id\":2}\r\n        ]\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/user/address",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"user",
+								"address"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product",
+			"item": [
+				{
+					"name": "Get Product Variant by ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"id\": 92,\r\n        \"type\": \"variant\"\r\n        // \"template_id\": 9\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get  Product Template by ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							},
+							{
+								"key": "Accept-Language",
+								"value": "ar_001",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"id\": 36,\r\n        \"type\": \"template\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"limit\":2,\r\n        \"offset\":4\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product Filter",
+			"item": [
+				{
+					"name": "Get categories",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "page",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "limit",
+									"value": "6",
+									"type": "text"
+								},
+								{
+									"key": "parent_id",
+									"value": "",
+									"description": "you can add parent id here for filtering sub category",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/product/categories",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product",
+								"categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Attributes and values",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "page",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"type": "text"
+								},
+								{
+									"key": "category_id",
+									"value": "38",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/product/attributes",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product",
+								"attributes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product Brand",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "page",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"type": "text"
+								},
+								{
+									"key": "category_id",
+									"value": "38",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/product/brands",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product",
+								"brands"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Other Filter Options",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": []
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/product/filter-options",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product",
+								"filter-options"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{bazartoken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"page\": 1,\r\n        \"limit\": 20,\r\n        \"category_ids\": [40],\r\n        \"min_price\": \"\",\r\n        \"max_price\": \"\",\r\n        \"search_term\": \"\",\r\n        \"brand_ids\": [],\r\n        \"attribute_values\": [],\r\n        \"stock_filter\": \"\",\r\n        \"sort_by\": \"price\",\r\n        \"sort_order\": \"asc\"\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{bazar}}/ecom/get/product/filter-search",
+							"host": [
+								"{{bazar}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product",
+								"filter-search"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product Category",
+			"item": [
+				{
+					"name": "Get Root Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"max_depth\":1\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product-category",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product-category"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category with ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"parent_id\":2,\r\n        \"max_depth\":1\r\n    }\r\n}\r\n\r\n// if you give max_depth as 0 it will fetch all the categories and its children categories.\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/get/product-category",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product-category"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"max_depth\":1,\r\n        \"limit\":4,\r\n        \"offset\":1\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product-category",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product-category"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product by Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"public_categ_ids\": [12],\r\n        \"limit\": 20,\r\n        \"offset\": 0\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/get/product",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"get",
+								"product"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product Wish List",
+			"item": [
+				{
+					"name": "Add Wishlist",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"add\",\r\n        \"product_id\": 36\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/product/wish-list",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"wish-list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Wishlist",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"remove\",\r\n        \"product_id\": 36\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/product/wish-list",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"wish-list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Wishlist",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{Token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"list\"    \r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BaseUrl}}/ecom/product/wish-list",
+							"host": [
+								"{{BaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"wish-list"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Cart",
+			"item": [
+				{
+					"name": "Add to Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"add\",\r\n        \"product_id\":17,\r\n        \"quantity\":1\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove product from cart by qty",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"remove\",\r\n        \"product_id\":23,\r\n        \"quantity\":1\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove whole product from cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"remove\",\r\n        \"product_id\":36\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update qty of product in cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"update\",\r\n        \"product_id\":36,\r\n        \"quantity\":1\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Whole Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"get\",\r\n        \"page\": 1,\r\n        \"page_size\": 10\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Clear cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"action\": \"clear_cart\"\r\n        }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/product/cart",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"product",
+								"cart"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Check Out APIs",
+			"item": [
+				{
+					"name": "Shipping Method",
+					"item": [
+						{
+							"name": "Get shipping method",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 48\r\n        }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/get/ShippingMethods",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"get",
+										"ShippingMethods"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Apply Shipping Method",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 48,\r\n        \"shipping_method_id\": 1\r\n        }\r\n}\r\n\r\n// you will get updated order details which includes shipping price. update total price from the response.",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/apply/ShippingMethods",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"apply",
+										"ShippingMethods"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Promo code apply",
+					"item": [
+						{
+							"name": "Get Promocodes(pricelist)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 48\r\n        }\r\n}\r\n\r\n// use the code to apply discounts",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/get/Pricelists",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"get",
+										"Pricelists"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Apply promo code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 48,\r\n        \"pricelist_id\": 1,\r\n        \"promo_code\":\"XMAS\"\r\n        }\r\n}\r\n\r\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/apply/Pricelist",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"apply",
+										"Pricelist"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Order Apis",
+					"item": [
+						{
+							"name": "Get Order History List",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "page",
+											"value": "1",
+											"type": "text"
+										},
+										{
+											"key": "limit",
+											"value": "1",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/sale/orderHistory",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"sale",
+										"orderHistory"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Order Details",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 70\r\n        }\r\n}\r\n\r\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/sale/orderDetails",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"sale",
+										"orderDetails"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Download Invoice",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "page",
+											"value": "1",
+											"type": "text",
+											"disabled": true
+										},
+										{
+											"key": "limit",
+											"value": "1",
+											"type": "text",
+											"disabled": true
+										}
+									]
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/sale/download-invoice?order_id=70",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"sale",
+										"download-invoice"
+									],
+									"query": [
+										{
+											"key": "order_id",
+											"value": "70"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Place Order APIs",
+			"item": [
+				{
+					"name": "Payment",
+					"item": [
+						{
+							"name": "Get Payment Method",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{ecomToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{BaseUrl}}/ecom/get/PaymentMethods",
+									"host": [
+										"{{BaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"get",
+										"PaymentMethods"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Apply Payment method",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{ecomToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 43,\r\n        \"payment_method_id\": 202\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{BaseUrl}}/ecom/apply/PaymentMethod",
+									"host": [
+										"{{BaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"apply",
+										"PaymentMethod"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Place order",
+					"item": [
+						{
+							"name": "Place Order",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{ecomToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 43,\r\n        \"address_id\": 62\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{BaseUrl}}/ecom/sale/placeOrder",
+									"host": [
+										"{{BaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"sale",
+										"placeOrder"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "alqaseh",
+					"item": [
+						{
+							"name": "create_payment",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"order_id\":45\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/api/alqaseh/create_payment",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"api",
+										"alqaseh",
+										"create_payment"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Webhook Test",
+							"request": {
+								"method": "GET",
+								"header": []
+							},
+							"response": []
+						},
+						{
+							"name": "retry test",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "Authorization",
+										"value": "Basic public_test:Lr10yWWmm1dXLoI7VgXCrQVnlq13c1G0",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"details\": \"\",\r\n        \"payment_id\": \"295470000728745756792\"\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://api-test.alqaseh.com/v1/egw/payments/retry",
+									"protocol": "https",
+									"host": [
+										"api-test",
+										"alqaseh",
+										"com"
+									],
+									"path": [
+										"v1",
+										"egw",
+										"payments",
+										"retry"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get payment info",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "page",
+											"value": "1",
+											"type": "text",
+											"disabled": true
+										},
+										{
+											"key": "limit",
+											"value": "1",
+											"type": "text",
+											"disabled": true
+										}
+									]
+								},
+								"url": {
+									"raw": "{{LocalBaseUrl}}/ecom/get/payment-info?order_id=73",
+									"host": [
+										"{{LocalBaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"get",
+										"payment-info"
+									],
+									"query": [
+										{
+											"key": "order_id",
+											"value": "73"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Delivery",
+					"item": [
+						{
+							"name": "Get Delivery Status",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{LocalToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"params\": {\r\n        \"action\": \"create\",\r\n        \"addresses\": [\r\n            {\"name\": \"Home\", \"street\": \"123 Main\", \"city\": \"LA\", \"zip\": \"90001\", \"country_id\": 233, \"state_id\": 1415, \"type\": \"delivery\", \"province_id\":1},\r\n            {\"name\": \"Office\", \"street\": \"1 Market\", \"city\": \"SF\", \"zip\": \"94105\", \"country_id\": 233, \"state_id\": 1415, \"type\": \"invoice\", \"province_id\":2}\r\n        ]\r\n    }\r\n}"
+								},
+								"url": {
+									"raw": "{{BaseUrl}}/ecom/get/delivery-status?order_id=50",
+									"host": [
+										"{{BaseUrl}}"
+									],
+									"path": [
+										"ecom",
+										"get",
+										"delivery-status"
+									],
+									"query": [
+										{
+											"key": "order_id",
+											"value": "50"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Return/Refund Order",
+			"item": [
+				{
+					"name": "Create Refund/Return Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"order_id\": 55,\r\n        \"refund_lines\":[\r\n            {\"line_id\":84, \"quantity\":1}\r\n            ],\r\n        \"reason\":\"Cancel\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/sale/createRefundRequest",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"sale",
+								"createRefundRequest"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Refund/Return List",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "page",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "limit",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/sale/getRefundRequests",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"sale",
+								"getRefundRequests"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Refund/Return Details",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{LocalToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"params\": {\r\n        \"request_id\": 4\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LocalBaseUrl}}/ecom/sale/getRefundRequestDetails",
+							"host": [
+								"{{LocalBaseUrl}}"
+							],
+							"path": [
+								"ecom",
+								"sale",
+								"getRefundRequestDetails"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "BaseUrl",
+			"value": ""
+		},
+		{
+			"key": "LocalBaseUrl",
+			"value": ""
+		},
+		{
+			"key": "LocalToken",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "bazar",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "bazarlocal",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "bazartoken",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "ecomToken",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "TestUrl",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "TestToken",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "TestDbUrl",
+			"value": "",
+			"type": "default"
+		}
+	]
+}
