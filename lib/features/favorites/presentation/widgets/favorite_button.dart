@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/responsive_constants.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/navigation/navigation_service.dart';
+import '../../../../core/theme/app_fonts.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/bloc/biometric_bloc.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../bloc/favorites_bloc.dart';
 import '../bloc/favorites_event.dart';
 import '../bloc/favorites_state.dart';
@@ -41,11 +50,13 @@ class _FavoriteButtonState extends State<FavoriteButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  bool _isGuest = false;
   // Removed unused tap flag
 
   @override
   void initState() {
     super.initState();
+    _checkGuest();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -59,6 +70,19 @@ class _FavoriteButtonState extends State<FavoriteButton>
     ));
   }
 
+  Future<void> _checkGuest() async {
+    try {
+      final storage = di.sl<FlutterSecureStorage>();
+      final cached = await storage.read(key: AppConstants.userKey);
+      final isGuest = (cached ?? '').toLowerCase().contains('guest: true');
+      if (mounted) {
+        setState(() {
+          _isGuest = isGuest;
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -67,6 +91,8 @@ class _FavoriteButtonState extends State<FavoriteButton>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return BlocListener<FavoritesBloc, FavoritesState>(
       listener: (context, state) {
         if (state is FavoritesError) {
@@ -87,7 +113,101 @@ class _FavoriteButtonState extends State<FavoriteButton>
           return Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => _toggleFavorite(context, currentIsFavorite),
+              onTap: () => _isGuest
+                  ?showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) {
+                  return Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    insetPadding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Padding(
+                        padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+
+                            // Icon Circle
+                            Container(
+                              width: 84,
+                              height: 84,
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.lock_outline,
+                                size: 44,
+                                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+
+                            SizedBox(height: ResponsiveConstants.mdSpacing),
+
+                            // Title
+                            Text(
+                              AppLocalizations.of(context)!.guestUser,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.lgFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+
+                            SizedBox(height: ResponsiveConstants.xsSpacing),
+
+                            // Subtitle
+                            Text(
+                              AppLocalizations.of(context)!.signInToUnlockFeatures,
+                              style: AppFonts.getTextStyle(
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+
+                            SizedBox(height: ResponsiveConstants.lgSpacing),
+
+                            // Button
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context); // close dialog first
+                                  context.pushAuth(
+                                    BlocProvider(
+                                      create: (context) => di.sl<BiometricBloc>(),
+                                      child: const LoginPage(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colorScheme.primary,
+                                  foregroundColor: colorScheme.onPrimary,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  AppLocalizations.of(context)!.signIn,
+                                  style: AppFonts.getTextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              )
+                :_toggleFavorite(context, currentIsFavorite),
               borderRadius: BorderRadius.circular(widget.isCompact ? 16 : 20),
               child: AnimatedBuilder(
                 animation: _scaleAnimation,

@@ -764,9 +764,13 @@ Widget _buildFullWidthAttributeButtons({
 
   final attrNameLower = attributeName.toLowerCase();
   final colorScheme = Theme.of(context).colorScheme;
+  // If an attribute (Size, Material, Height, etc.) has ONLY one option,
+  // we want it to be pre-selected but not tappable, since there is no
+  // meaningful alternative for the user to choose.
+  final bool isSingleOptionAttribute = values.length == 1;
   // Auto-select visual state for single-option non-color attributes
   final bool shouldForceSelectedForSingleOption =
-      values.length == 1 &&
+      isSingleOptionAttribute &&
       attrNameLower != 'color' &&
       attrNameLower != 'colour' &&
       attrNameLower != 'color name' &&
@@ -793,51 +797,81 @@ Widget _buildFullWidthAttributeButtons({
                 value.name == productDetails.selectedSize)
             : (value.isSelected || shouldForceSelectedForSingleOption);
 
+        // Interaction rule:
+        // - If there's only ONE option for this attribute (size/material/height),
+        //   we disable tapping – it's already selected and cannot be changed.
+        // - Otherwise keep existing behaviour (size always tappable, others only
+        //   when available).
+        final bool isTapEnabled = !isSingleOptionAttribute &&
+            (isSizeAttribute || (!isSizeAttribute && value.isAvailable));
+
+        final bool showDisabledVisual = isSingleOptionAttribute;
+        // Enabled visual state:
+        // - All SIZE options (since they are always tappable for preview)
+        // - Non-size options that are available and not the single-option case
+        final bool isEnabledChoice = !showDisabledVisual &&
+            (isSizeAttribute || value.isAvailable == true);
+
         return Opacity(
-          // Sizes should always look enabled when stock exists in any variant.
-          opacity: isSizeAttribute ? 1.0 : (value.isAvailable ? 1.0 : 0.5),
+          // Grey out completely when visually disabled; otherwise keep old logic.
+          opacity: showDisabledVisual
+              ? 0.6
+              : (isSizeAttribute ? 1.0 : (value.isAvailable ? 1.0 : 0.5)),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque, // Ensure taps are captured
-            onTap: isSizeAttribute
+            onTap: isTapEnabled
                 ? () {
-                    // Size buttons are ALWAYS clickable, regardless of availability
-                    debugPrint('🎯 Size button tapped: ${value.name} (id: ${value.id})');
-                    final bloc = context.read<ProductDetailsBloc>();
-                    bloc.add(
-                      SelectSizeEvent(
-                        productId: productDetails.id,
-                        sizeId: value.id,
-                      ),
-                    );
+                    if (isSizeAttribute) {
+                      // Size buttons are clickable only when there is more than one size option.
+                      debugPrint('🎯 Size button tapped: ${value.name} (id: ${value.id})');
+                      final bloc = context.read<ProductDetailsBloc>();
+                      bloc.add(
+                        SelectSizeEvent(
+                          productId: productDetails.id,
+                          sizeId: value.id,
+                        ),
+                      );
+                    } else {
+                      // For material/height etc., keep using generic filter
+                      context.read<ProductDetailsBloc>().add(
+                        FilterVariantsByAttributeEvent(
+                          productId: productDetails.id,
+                          attributeName: attributeName,
+                          attributeValue: value.name,
+                        ),
+                      );
+                    }
                   }
-                : (value.isAvailable
-                    ? () {
-                        // For material/height etc., keep using generic filter
-                        context.read<ProductDetailsBloc>().add(
-                          FilterVariantsByAttributeEvent(
-                            productId: productDetails.id,
-                            attributeName: attributeName,
-                            attributeValue: value.name,
-                          ),
-                        );
-                      }
-                    : null),
+                : null,
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.mdPadding,
                 vertical: ResponsiveConstants.smPadding,
               ),
               decoration: BoxDecoration(
-                color: isSelected 
-                    ? primary 
-                    : colorScheme.surface.withValues(alpha: 0.5),
+                // Background:
+                // - single-option (disabled): softer grey
+                // - selected: solid primary
+                // - other choices: neutral surface
+                color: showDisabledVisual
+                    ? colorScheme.surface.withValues(alpha: 0.3)
+                    : (isSelected
+                        ? primary
+                        : colorScheme.surface.withValues(alpha: 0.5)),
+                // Border:
+                // - disabled: light outline
+                // - selected: primary
+                // - enabled (but not selected): primary border to indicate it's clickable
+                // - unavailable: faint outline
                 border: Border.all(
-                  color: isSelected
-                      ? primary
-                      : (value.isAvailable
-                            ? colorScheme.outline.withValues(alpha: 0.3)
-                            : colorScheme.outline.withValues(alpha: 0.2)),
-                  width: isSelected ? 2 : 1,
+                  color: showDisabledVisual
+                      ? colorScheme.outline.withValues(alpha: 0.3)
+                      : (isSelected
+                          ? primary
+                          : (isEnabledChoice
+                              ? primary
+                              : colorScheme.outline.withValues(alpha: 0.2))),
+                  width: showDisabledVisual ? 1 : (isSelected ? 2 : 1),
                 ),
                 borderRadius: BorderRadius.circular(
                   ResponsiveConstants.smRadius,
@@ -848,11 +882,18 @@ Widget _buildFullWidthAttributeButtons({
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
                   fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? colorScheme.onPrimary
-                      : (value.isAvailable
-                            ? colorScheme.onSurface
-                            : colorScheme.onSurface.withValues(alpha: 0.4)),
+                  // Text color:
+                  // - disabled: grey
+                  // - selected: onPrimary
+                  // - enabled (not selected): primary text
+                  // - unavailable: faint grey
+                  color: showDisabledVisual
+                      ? colorScheme.onSurface.withValues(alpha: 0.4)
+                      : (isSelected
+                          ? colorScheme.onPrimary
+                          : (isEnabledChoice
+                              ? primary
+                              : colorScheme.onSurface.withValues(alpha: 0.4))),
                 ),
               ),
             ),

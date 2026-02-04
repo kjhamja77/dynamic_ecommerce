@@ -788,10 +788,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
     }
 
-    // Step 5: update overall availability based on exact match
-    bool newInStock = currentProduct.inStock;
-    if (matching.length == 1) {
-      newInStock = matching.first.inStock;
+    // Step 5: update overall availability based on the *currently selected* combination.
+    // If there is no variant that matches all selected attributes (size, color, etc.),
+    // we must treat the current combination as out of stock even if other variants exist.
+    bool newInStock;
+    if (matching.isEmpty) {
+      // No variant matches the current selection → this combination is out of stock.
+      newInStock = false;
+      developer.log(
+        '📦 No matching variants for current selection (size="$newSelectedSize", color="$newSelectedColor"). '
+        'Marking inStock = false for this combination.',
+        name: 'ProductDetails/Stock',
+      );
+    } else {
+      // At least one matching variant exists; consider it in stock only if any matching
+      // variant is actually available according to _isVariantInStock (inStock flag + qty).
+      final hasAvailable = matching.any(_isVariantInStock);
+      newInStock = hasAvailable;
+      developer.log(
+        '📦 Found ${matching.length} matching variants for current selection '
+        '(size="$newSelectedSize", color="$newSelectedColor"), '
+        'availableMatches=$hasAvailable → inStock=$newInStock',
+        name: 'ProductDetails/Stock',
+      );
     }
     
     // Step 6: If size was changed, update color availability
@@ -1314,7 +1333,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         // Update color options to reflect availability
         // If a size is selected, check availability for that size; otherwise check all variants
-        final updatedColorOptions = productDetails.colorOptions.map((color) {
+        List<ColorOption> updatedColorOptions = productDetails.colorOptions.map((color) {
           // Get the actual color name from variantAttributeOptions (for matching)
           String? colorNameForMatching;
           for (final opt in productDetails.variantAttributeOptions) {
@@ -1382,6 +1401,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             isAvailable: hasInStockVariant,
           );
         }).toList();
+
+        // UX rule: when there is ONLY one color option, do not disable it.
+        // Even if stock heuristics consider it unavailable, we always want
+        // the single color to remain selectable and not visually greyed out.
+        if (updatedColorOptions.length == 1) {
+          final only = updatedColorOptions.first;
+          updatedColorOptions = [
+            ColorOption(
+              id: only.id,
+              name: only.name,
+              displayName: only.displayName,
+              code: only.code,
+              images: only.images,
+              // Force it to be both available and selected for better UX.
+              isSelected: true,
+              isAvailable: true,
+            ),
+          ];
+          developer.log(
+            '🎨 Single color detected on initial load → forcing available & selected: "${only.displayNameOrName}"',
+            name: 'ProductDetails/ColorOptions',
+          );
+        }
         
         // Derive defaults for Material and Height when there is only ONE option
         String? initialSelectedMaterial = productDetails.selectedMaterial;
@@ -1857,7 +1899,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       
       // Update color options - preserve availability from current state
-      final updatedColorOptions = currentProduct.colorOptions.map((color) {
+      List<ColorOption> updatedColorOptions = currentProduct.colorOptions.map((color) {
         return ColorOption(
           id: color.id,
           name: color.name,
@@ -3202,7 +3244,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       developer.log('🔍 Updating ${currentProduct.colorOptions.length} color options for size "$selectedPrimaryValue"');
       developer.log('🔍 Color availability map has ${colorAvailabilityMap.length} entries: ${colorAvailabilityMap.entries.map((e) => '"${e.key}":${e.value}').toList()}');
       
-      final updatedColorOptions = currentProduct.colorOptions.map((color) {
+      List<ColorOption> updatedColorOptions = currentProduct.colorOptions.map((color) {
         // Get the actual color name from variantAttributeOptions (for matching)
         String? colorNameForMatching = _getColorNameFromOption(color, currentProduct);
         if (colorNameForMatching == null) {
@@ -3312,6 +3354,27 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           isAvailable: isAvailable, // CRITICAL: Set availability
         );
       }).toList();
+
+      // UX rule: if there is ONLY one color for this size/primary selection,
+      // never disable it. Users should always see that color as available.
+      if (updatedColorOptions.length == 1) {
+        final only = updatedColorOptions.first;
+        updatedColorOptions = [
+          ColorOption(
+            id: only.id,
+            name: only.name,
+            displayName: only.displayName,
+            code: only.code,
+            images: only.images,
+            isSelected: true,
+            isAvailable: true,
+          ),
+        ];
+        developer.log(
+          '🎨 Single color detected after size/attribute change → forcing available & selected: "${only.displayNameOrName}"',
+          name: 'ProductDetails/ColorOptions',
+        );
+      }
       
       final enabledColors = updatedColorOptions.where((c) => c.isAvailable).length;
       final disabledColors = updatedColorOptions.where((c) => !c.isAvailable).length;

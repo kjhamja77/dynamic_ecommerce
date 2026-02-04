@@ -458,17 +458,12 @@ class _ColorOptionCard extends StatelessWidget {
                             ),
                           ),
                         
-                        // Overlay for unavailable colors
+                        // Overlay for unavailable colors:
+                        // keep a subtle dimming effect, but remove the "blocked" icon
+                        // to avoid conflicting with the global "In stock" badge.
                         if (!isAvailable)
                           Container(
-                            color: colorScheme.surface.withValues(alpha: 0.7),
-                            child: Center(
-                              child: Icon(
-                                Icons.block,
-                                color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                size: 32,
-                              ),
-                            ),
+                            color: colorScheme.surface.withValues(alpha: 0.6),
                           ),
                         
                         // Selected indicator
