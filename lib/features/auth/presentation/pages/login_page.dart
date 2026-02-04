@@ -523,148 +523,148 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 12),
 
                   // Social Login Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final idToken = await _getGoogleIdToken();
-                            if (!mounted || idToken == null || idToken.isEmpty) return;
-                            context.read<AuthBloc>().add(GoogleLoginRequested(idToken: idToken));
-                          },
-                          icon: Image.asset(
-                            'assets/images/google.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                          label: Text(
-                            AppLocalizations.of(context)!.google,
-                            style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-                            foregroundColor: colorScheme.onSurface,
-                            backgroundColor: colorScheme.surface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            // Handle Apple sign in
-                          },
-                          icon: Image.asset(
-                            'assets/images/apple.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                          label: Text(
-                            AppLocalizations.of(context)!.apple,
-                            style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-                            foregroundColor: colorScheme.onSurface,
-                            backgroundColor: colorScheme.surface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Row(
+                  //   children: [
+                  //     Expanded(
+                  //       child: OutlinedButton.icon(
+                  //         onPressed: () async {
+                  //           final idToken = await _getGoogleIdToken();
+                  //           if (!mounted || idToken == null || idToken.isEmpty) return;
+                  //           context.read<AuthBloc>().add(GoogleLoginRequested(idToken: idToken));
+                  //         },
+                  //         icon: Image.asset(
+                  //           'assets/images/google.png',
+                  //           width: 24,
+                  //           height: 24,
+                  //         ),
+                  //         label: Text(
+                  //           AppLocalizations.of(context)!.google,
+                  //           style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
+                  //             color: colorScheme.onSurface,
+                  //           ),
+                  //         ),
+                  //         style: OutlinedButton.styleFrom(
+                  //           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+                  //           foregroundColor: colorScheme.onSurface,
+                  //           backgroundColor: colorScheme.surface,
+                  //           shape: RoundedRectangleBorder(
+                  //             borderRadius: BorderRadius.circular(12),
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 12),
+                  //     Expanded(
+                  //       child: OutlinedButton.icon(
+                  //         onPressed: () {
+                  //           // Handle Apple sign in
+                  //         },
+                  //         icon: Image.asset(
+                  //           'assets/images/apple.png',
+                  //           width: 24,
+                  //           height: 24,
+                  //         ),
+                  //         label: Text(
+                  //           AppLocalizations.of(context)!.apple,
+                  //           style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
+                  //             color: colorScheme.onSurface,
+                  //           ),
+                  //         ),
+                  //         style: OutlinedButton.styleFrom(
+                  //           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+                  //           foregroundColor: colorScheme.onSurface,
+                  //           backgroundColor: colorScheme.surface,
+                  //           shape: RoundedRectangleBorder(
+                  //             borderRadius: BorderRadius.circular(12),
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
                   
                   const SizedBox(height: 14),
                   
                   // Biometric Authentication Button / Prompt
-                  BlocBuilder<BiometricBloc, BiometricState>(
-                    builder: (context, state) {
-                      if (state is BiometricSettingsLoaded) {
-                        _lastBiometricSettings = state.settings;
-                        if (state.settings.isEnabled) {
-                          return Column(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  context.read<BiometricBloc>().add(AuthenticateWithBiometric());
-                                },
-                                icon: Icon(
-                                  state.settings.biometricType == BiometricType.fingerprint
-                                      ? Icons.fingerprint
-                                      : Icons.face,
-                                  size: 20,
-                                  color: colorScheme.onSurface,
-                                ),
-                                label: Text(
-                                  state.settings.biometricType == BiometricType.fingerprint 
-                                    ? AppLocalizations.of(context)!.signInWithFingerprint
-                                    : AppLocalizations.of(context)!.signInWithFaceId,
-                                  style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                  side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-                                  foregroundColor: colorScheme.onSurface,
-                                  backgroundColor: colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                          );
-                        }
-                      }
-                      // While loading, keep showing the last known state (button stays visible)
-                      if (state is BiometricLoading && _lastBiometricSettings != null) {
-                        final s = _lastBiometricSettings!;
-                        if (s.isEnabled) {
-                          return Column(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: null,
-                                icon: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade600),
-                                  ),
-                                ),
-                                label: Text(
-                                  AppLocalizations.of(context)!.authenticating,
-                                  style: AppFonts.getTextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                  side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          );
-                        }
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                  // BlocBuilder<BiometricBloc, BiometricState>(
+                  //   builder: (context, state) {
+                  //     if (state is BiometricSettingsLoaded) {
+                  //       _lastBiometricSettings = state.settings;
+                  //       if (state.settings.isEnabled) {
+                  //         return Column(
+                  //           children: [
+                  //             OutlinedButton.icon(
+                  //               onPressed: () {
+                  //                 context.read<BiometricBloc>().add(AuthenticateWithBiometric());
+                  //               },
+                  //               icon: Icon(
+                  //                 state.settings.biometricType == BiometricType.fingerprint
+                  //                     ? Icons.fingerprint
+                  //                     : Icons.face,
+                  //                 size: 20,
+                  //                 color: colorScheme.onSurface,
+                  //               ),
+                  //               label: Text(
+                  //                 state.settings.biometricType == BiometricType.fingerprint
+                  //                   ? AppLocalizations.of(context)!.signInWithFingerprint
+                  //                   : AppLocalizations.of(context)!.signInWithFaceId,
+                  //                 style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
+                  //                   color: colorScheme.onSurface,
+                  //                 ),
+                  //               ),
+                  //               style: OutlinedButton.styleFrom(
+                  //                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //                 side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+                  //                 foregroundColor: colorScheme.onSurface,
+                  //                 backgroundColor: colorScheme.surface,
+                  //                 shape: RoundedRectangleBorder(
+                  //                   borderRadius: BorderRadius.circular(12),
+                  //                 ),
+                  //               ),
+                  //             ),
+                  //             const SizedBox(height: 12),
+                  //           ],
+                  //         );
+                  //       }
+                  //     }
+                  //     // While loading, keep showing the last known state (button stays visible)
+                  //     if (state is BiometricLoading && _lastBiometricSettings != null) {
+                  //       final s = _lastBiometricSettings!;
+                  //       if (s.isEnabled) {
+                  //         return Column(
+                  //           children: [
+                  //             OutlinedButton.icon(
+                  //               onPressed: null,
+                  //               icon: SizedBox(
+                  //                 width: 20,
+                  //                 height: 20,
+                  //                 child: CircularProgressIndicator(
+                  //                   strokeWidth: 2,
+                  //                   valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade600),
+                  //                 ),
+                  //               ),
+                  //               label: Text(
+                  //                 AppLocalizations.of(context)!.authenticating,
+                  //                 style: AppFonts.getTextStyle(
+                  //                   fontWeight: FontWeight.w500,
+                  //                   color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  //                 ),
+                  //               ),
+                  //               style: OutlinedButton.styleFrom(
+                  //                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //                 side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+                  //               ),
+                  //             ),
+                  //             const SizedBox(height: 16),
+                  //           ],
+                  //         );
+                  //       }
+                  //     }
+                  //     return const SizedBox.shrink();
+                  //   },
+                  // ),
                   
                   // Sign Up Link
                   Row(
