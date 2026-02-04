@@ -41,6 +41,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   late PageController _pageController;
   late ScrollController _scrollController;
   String? _lastLanguageCode;
+  List<String> _matchedVariantIds = [];
+  List<String> _variantImageUrls = [];
 
   @override
   void initState() {
@@ -66,7 +68,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       final currentLanguage = localizationService.currentLocale.languageCode;
       await LanguageService().setFromAppLanguageCode(currentLanguage);
       debugPrint('🌐 ProductDetailsPage: Synced API language to: $currentLanguage');
-      
+
       // Load product details with current language
       context.read<ProductDetailsBloc>().add(LoadProductDetails(widget.productId, productType: widget.productType));
       
@@ -116,6 +118,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       backgroundColor: colorScheme.background,
       body: BlocConsumer<ProductDetailsBloc, ProductDetailsState>(
         listener: (context, state) {
+          // Update variant images whenever product details change
+          if (state is ProductDetailsLoaded) {
+            _updateVariantImagesForCurrentSelection(state.productDetails);
+          }
+          
           if (state is ProductDetailsError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -194,6 +201,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           }
 
           if (state is ProductDetailsLoaded) {
+            _debugCheckVariantImageMatches(state.productDetails);
+            _updateVariantImagesForCurrentSelection(state.productDetails);
             // If requested via route args, open add-to-cart once after load
             if (widget.openAddToCart) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -211,6 +220,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         builder: (context, state) {
           if (state is ProductDetailsLoaded) {
             final bool isAvailable = _isProductInStock(state.productDetails);
+            final hasMatchingVariantId = _matchedVariantIds.isNotEmpty;
+            debugPrint(
+                '🧪 ProductDetailsPage bottom bar → variantIds=${state.productDetails.variantCombinations.map((v) => v.variantId).toList()}');
+            debugPrint(
+              '🧪 ProductDetailsPage bottom bar → hasMatchingVariantId=$hasMatchingVariantId '
+              'for productId=${widget.productId}, matchedVariantIds=$_matchedVariantIds',
+            );
             return Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -364,6 +380,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             background: CollapsibleImageSectionWidget(
               productDetails: productDetails,
               pageController: _pageController,
+              variantImageUrls: _variantImageUrls,
             ),
           ),
         ),
@@ -423,6 +440,134 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ),
       ],
     );
+  }
+
+  void _debugCheckVariantImageMatches(ProductDetails productDetails) {
+    // If we already have a currently matched variant (from selection),
+    // prefer that; otherwise fall back to the initial productId.
+    final targetVariantId =
+        _matchedVariantIds.isNotEmpty ? _matchedVariantIds.first : widget.productId;
+    final allVariantIds = productDetails.variantCombinations
+        .map((v) => v.variantId.toString())
+        .toList();
+    final matchedIds =
+        allVariantIds.where((id) => id == targetVariantId).toList();
+
+    _matchedVariantIds = matchedIds;
+
+    debugPrint(
+        'product id we passed from to product details page ${widget.productId}');
+    debugPrint(
+        '🧩 ProductDetailsPage: variantIds from variantCombinations: $allVariantIds');
+    debugPrint(
+        '✅ ProductDetailsPage: variantIds matching current productId ($targetVariantId): $_matchedVariantIds');
+    debugPrint(
+        '🖼 ProductDetailsPage: images currently used for this product: ${productDetails.images}');
+  }
+
+  /// Build the list of images for the currently selected variant.
+  /// Uses `variantCombinations.variantId` + `variantImagesMap` to filter images.
+  void _updateVariantImagesForCurrentSelection(ProductDetails productDetails) {
+    String normalize(String s) => s.toLowerCase().trim();
+
+    debugPrint(
+      '🧪 _updateVariantImagesForCurrentSelection → variantImagesMap keys: ${productDetails.variantImagesMap.keys.toList()}',
+    );
+
+    // 1) Find the currently selected variant using variantCombinations
+    VariantCombination? selectedVariant;
+
+    for (final v in productDetails.variantCombinations) {
+      bool matches = true;
+
+      // Match color if selected
+      if (productDetails.selectedColor.isNotEmpty) {
+        final variantColor =
+            v.getAttributeValue('COLOR NAME') ??
+            v.getAttributeValue('COLOR') ??
+            v.getAttributeValue('اللون');
+        if (variantColor == null ||
+            normalize(variantColor) != normalize(productDetails.selectedColor)) {
+          matches = false;
+        }
+      }
+
+      // Match size / primary label if selected
+      if (matches && productDetails.selectedSize.isNotEmpty) {
+        final variantSize =
+            v.getAttributeValue(productDetails.primaryVariantLabel) ??
+            v.getAttributeValue('SIZE');
+        if (variantSize == null ||
+            normalize(variantSize) != normalize(productDetails.selectedSize)) {
+          matches = false;
+        }
+      }
+
+      // Match material if selected
+      if (matches &&
+          productDetails.selectedMaterial != null &&
+          productDetails.selectedMaterial!.isNotEmpty) {
+        final variantMaterial =
+            v.getAttributeValue('MATERIALS') ??
+            v.getAttributeValue('MATERIAL') ??
+            v.getAttributeValue('MATERIAL NAME');
+        if (variantMaterial == null ||
+            normalize(variantMaterial) !=
+                normalize(productDetails.selectedMaterial!)) {
+          matches = false;
+        }
+      }
+
+      if (matches) {
+        selectedVariant = v;
+        break;
+      }
+    }
+
+    // 1b) If no variant matched via attributes, fall back to matching by productId
+    // This is especially useful when opening a specific variant directly by ID.
+    if (selectedVariant == null) {
+      try {
+        selectedVariant = productDetails.variantCombinations.firstWhere(
+          (v) => v.variantId.toString() == widget.productId.toString(),
+        );
+        debugPrint(
+          '🧪 ProductDetailsPage: Fallback matched variant by productId=${widget.productId} → variantId=${selectedVariant.variantId}',
+        );
+      } catch (_) {
+        // No direct match by productId; we'll fall back to default images below.
+      }
+    }
+
+    // 2) Use variantId to pick images from variantImagesMap
+    if (selectedVariant != null && selectedVariant.variantId.isNotEmpty) {
+      final variantId = selectedVariant.variantId;
+
+      // Use the shared helper on ProductDetails to pick images for this variant
+      _variantImageUrls = productDetails.imagesForVariant(variantId);
+
+      debugPrint(
+        '🧪 ProductDetailsPage._updateVariantImagesForCurrentSelection → '
+        'selectedVariantId=$variantId, '
+        'variantImagesCount=${_variantImageUrls.length}, '
+        'variantImages=$_variantImageUrls',
+      );
+
+      // Keep track of the "active" variant id so later debug / checks
+      // (and any logic relying on _matchedVariantIds) use the currently
+      // selected variant, not only the initial productId.
+      _matchedVariantIds = [variantId];
+
+      debugPrint(
+          '🧪 ProductDetailsPage: using images for variantId=$variantId → $_variantImageUrls');
+      debugPrint(
+          '🧪 ProductDetailsPage: selection → color=${productDetails.selectedColor}, size=${productDetails.selectedSize}, material=${productDetails.selectedMaterial}');
+    } else {
+      // No matching variant found – fall back to existing images
+      _variantImageUrls = productDetails.images;
+      debugPrint(
+          '⚠️ ProductDetailsPage: no matching VariantCombination; using default images');
+    }
   }
 
   bool _isProductInStock(ProductDetails productDetails) {

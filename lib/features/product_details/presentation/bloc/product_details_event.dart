@@ -109,3 +109,15 @@ class FilterVariantsByAttributeEvent extends ProductDetailsEvent {
   @override
   List<Object?> get props => [productId, attributeName, attributeValue];
 }
+
+/// Explicitly select a concrete variant by its `variantId` and update images/UI.
+/// This is used by variant selectors (color, material, etc.) once they resolve
+/// which `VariantCombination` should be active.
+class SelectVariantByIdEvent extends ProductDetailsEvent {
+  final String variantId;
+
+  const SelectVariantByIdEvent(this.variantId);
+
+  @override
+  List<Object?> get props => [variantId];
+}

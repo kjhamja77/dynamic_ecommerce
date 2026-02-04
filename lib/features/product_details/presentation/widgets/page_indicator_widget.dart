@@ -6,28 +6,21 @@ import '../../domain/entities/product_details.dart';
 class PageIndicatorWidget extends StatelessWidget {
   final ProductDetails productDetails;
   final PageController pageController;
+  final List<String>? overrideImages;
 
   const PageIndicatorWidget({
     super.key,
     required this.productDetails,
     required this.pageController,
+    this.overrideImages,
   });
 
-  /// Compute the same image list used by the PageView: prefer selected color images, else product images
+  /// Compute the same image list used by the PageView:
+  /// we now rely on `productDetails.images`, which the BLoC keeps in sync
+  /// with the currently active variant (via SelectVariantByIdEvent).
   List<String> _getDisplayImages() {
-    // Find selected color option (fallback to first or empty)
-    final selectedColor = productDetails.colorOptions.isNotEmpty
-        ? (productDetails.colorOptions.firstWhere(
-            (c) => c.isSelected,
-            orElse: () => productDetails.colorOptions.first,
-          ))
-        : const ColorOption(id: '', name: '', code: '', images: [], isSelected: false, isAvailable: true);
-
-    final List<String> images = selectedColor.images.isNotEmpty
-        ? selectedColor.images
-        : productDetails.images;
-
-    return _dedupe(images);
+    final baseImages = overrideImages ?? productDetails.images;
+    return _dedupe(baseImages);
   }
 
   // De-duplicate while preserving order (no URL normalization to match PageView logic)

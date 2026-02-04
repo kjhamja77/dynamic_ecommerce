@@ -41,6 +41,7 @@ class ProductDetailsModel extends ProductDetails {
     super.primaryVariantLabel = 'Size',
     super.inStock = true,
     super.tags = const [],
+    super.variantImagesMap = const {},
   });
 
   factory ProductDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -518,6 +519,8 @@ class ProductDetailsModel extends ProductDetails {
     final productType = (json['type'] ?? 'variant').toString();
     final productId = (json['id'] ?? '').toString();
     final parsedImages = _parseImages(json['images'], productType: productType, productId: productId);
+    final variantImagesMap = _buildVariantImagesMap(json['images'], productType: productType);
+    print('📊 ProductDetailsModel: variantImagesMap keys for product $productId = ${variantImagesMap.keys.toList()}');
     // Build map: variant_id -> color name and choose ONE canonical variant per color
     final Map<String, String> variantIdToColor = {};
     final Map<String, String> canonicalVariantIdByColor = {};
@@ -1017,6 +1020,7 @@ class ProductDetailsModel extends ProductDetails {
           name: (tagMap['name'] ?? '').toString(),
         );
       }).toList(),
+      variantImagesMap: variantImagesMap,
     );
     } catch (e) {
       print('❌ ProductDetailsModel: Error parsing API response: $e');
@@ -1064,23 +1068,34 @@ class ProductDetailsModel extends ProductDetails {
   static List<String> _parseImages(dynamic images, {String? productType, String? productId}) {
     if (images == null) return [];
     if (images is List) {
-      // Filter images based on the new API format and product type
+      // Helper function to normalize variant_id for comparison
+      // Handles both string and int types from API
+      String normalizeVariantId(dynamic variantId) {
+        if (variantId == null) return '';
+        if (variantId is int) return variantId.toString();
+        if (variantId is String) return variantId.trim();
+        return variantId.toString().trim();
+      }
+
+      // Normalize productId for comparison
+      final normalizedProductId = productId != null ? productId.trim() : '';
+
+      // For variant products, we need to collect images with proper ordering
+      // Structure: {variant_id: [{url, type, sequence}, ...]}
+      final Map<String, List<Map<String, dynamic>>> variantImagesMap = {};
       final seen = <String>{};
       final filteredImages = <String>[];
 
-      void addIfNew(String url) {
-        if (!seen.contains(url)) {
-          seen.add(url);
-          filteredImages.add(url);
-        }
-      }
-
+      // First pass: collect all images and group by variant_id
       for (final e in images) {
         if (e is Map) {
           final url = e['url']?.toString() ?? '';
           final image = e['image']?.toString() ?? '';
           final type = e['type']?.toString() ?? '';
-          final variantId = e['variant_id']?.toString() ?? '';
+          
+          // Handle variant_id - can be int or string
+          final variantIdRaw = e['variant_id'];
+          final variantId = normalizeVariantId(variantIdRaw);
           
           // Use the 'image' field if available (new API format), otherwise use 'url'
           final imageUrl = image.isNotEmpty ? image : url;
@@ -1093,26 +1108,192 @@ class ProductDetailsModel extends ProductDetails {
             if (productType == 'template') {
               // For template products, only show template and template_gallery images
               if (type == 'template' || type == 'template_gallery') {
-                addIfNew(fullImageUrl);
-                print('🖼️ Added template image (type: $type): $fullImageUrl');
+                if (!seen.contains(fullImageUrl)) {
+                  seen.add(fullImageUrl);
+                  filteredImages.add(fullImageUrl);
+                  print('🖼️ Added template image (type: $type): $fullImageUrl');
+                }
               }
             } else if (productType == 'variant') {
-              // For variant products, only show images where variant_id matches product id
-              if (variantId == productId) {
-                addIfNew(fullImageUrl);
-                print('🖼️ Added variant image (variant_id: $variantId, type: $type): $fullImageUrl');
+              // For variant products, group images by variant_id
+              // Include both 'variant' and 'variant_gallery' types
+              if (variantId.isNotEmpty && (type == 'variant' || type == 'variant_gallery')) {
+                variantImagesMap.putIfAbsent(variantId, () => <Map<String, dynamic>>[]);
+                
+                // Store image info with sequence for proper sorting
+                final sequence = e['sequence'];
+                final sequenceValue = sequence is int 
+                    ? sequence 
+                    : (sequence is String ? int.tryParse(sequence) ?? 0 : 0);
+                
+                variantImagesMap[variantId]!.add({
+                  'url': fullImageUrl,
+                  'type': type,
+                  'sequence': sequenceValue,
+                });
+              } else if (variantId.isEmpty && productType == 'variant') {
+                // Skip images without variant_id for variant products
+                print('⚠️ Skipping image with empty variant_id for variant product: $fullImageUrl');
               }
             } else {
               // Fallback: show all images (existing behavior)
-              addIfNew(fullImageUrl);
+              if (!seen.contains(fullImageUrl)) {
+                seen.add(fullImageUrl);
+                filteredImages.add(fullImageUrl);
+              }
             }
           }
         }
       }
 
+      // Second pass: for variant products, flatten ALL variant_id groups
+      // instead of filtering by the single productId. Grouping by variant_id
+      // itself is preserved in `variantImagesMap` and used later via
+      // ProductDetails.variantImagesMap + variantCombinations.variantId.
+      if (productType == 'variant') {
+        for (final entry in variantImagesMap.entries) {
+          final String vid = entry.key;
+          final List<Map<String, dynamic>> currentVariantImages = entry.value;
+
+          if (currentVariantImages.isEmpty) continue;
+
+          // Sort images within this variant: main variant image first,
+          // then gallery images by sequence.
+          currentVariantImages.sort((a, b) {
+            final aType = a['type'] as String;
+            final bType = b['type'] as String;
+
+            if (aType == 'variant' && bType != 'variant') return -1;
+            if (aType != 'variant' && bType == 'variant') return 1;
+
+            if (aType == 'variant_gallery' && bType == 'variant_gallery') {
+              final aSeq = a['sequence'] as int;
+              final bSeq = b['sequence'] as int;
+              return aSeq.compareTo(bSeq);
+            }
+
+            return 0;
+          });
+
+          for (final imgData in currentVariantImages) {
+            final imgUrl = imgData['url'] as String;
+            if (!seen.contains(imgUrl)) {
+              seen.add(imgUrl);
+              filteredImages.add(imgUrl);
+              print(
+                  '🖼️ Added variant image (variant_id: $vid, type: ${imgData['type']}, sequence: ${imgData['sequence']}): $imgUrl');
+            }
+          }
+        }
+      }
+
+      // Log grouped images for debugging
+      if (productType == 'variant' && variantImagesMap.isNotEmpty) {
+        print('📊 Images grouped by variant_id:');
+        variantImagesMap.forEach((vid, imgList) {
+          print('   variant_id: $vid → ${imgList.length} image(s)');
+          for (final img in imgList) {
+            print('      - type: ${img['type']}, sequence: ${img['sequence']}, url: ${(img['url'] as String).substring(0, (img['url'] as String).length > 50 ? 50 : (img['url'] as String).length)}...');
+          }
+        });
+        print('🎯 Current productId: $normalizedProductId');
+        print('✅ Total images for current variant: ${filteredImages.length}');
+      }
+
       return filteredImages;
     }
     return [];
+  }
+
+  /// Build a map of variant_id -> list of image URLs for all variants
+  static Map<String, List<String>> _buildVariantImagesMap(dynamic images, {String? productType}) {
+    final Map<String, List<String>> variantImagesMap = {};
+    
+    if (images == null || images is! List) return variantImagesMap;
+    if (productType != 'variant') return variantImagesMap;
+
+    // Helper function to normalize variant_id for comparison
+    String normalizeVariantId(dynamic variantId) {
+      if (variantId == null) return '';
+      if (variantId is int) return variantId.toString();
+      if (variantId is String) return variantId.trim();
+      return variantId.toString().trim();
+    }
+
+    // Group images by variant_id
+    final Map<String, List<Map<String, dynamic>>> tempMap = {};
+
+    for (final e in images) {
+      if (e is Map) {
+        final url = e['url']?.toString() ?? '';
+        final image = e['image']?.toString() ?? '';
+        final type = e['type']?.toString() ?? '';
+        
+        // Handle variant_id - can be int or string
+        final variantIdRaw = e['variant_id'];
+        final variantId = normalizeVariantId(variantIdRaw);
+        
+        // Use the 'image' field if available (new API format), otherwise use 'url'
+        final imageUrl = image.isNotEmpty ? image : url;
+        
+        // Group ALL variant-bound images:
+        // - type == 'variant'          → main image for that variant
+        // - type == 'variant_gallery'  → extra gallery images for that variant
+        // - type == 'template_gallery' → gallery images attached to a specific variant_id
+        if (imageUrl.isNotEmpty &&
+            variantId.isNotEmpty &&
+            (type == 'variant' || type == 'variant_gallery' || type == 'template_gallery')) {
+          // Use normalizeImageUrl to fix double slashes
+          String fullImageUrl = ImageCacheUtils.normalizeImageUrl(imageUrl);
+          
+          tempMap.putIfAbsent(variantId, () => <Map<String, dynamic>>[]);
+          
+          // Store image info with sequence for proper sorting
+          final sequence = e['sequence'];
+          final sequenceValue = sequence is int 
+              ? sequence 
+              : (sequence is String ? int.tryParse(sequence) ?? 0 : 0);
+          
+          tempMap[variantId]!.add({
+            'url': fullImageUrl,
+            'type': type,
+            'sequence': sequenceValue,
+          });
+        }
+      }
+    }
+
+    // Sort and convert to final map format
+    tempMap.forEach((variantId, imageList) {
+      // Sort images: main variant image first, then gallery images by sequence
+      imageList.sort((a, b) {
+        final aType = a['type'] as String;
+        final bType = b['type'] as String;
+        
+        // Main variant image comes first
+        if (aType == 'variant' && bType != 'variant') return -1;
+        if (aType != 'variant' && bType == 'variant') return 1;
+        
+        // If both are gallery images, sort by sequence
+        if (aType == 'variant_gallery' && bType == 'variant_gallery') {
+          final aSeq = a['sequence'] as int;
+          final bSeq = b['sequence'] as int;
+          return aSeq.compareTo(bSeq);
+        }
+        
+        return 0;
+      });
+      
+      // Extract URLs in sorted order
+      variantImagesMap[variantId] = imageList.map((img) => img['url'] as String).toList();
+    });
+
+    print('📊 Built variantImagesMap with ${variantImagesMap.length} variants');
+    variantImagesMap.forEach((vid, imgList) {
+      print('   variant_id: $vid → ${imgList.length} image(s)');
+    });
+
+    return variantImagesMap;
   }
 
   Map<String, dynamic> toJson() {

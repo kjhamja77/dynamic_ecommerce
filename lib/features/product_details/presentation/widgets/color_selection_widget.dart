@@ -100,45 +100,159 @@ class ColorSelectionWidget extends StatelessWidget {
     );
   }
 
+  /// Get a thumbnail image for a color using variantCombinations.variantId
+  /// and the grouped variant images (variantImagesMap) from ProductDetails.
   String _firstVariantImageForColor(String colorName) {
-    // Try to find the first variant that matches the color and use its image
+    // Collect all variants for this color
+    final List<VariantCombination> colorVariants = [];
+
     for (final v in productDetails.variantCombinations) {
-      final bool colorMatch = v.hasAttributeValue('color', colorName) ||
-                              v.hasAttributeValue('colour', colorName) ||
-                              v.hasAttributeValue('اللون', colorName) ||
-                              v.hasAttributeValue('color name', colorName);
-      if (!colorMatch) continue;
-      if (v.variantId.isNotEmpty) {
-        final path = '/web/image/product.product/${v.variantId}/image_1920';
-        return ImageCacheUtils.normalizeImageUrl(path);
+      final bool colorMatch =
+          v.hasAttributeValue('color', colorName) ||
+          v.hasAttributeValue('colour', colorName) ||
+          v.hasAttributeValue('اللون', colorName) ||
+          v.hasAttributeValue('color name', colorName) ||
+          v.hasAttributeValue('COLOR NAME', colorName);
+
+      if (colorMatch && v.variantId.isNotEmpty) {
+        colorVariants.add(v);
       }
     }
-    return '';
+
+    if (colorVariants.isEmpty) {
+      // No variants for this color -> let caller fall back
+      return '';
+    }
+
+    // Pick the variantId for this color that has the MOST images in variantImagesMap.
+    String bestVariantId = colorVariants.first.variantId;
+    int bestCount = -1;
+
+    for (final v in colorVariants) {
+      final String vid = v.variantId;
+      final List<String> imgs =
+          productDetails.variantImagesMap[vid] ?? const <String>[];
+      if (imgs.length > bestCount) {
+        bestCount = imgs.length;
+        bestVariantId = vid;
+      }
+    }
+
+    final List<String> bestImages =
+        productDetails.variantImagesMap[bestVariantId] ?? const <String>[];
+
+    if (bestImages.isNotEmpty) {
+      return ImageCacheUtils.normalizeImageUrl(bestImages.first);
+    }
+
+    // Fallback: construct the standard variant image URL
+    final String path = '/web/image/product.product/$bestVariantId/image_1920';
+    return ImageCacheUtils.normalizeImageUrl(path);
   }
 
   Widget _buildColorThumbnail(BuildContext context, ColorOption color) {
-    // Prefer a real variant image representing this color; fallback to color images, then product images
+    // Prefer a variant-based image (grouped by variantId), then color-level images, then product-level images.
     String thumbUrl = _firstVariantImageForColor(color.name);
     if (thumbUrl.isEmpty) {
-      thumbUrl = (color.images.isNotEmpty)
-          ? ImageCacheUtils.normalizeImageUrl(color.images.first)
-          : (productDetails.images.isNotEmpty 
-              ? ImageCacheUtils.normalizeImageUrl(productDetails.images.first) 
-              : '');
+      // Use images we already grouped per color in the model
+      if (color.images.isNotEmpty) {
+        thumbUrl = ImageCacheUtils.normalizeImageUrl(color.images.first);
+      } else if (productDetails.images.isNotEmpty) {
+        thumbUrl = ImageCacheUtils.normalizeImageUrl(productDetails.images.first);
+      } else {
+        thumbUrl = '';
+      }
     }
 
     final isSelected = color.isSelected;
+    debugPrint('product id when selecting colors ${productDetails.id}');
+    debugPrint('product color id when selecting colors ${color.id}');
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
       onTap: () async {
-        debugPrint('🎨 ColorSelectionWidget: Tapped color "${color.displayNameOrName}" (ID: ${color.id})');
+        debugPrint('🎨 ColorSelectionWidget: Tapped color "${productDetails.id}" (ID: ${color.id})');
         await HapticService.buttonClick();
+
+        // 1) Resolve the best matching VariantCombination for this color,
+        // taking into account current size/material selections when possible.
+        String normalize(String s) => s.toLowerCase().trim();
+        String? matchedVariantId;
+
+        for (final v in productDetails.variantCombinations) {
+          // Color must match
+          final variantColor =
+              v.getAttributeValue('COLOR NAME') ??
+              v.getAttributeValue('color name') ??
+              v.getAttributeValue('COLOR') ??
+              v.getAttributeValue('color') ??
+              v.getAttributeValue('colour') ??
+              v.getAttributeValue('اللون');
+
+          if (variantColor == null ||
+              normalize(variantColor) != normalize(color.name)) {
+            continue;
+          }
+
+          // Optional: also match current selected size
+          bool sizeOk = true;
+          if (productDetails.selectedSize.isNotEmpty) {
+            final variantSize =
+                v.getAttributeValue(productDetails.primaryVariantLabel) ??
+                v.getAttributeValue('SIZE') ??
+                v.getAttributeValue('size');
+            sizeOk = variantSize != null &&
+                     normalize(variantSize) ==
+                         normalize(productDetails.selectedSize);
+          }
+
+          // Optional: also match current selected material
+          bool materialOk = true;
+          if (productDetails.selectedMaterial != null &&
+              productDetails.selectedMaterial!.isNotEmpty) {
+            final variantMaterial =
+                v.getAttributeValue('MATERIAL NAME') ??
+                v.getAttributeValue('material name') ??
+                v.getAttributeValue('MATERIAL') ??
+                v.getAttributeValue('material');
+            materialOk = variantMaterial != null &&
+                         normalize(variantMaterial) ==
+                             normalize(productDetails.selectedMaterial!);
+          }
+
+          if (sizeOk && materialOk) {
+            matchedVariantId = v.variantId;
+            break;
+          }
+        }
+
+        // Fallback: if no strict match, pick the first variant that has this color
+        matchedVariantId ??= productDetails.variantCombinations.firstWhere(
+          (v) =>
+              v.hasAttributeValue('COLOR NAME', color.name) ||
+              v.hasAttributeValue('color name', color.name) ||
+              v.hasAttributeValue('COLOR', color.name) ||
+              v.hasAttributeValue('color', color.name) ||
+              v.hasAttributeValue('colour', color.name) ||
+              v.hasAttributeValue('اللون', color.name),
+          orElse: () => productDetails.variantCombinations.first,
+        ).variantId;
+
+        debugPrint('🎨 ColorSelectionWidget: resolved variantId=$matchedVariantId for color="${color.name}"');
+
+        // 2) First, keep existing color selection behavior (for availability, etc.)
         context.read<ProductDetailsBloc>().add(
           SelectColorEvent(
             productId: productDetails.id,
             colorId: color.id,
           ),
+        );
+
+        // 3) Then explicitly select this variant id so images are filtered correctly.
+        // Doing this *after* SelectColorEvent ensures any image changes inside the
+        // color handler are overridden by the variant-id-based image list.
+        context.read<ProductDetailsBloc>().add(
+          SelectVariantByIdEvent(matchedVariantId),
         );
       },
       child: Container(

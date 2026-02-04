@@ -39,6 +39,7 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/navigation/navigation_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -50,6 +51,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage>
     with AutomaticKeepAliveClientMixin {
   bool _isGuest = false;
+  String _appVersion = '';
 
   @override
   bool get wantKeepAlive => true;
@@ -58,9 +60,23 @@ class _ProfilePageState extends State<ProfilePage>
   void initState() {
     super.initState();
     _checkGuest();
+    _loadAppVersion();
     final currentState = context.read<ProfileBloc>().state;
     if (currentState is! ProfileLoaded) {
       context.read<ProfileBloc>().add(LoadUserProfile());
+    }
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = packageInfo.version;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading app version: $e');
     }
   }
 
@@ -189,6 +205,17 @@ class _ProfilePageState extends State<ProfilePage>
                               ),
                             ),
                           ),
+                          if (_appVersion.isNotEmpty) ...[
+                            SizedBox(height: ResponsiveConstants.mdSpacing),
+                            Text(
+                              'Version $_appVersion',
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.xsFontSize,
+                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ],
                       ),
                     ),

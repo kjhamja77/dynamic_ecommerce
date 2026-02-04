@@ -15,6 +15,28 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
   ProfileRemoteDataSourceImpl(this.api);
 
+  /// Returns the value to send in the 'image' key for update profile API (always raw base64 or empty).
+  Future<String> _imageValueForUpdateApi(String? avatarUrl) async {
+    if (avatarUrl == null || avatarUrl.trim().isEmpty) return '';
+    final s = avatarUrl.trim();
+    if (s.startsWith('http://') || s.startsWith('https://')) return '';
+    if (s.toLowerCase().startsWith('data:image/') && s.contains(',')) {
+      final payload = s.split(',').last.trim();
+      if (payload.isNotEmpty) {
+        debugPrint('Profile update: Using base64 from data URI, length=${payload.length}');
+        return payload;
+      }
+      return '';
+    }
+    if (s.length > 100 && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(s.replaceAll(RegExp(r'\s'), ''))) {
+      debugPrint('Profile update: Using avatarUrl as raw base64, length=${s.length}');
+      return s;
+    }
+    final fromFile = await _convertImageToBase64(s);
+    if (fromFile != null && fromFile.isNotEmpty) return fromFile;
+    return '';
+  }
+
   /// Converts a local image file to base64 string
   Future<String?> _convertImageToBase64(String? imagePath) async {
     if (imagePath == null || imagePath.isEmpty) return null;
@@ -67,20 +89,91 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     }
   }
 
+  /// Summarizes a value for debug (type + length, no huge payloads).
+  void _printValueSummary(String key, dynamic value) {
+    if (value == null) {
+      debugPrint('    $key: null');
+      return;
+    }
+    if (value is String) {
+      debugPrint('    $key: String, length=${value.length}${value.isEmpty ? " (empty)" : ", preview: ${value.length > 50 ? "${value.substring(0, 50)}..." : value}"}');
+      return;
+    }
+    if (value is List) {
+      debugPrint('    $key: List, length=${value.length}');
+      if (value.isNotEmpty && value.first is Map) {
+        debugPrint('      first item keys: ${(value.first as Map).keys.toList()}');
+      }
+      return;
+    }
+    if (value is Map) {
+      debugPrint('    $key: Map, keys: ${(value as Map).keys.toList()}');
+      return;
+    }
+    debugPrint('    $key: ${value.runtimeType}, value: $value');
+  }
+
   @override
   Future<UserProfileModel> getUserProfile() async {
     try {
       final Response resp = await api.requestRpc(Endpoints.getUserProfile);
+      debugPrint('full response form the get user profile ${resp.data}');
       final envelope = api.parseRpcEnvelope(resp.data);
+
+      // --- PRINT TOTAL GET USER PROFILE RESPONSE ---
+      debugPrint('═══════════════════════════════════════════════════════════');
+      debugPrint('GET USER PROFILE - total response:');
+      debugPrint('  envelope.status: ${envelope.status}');
+      debugPrint('  envelope.message: ${envelope.message}');
+      final data = envelope.data;
+      if (data == null) {
+        debugPrint('  envelope.data: null');
+      } else if (data is Map<String, dynamic>) {
+        debugPrint('  envelope.data keys: ${data.keys.toList()}');
+        for (final k in data.keys) {
+          _printValueSummary(k, data[k]);
+        }
+      } else {
+        debugPrint('  envelope.data: ${data.runtimeType}');
+      }
+      debugPrint('═══════════════════════════════════════════════════════════');
+
       if (envelope.status != 'success') {
         throw Exception(envelope.message ?? 'Failed to get user profile');
       }
-      final data = envelope.data as Map<String, dynamic>?;
-      final list = (data?['user_profile'] as List?)?.cast<dynamic>() ?? const [];
+      final dataMap = envelope.data as Map<String, dynamic>?;
+      final list = (dataMap?['user_profile'] as List?)?.cast<dynamic>() ?? const [];
       if (list.isEmpty) {
+        debugPrint('ProfileRemoteDataSourceImpl.getUserProfile: user_profile list is empty. data keys: ${dataMap?.keys.toList()}');
         throw Exception('User profile not found');
       }
-      final profileJson = list.first as Map<String, dynamic>;
+      // Merge data-level fields with first profile so we get "image" from either place
+      final firstProfile = list.first as Map<String, dynamic>;
+      final profileJson = Map<String, dynamic>.from(dataMap ?? {})
+        ..addAll(Map<String, dynamic>.from(firstProfile));
+
+      // --- VALIDATION: Check whether we are getting image from API or not ---
+      final rawImage = profileJson['image'];
+      final hasImageKey = profileJson.containsKey('image');
+      final imageIsNull = rawImage == null;
+      debugPrint('───────────────────────────────────────────────────────────');
+      debugPrint('IMAGE VALIDATION (get user profile):');
+      debugPrint('  key "image" present: $hasImageKey');
+      debugPrint('  value is null: $imageIsNull');
+      if (rawImage != null) {
+        debugPrint('  value type: ${rawImage.runtimeType}');
+        if (rawImage is String) {
+          debugPrint('  value length: ${rawImage.length}');
+          debugPrint('  value preview: ${rawImage.length > 60 ? "${rawImage.substring(0, 60)}..." : rawImage}');
+        } else if (rawImage is List) {
+          debugPrint('  value length (list): ${rawImage.length}');
+        }
+      } else {
+        debugPrint('  → image url from API is null (key missing or value null).');
+        debugPrint('  Available keys in merged profile: ${profileJson.keys.toList()}');
+      }
+      debugPrint('───────────────────────────────────────────────────────────');
+
       return UserProfileModel.fromApiJson(profileJson);
     } catch (e, s) {
       debugPrint('ProfileRemoteDataSourceImpl.getUserProfile error: $e');
@@ -97,11 +190,19 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         'name': profile.name,
       };
 
-      // Add optional fields if they exist
-      if (profile.phoneNumber != null && profile.phoneNumber!.isNotEmpty) {
-        // Ensure phone is sent with country code
-        params['phone'] = profile.phoneNumber;
+      // Always send email if provided
+      if (profile.email.isNotEmpty) {
+        params['email'] = profile.email;
+        debugPrint('Profile update: Email: ${profile.email}');
       }
+
+      // Always send phone number (can be null/empty to clear it)
+      params['phone'] = profile.phoneNumber ?? '';
+      debugPrint('Profile update: Phone: ${profile.phoneNumber ?? "empty"}');
+
+      // Always send country code (can be null/empty to clear it)
+      params['country_code'] = profile.countryCode ?? '';
+      debugPrint('Profile update: Country code: ${profile.countryCode ?? "empty"}');
 
       // Parse address components if address string exists
       if (profile.address != null && profile.address!.isNotEmpty) {
@@ -117,31 +218,53 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         }
       }
 
-      // Convert image to base64 if provided
-      if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-        final base64Image = await _convertImageToBase64(profile.avatarUrl);
-        params['image'] = base64Image ?? ''; // Use base64 or empty string
-        debugPrint('Profile update: Image converted to base64: ${base64Image != null ? 'Yes' : 'No'}');
+      // Always send avatar/image to update profile API (backend may expect 'image' or 'avatar_url')
+      final String imageValueForApi = await _imageValueForUpdateApi(profile.avatarUrl);
+      params['image'] = imageValueForApi;
+      params['avatar_url'] = imageValueForApi;
+      debugPrint('Profile update: image/avatar_url sent, length=${imageValueForApi.length}');
+      if (imageValueForApi.isNotEmpty) {
+        debugPrint('🟢 [SAVE] IMAGE SENT in keys "image" and "avatar_url": base64 length=${imageValueForApi.length}');
       } else {
-        params['image'] = ''; // Empty string as per API spec
+        debugPrint('🟢 [SAVE] IMAGE SENT in keys "image" and "avatar_url": (empty)');
       }
 
-      // Debug log the parameters being sent
-      debugPrint('Profile update params: $params');
+      // Debug log the parameters being sent (omit full base64 to avoid log flood)
+      debugPrint('Profile update params keys: ${params.keys.toList()}, image param length: ${params['image'] is String ? (params['image'] as String).length : 0}');
       
       final Response resp = await api.requestRpc(
         Endpoints.getUserProfile,
         method: 'POST',
         params: params,
       );
+      print('full response from the update user profile ${resp.data}');
 
       final envelope = api.parseRpcEnvelope(resp.data);
       if (envelope.status != 'success') {
         throw Exception(envelope.message ?? 'Failed to update user profile');
       }
 
+      debugPrint('ProfileRemoteDataSourceImpl: Update API call successful');
+      debugPrint('ProfileRemoteDataSourceImpl: Fetching updated profile...');
+
       // After successful update, fetch the updated profile
-      return await getUserProfile();
+      final updatedProfile = await getUserProfile();
+
+      debugPrint('ProfileRemoteDataSourceImpl: Updated profile fetched');
+      debugPrint('ProfileRemoteDataSourceImpl: Updated profile - Name: ${updatedProfile.name}');
+      debugPrint('ProfileRemoteDataSourceImpl: Updated profile - Email: ${updatedProfile.email}');
+      debugPrint('ProfileRemoteDataSourceImpl: Updated profile - Phone: ${updatedProfile.phoneNumber}');
+      debugPrint('ProfileRemoteDataSourceImpl: Updated profile - Country Code: ${updatedProfile.countryCode}');
+      // --- DEBUG: Image URL from GET USER PROFILE (after save) ---
+      if (updatedProfile.avatarUrl == null || updatedProfile.avatarUrl!.isEmpty) {
+        debugPrint('🟡 [GET USER PROFILE after SAVE] image url (avatarUrl): null or empty');
+      } else {
+        final av = updatedProfile.avatarUrl!;
+        debugPrint('🟡 [GET USER PROFILE after SAVE] image url (avatarUrl): length=${av.length}, preview: ${av.length > 80 ? "${av.substring(0, 80)}..." : av}');
+      }
+      // --- END DEBUG ---
+      
+      return updatedProfile;
     } catch (e, s) {
       debugPrint('ProfileRemoteDataSourceImpl.updateUserProfile error: $e');
       debugPrintStack(stackTrace: s);

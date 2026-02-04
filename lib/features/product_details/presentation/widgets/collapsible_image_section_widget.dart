@@ -9,11 +9,13 @@ import 'page_indicator_widget.dart';
 class CollapsibleImageSectionWidget extends StatelessWidget {
   final ProductDetails productDetails;
   final PageController pageController;
+  final List<String>? variantImageUrls;
 
   const CollapsibleImageSectionWidget({
     super.key,
     required this.productDetails,
     required this.pageController,
+    this.variantImageUrls,
   });
 
   @override
@@ -23,13 +25,13 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
         // Always use the latest product details from the bloc when available
         final currentProduct =
             state is ProductDetailsLoaded ? state.productDetails : productDetails;
-
         return Stack(
           children: [
             // Main Product Image (reacts to color/variant changes)
             ProductImageSectionWidget(
               productDetails: currentProduct,
               pageController: pageController,
+              overrideImages: variantImageUrls,
             ),
 
             // Color Selection - Top left (kept in sync with state)
@@ -41,6 +43,7 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
             PageIndicatorWidget(
               productDetails: currentProduct,
               pageController: pageController,
+              overrideImages: variantImageUrls,
             ),
           ],
         );

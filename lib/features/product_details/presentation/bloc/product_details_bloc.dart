@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'dart:developer' as developer;
@@ -42,6 +43,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     on<IncrementQuantityEvent>(_onIncrementQty);
     on<DecrementQuantityEvent>(_onDecrementQty);
     on<ResetAddingStateEvent>(_onResetAddingState);
+    on<SelectVariantByIdEvent>(_onSelectVariantById);
   }
 
   /// Stock rule for variant combinations.
@@ -170,6 +172,36 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       emit(currentState.copyWith(isAdding: false));
     }
   }
+
+  /// When a selector (color/material/other) knows the exact variantId that
+  /// should be active, this handler updates the ProductDetails images using
+  /// the shared helper on the entity and re-emits the loaded state.
+  Future<void> _onSelectVariantById(
+    SelectVariantByIdEvent event,
+    Emitter<ProductDetailsState> emit,
+  ) async {
+    final blocState = state;
+    if (blocState is! ProductDetailsLoaded) return;
+
+    final product = blocState.productDetails;
+    final variantId = event.variantId;
+
+    // Update only the images based on this concrete variantId; all other
+    // selection state (color, size, material, etc.) stays as-is.
+    final updatedProduct = product.withImagesForVariant(variantId);
+
+    debugPrint(
+      '🧪 _onSelectVariantById → variantId=$variantId, '
+      'newImagesCount=${updatedProduct.images.length}, '
+      'images=${updatedProduct.images}',
+    );
+
+    emit(ProductDetailsLoaded(
+      updatedProduct,
+      quantity: blocState.quantity,
+      isAdding: blocState.isAdding,
+    ));
+  }
   Future<void> _onSelectMaterial(
     SelectMaterialEvent event,
     Emitter<ProductDetailsState> emit,
@@ -262,6 +294,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         variantCombinations: p.variantCombinations,
         primaryVariantLabel: p.primaryVariantLabel,
         tags: p.tags,
+        variantImagesMap: p.variantImagesMap,
       );
       
       // Sync stock & quantity with the newly selected variant combination
@@ -412,6 +445,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         variantCombinations: p.variantCombinations,
         primaryVariantLabel: p.primaryVariantLabel,
         tags: p.tags,
+        variantImagesMap: p.variantImagesMap,
       );
       
       // Sync stock & quantity with the newly selected variant combination
@@ -2436,6 +2470,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         variantCombinations: currentProduct.variantCombinations,
         primaryVariantLabel: currentProduct.primaryVariantLabel,
         tags: currentProduct.tags,
+        variantImagesMap: currentProduct.variantImagesMap,
       );
       
       // Sync stock & quantity with the newly selected variant
@@ -2446,6 +2481,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       // First try exact match (all attributes)
       selectedVariant = _findSelectedVariant(updatedProduct);
+      
+      if (selectedVariant != null) {
+        developer.log('🎨 COLOR CHANGED → Found EXACT MATCH variant_id=${selectedVariant.variantId} for color="${updatedProduct.selectedColor}", size="${updatedProduct.selectedSize}"');
+        print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID: ${selectedVariant.variantId} 🎨🎨🎨');
+      }
       
       // If no exact match found, try flexible match (size + color only)
       if (selectedVariant == null && updatedProduct.selectedSize.isNotEmpty && updatedProduct.selectedColor.isNotEmpty) {
@@ -2486,6 +2526,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }).toList();
         
         if (flexibleMatch.isNotEmpty) {
+          selectedVariant = flexibleMatch.first;
+          developer.log('✅ Found flexible match variant_id=${selectedVariant.variantId} for color=${updatedProduct.selectedColor}, size=${updatedProduct.selectedSize}');
+        }
+        
+        if (flexibleMatch.isNotEmpty) {
           // Sort by highest stock
 
           flexibleMatch.sort((a, b) {
@@ -2495,6 +2540,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           });
           selectedVariant = flexibleMatch.first;
           developer.log('✅ Flexible match found: variantId=${selectedVariant.variantId}, quantityAvailable=${selectedVariant.quantityAvailable}');
+          print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID (FLEXIBLE MATCH): ${selectedVariant.variantId} 🎨🎨🎨');
         }
       }
       
@@ -3309,7 +3355,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         return opt;
       }).toList();
 
-      // Switch main image: prefer the variant image that matches both selectedPrimaryValue and nextSelectedColorName
+      // Switch images: use variantImagesMap to get all images for the matched variant
       List<String> nextImages = currentProduct.images;
       VariantCombination? matchedVariant;
       try {
@@ -3324,8 +3370,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         });
       } catch (_) {}
       if (matchedVariant != null && matchedVariant.variantId.isNotEmpty) {
-        final variantImgPath = '/web/image/product.product/${matchedVariant.variantId}/image_1920';
-        nextImages = ['${AppConstants.baseUrl}${variantImgPath.startsWith('/') ? variantImgPath.substring(1) : variantImgPath}'];
+        // Get all images for this variant from variantImagesMap
+        final variantImages = currentProduct.getImagesForVariant(matchedVariant.variantId);
+        if (variantImages.isNotEmpty) {
+          nextImages = variantImages;
+        } else {
+          // Fallback to single variant image if map doesn't have it
+          final variantImgPath = '/web/image/product.product/${matchedVariant.variantId}/image_1920';
+          nextImages = ['${AppConstants.baseUrl}${variantImgPath.startsWith('/') ? variantImgPath.substring(1) : variantImgPath}'];
+        }
       }
 
       var updatedProduct = ProductDetails(
@@ -3364,6 +3417,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         variantCombinations: currentProduct.variantCombinations,
         primaryVariantLabel: currentProduct.primaryVariantLabel,
         tags: currentProduct.tags,
+        variantImagesMap: currentProduct.variantImagesMap,
       );
       
       // Sync stock & quantity with the matched variant for this size/color

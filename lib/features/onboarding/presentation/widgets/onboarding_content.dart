@@ -23,8 +23,8 @@ class OnboardingContent extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Image Section
-          Expanded(
+          // Image Section – flexible so it shrinks when text grows
+          Flexible(
             flex: 3,
             child: Container(
               width: double.infinity,
@@ -41,32 +41,32 @@ class OnboardingContent extends StatelessWidget {
 
           SizedBox(height: ResponsiveConstants.xlSpacing),
 
-          // Text Content Section
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                Text(
-                  page.name,
-                  style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.headlineFontSize,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                  textAlign: TextAlign.center,
+          // Text Content Section – no ellipsis on title, text takes the space it needs
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                page.name,
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.headlineFontSize,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
-                SizedBox(height: ResponsiveConstants.mdSpacing),
-                Text(
-                  page.description ?? '',
-                  style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
-                    color: Colors.grey.shade600,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: ResponsiveConstants.mdSpacing),
+              Text(
+                page.description ?? '',
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.lgFontSize,
+                  color: Colors.grey.shade600,
+                  height: 1.5,
                 ),
-              ],
-            ),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ],
       ),

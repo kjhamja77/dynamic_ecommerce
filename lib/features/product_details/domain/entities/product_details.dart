@@ -41,6 +41,8 @@ class ProductDetails extends Equatable {
   // Overall stock flag for the currently selected variant (computed)
   final bool inStock;
   final List<ProductTag> tags; // Product tags/categories
+  // Map of variant_id -> list of image URLs for that variant
+  final Map<String, List<String>> variantImagesMap;
 
   const ProductDetails({
     required this.id,
@@ -80,6 +82,7 @@ class ProductDetails extends Equatable {
     this.primaryVariantLabel = 'Size',
     this.inStock = true,
     this.tags = const [],
+    this.variantImagesMap = const {},
   });
 
   @override
@@ -121,6 +124,7 @@ class ProductDetails extends Equatable {
       primaryVariantLabel,
       inStock,
       tags,
+      variantImagesMap,
       ];
 
   /// Get all variants that have a specific attribute value
@@ -140,6 +144,11 @@ class ProductDetails extends Equatable {
       }
     }
     return values.toList();
+  }
+
+  /// Get images for a specific variant_id
+  List<String> getImagesForVariant(String variantId) {
+    return variantImagesMap[variantId] ?? [];
   }
 
   /// Get filtered images based on selected attributes
@@ -219,6 +228,7 @@ class ProductDetails extends Equatable {
     List<VariantAttributeOption>? variantAttributeOptions,
     bool? inStock,
     List<ProductTag>? tags,
+    Map<String, List<String>>? variantImagesMap,
   }) {
     return ProductDetails(
       id: id ?? this.id,
@@ -258,6 +268,7 @@ class ProductDetails extends Equatable {
       variantAttributeOptions: variantAttributeOptions ?? this.variantAttributeOptions,
       inStock: inStock ?? this.inStock,
       tags: tags ?? this.tags,
+      variantImagesMap: variantImagesMap ?? this.variantImagesMap,
     );
   }
 }
@@ -273,6 +284,46 @@ class ProductTag extends Equatable {
 
   @override
   List<Object?> get props => [id, name];
+}
+
+/// Image helpers for variant-based products
+///
+/// These functions centralize the logic of picking images for a given
+/// `variantId` using the `variantImagesMap` that is already parsed on
+/// `ProductDetails`. They are safe to call from BLoC/UI whenever a
+/// variant is selected (color, size, material, or any other attribute)
+/// and will always fall back to the current `images` list when no
+/// specific mapping exists for that variant.
+extension ProductDetailsImagesX on ProductDetails {
+  /// Return all images for a specific variant.
+  /// Falls back to the existing product images when there is no mapping.
+  List<String> imagesForVariant(String variantId) {
+    if (variantId.isEmpty) return images;
+
+    final variantImages = variantImagesMap[variantId] ?? const <String>[];
+
+    // Debug: inspect what we actually have for this variant
+    // (helps understand "single image vs three images" issues).
+    // Note: keep prints lightweight in production if needed.
+    // ignore: avoid_print
+    print(
+      '🧪 ProductDetailsImagesX.imagesForVariant → variantId=$variantId, '
+      'mappedCount=${variantImages.length}, mappedImages=$variantImages',
+    );
+
+    if (variantImages.isNotEmpty) return variantImages;
+
+    // Fallback: keep current images (already set by API parsing)
+    return images;
+  }
+
+  /// Convenience: return a new ProductDetails with images updated
+  /// to match the given variant.
+  ProductDetails withImagesForVariant(String variantId) {
+    return copyWith(
+      images: imagesForVariant(variantId),
+    );
+  }
 }
 
 class ColorOption extends Equatable {

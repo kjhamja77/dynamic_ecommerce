@@ -92,16 +92,54 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     UpdateUserProfile event,
     Emitter<ProfileState> emit,
   ) async {
-    if (state is ProfileLoaded) {
-      emit(ProfileUpdating(event.profile));
-      
-      final result = await updateUserProfile(event.profile);
-      
-      result.fold(
-        (failure) => emit(ProfileError(failure.toString())),
-        (updatedProfile) => emit(ProfileUpdated(updatedProfile)),
-      );
+    // Allow updates from any state except ProfileLoading
+    // If we're in ProfileInitial or ProfileError, we can still update
+    if (state is ProfileLoading) {
+      debugPrint('ProfileBloc: Cannot update profile - currently loading');
+      return;
     }
+
+    emit(ProfileUpdating(event.profile));
+
+    debugPrint('ProfileBloc: Updating profile from state: ${state.runtimeType}');
+    debugPrint('ProfileBloc: Profile data - Name: ${event.profile.name}, Email: ${event.profile.email}');
+    debugPrint('ProfileBloc: Profile data - Phone: ${event.profile.phoneNumber}, Country: ${event.profile.countryCode}');
+    debugPrint('ProfileBloc: Profile data - Avatar: ${event.profile.avatarUrl}');
+    
+    final result = await updateUserProfile(event.profile);
+    debugPrint('ProfileBloc: Update result: $result');
+
+    await result.fold(
+      (failure) async {
+        debugPrint('ProfileBloc: Update failed: ${failure.toString()}');
+        emit(ProfileError(failure.toString()));
+      },
+      (updatedProfile) async {
+        debugPrint('ProfileBloc: Update successful');
+        debugPrint('ProfileBloc: Updated profile - Name: ${updatedProfile.name}, Email: ${updatedProfile.email}');
+        debugPrint('ProfileBloc: Updated profile - Phone: ${updatedProfile.phoneNumber}, Country: ${updatedProfile.countryCode}');
+        debugPrint('ProfileBloc: Updated profile - Avatar: ${updatedProfile.avatarUrl}');
+
+        // Emit ProfileUpdated first, then transition to ProfileLoaded to maintain orders
+        emit(ProfileUpdated(updatedProfile));
+
+        // Await orders so all emit() calls happen before the event handler completes
+        final ordersResult = await getUserOrders(NoParams());
+        ordersResult.fold(
+          (_) {
+            if (!emit.isDone) {
+              emit(ProfileLoaded(profile: updatedProfile, orders: const []));
+            }
+          },
+          (orders) {
+            if (!emit.isDone) {
+              emit(ProfileLoaded(profile: updatedProfile, orders: orders));
+              debugPrint('ProfileBloc: Transitioned to ProfileLoaded with ${orders.length} orders');
+            }
+          },
+        );
+      },
+    );
   }
 
   Future<void> _onLoadUserOrders(

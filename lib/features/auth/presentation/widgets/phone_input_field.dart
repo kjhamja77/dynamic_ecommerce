@@ -294,17 +294,41 @@ class PhoneInputFieldState extends State<PhoneInputField> {
   // Getter for the selected country
   Country get selectedCountry => _selectedCountry;
   
-  // Method to manually set country code from 2-letter ISO code (e.g. 'AE')
+  // Method to manually set country using data from API / profile.
+  // Accepts either:
+  // - 2-letter ISO code:        "AE"
+  // - Combined value:           "AE+971"
+  // - Dial code with/without +: "+971" or "971"
   void setCountryCode(String countryCode) {
     try {
-      final normalized = countryCode.toUpperCase().trim();
+      final raw = countryCode.trim();
+      if (raw.isEmpty) return;
+
+      String? isoCode;
+
+      // 1) Try to extract a 2-letter ISO code (e.g. "AE" from "AE+971")
+      final isoMatch = RegExp(r'[A-Za-z]{2}').firstMatch(raw);
+      if (isoMatch != null) {
+        isoCode = isoMatch.group(0)!.toUpperCase();
+      } else {
+        // 2) Fallback: treat as dial code (e.g. "+971" or "971")
+        final dial = raw.replaceAll(RegExp(r'[^0-9]'), '');
+        if (dial.isNotEmpty) {
+          isoCode = CountryCodeDetector.detectCountryCode(dial);
+        }
+      }
+
+      if (isoCode == null) return;
+
       // Prefer our detector helper so it works even if Country.parse changes
-      final country = CountryCodeDetector.getCountryFromCode(normalized) ?? Country.parse(normalized);
+      final country =
+          CountryCodeDetector.getCountryFromCode(isoCode) ?? Country.parse(isoCode);
+
       setState(() {
         _selectedCountry = country;
       });
     } catch (e) {
-      // Handle invalid country code silently
+      // Handle invalid / unexpected value silently
     }
   }
   

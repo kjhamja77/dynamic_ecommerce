@@ -10,11 +10,13 @@ import 'fullscreen_image_viewer.dart';
 class ProductImageSectionWidget extends StatefulWidget {
   final ProductDetails productDetails;
   final PageController pageController;
+  final List<String>? overrideImages;
 
   const ProductImageSectionWidget({
     super.key,
     required this.productDetails,
     required this.pageController,
+    this.overrideImages,
   });
 
   @override
@@ -61,7 +63,8 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
 
   /// Images to display: always use the current product images from state (already computed by BLoC)
   List<String> get _displayImages {
-    return _dedupeImages(widget.productDetails.images);
+    final baseImages = widget.overrideImages ?? widget.productDetails.images;
+    return _dedupeImages(baseImages);
   }
 
   List<String> _dedupeImages(List<String> images) {

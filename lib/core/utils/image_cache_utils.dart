@@ -313,4 +313,34 @@ class ImageCacheUtils {
       };
     }
   }
+
+  /// Check if a string is a base64 encoded image
+  /// Base64 images are typically long strings without http/https prefixes
+  /// and don't start with '/' (relative paths)
+  static bool isBase64Image(String? imageString) {
+    if (imageString == null || imageString.isEmpty) {
+      return false;
+    }
+    
+    final trimmed = imageString.trim();
+    
+    // If it's a URL (http/https) or relative path (/), it's not base64
+    if (trimmed.startsWith('http://') || 
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('/') ||
+        trimmed.startsWith('data:image/')) {
+      return false;
+    }
+    
+    // Base64 strings are typically long (at least 50 chars for a small image)
+    if (trimmed.length < 50) {
+      return false;
+    }
+    
+    // Check if it matches base64 pattern (allowing for padding with =)
+    // Remove whitespace/newlines that might be in the string
+    final cleaned = trimmed.replaceAll(RegExp(r'\s+'), '');
+    final base64Pattern = RegExp(r'^[A-Za-z0-9+/]+=*$');
+    return base64Pattern.hasMatch(cleaned) && cleaned.length >= 50;
+  }
 }

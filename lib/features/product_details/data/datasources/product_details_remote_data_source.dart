@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'package:flutter/cupertino.dart';
 import 'package:zalando_clone_app/core/network/api_client.dart';
 import '../../../../core/constants/endpoints.dart';
 
@@ -28,8 +29,8 @@ class ProductDetailsRemoteDataSourceImpl implements ProductDetailsRemoteDataSour
         params: params,
       );
 
-      developer.log('🌐 API Response Status: ${response.statusCode}');
-      developer.log('🌐 API Response Body: ${response.data}');
+      debugPrint('🌐 API Response Status: ${response.statusCode}');
+      debugPrint('🌐 API Response Body: ${response.data}');
 
       final body = response.data;
       if (body is Map && body['result'] is Map) {
