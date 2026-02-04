@@ -1864,10 +1864,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     bool hasValidPhone = false;
     bool hasCompleteAddressDetails = false;
     Address? selectedAddressForValidation;
-    if (addressState is AddressesLoaded &&
-        checkoutState.selectedShippingAddressId != null &&
-        addressState.addresses.isNotEmpty) {
-      final addresses = addressState.addresses;
+    
+    // Get addresses from either AddressesLoaded or AddressSuccess state
+    List<Address>? addresses;
+    if (addressState is AddressesLoaded) {
+      addresses = addressState.addresses;
+    } else if (addressState is AddressSuccess && addressState.addresses != null) {
+      addresses = addressState.addresses;
+    }
+    
+    if (addresses != null &&
+        addresses.isNotEmpty &&
+        checkoutState.selectedShippingAddressId != null) {
       final selectedAddress = addresses
               .where((address) => address.id == checkoutState.selectedShippingAddressId)
               .firstOrNull ??
@@ -1884,12 +1892,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     // Comprehensive validation: ensure all required data is selected before allowing order placement
+    final hasAddressesLoaded = addressState is AddressesLoaded || 
+                               (addressState is AddressSuccess && addressState.addresses != null);
+    final addressesCount = addresses?.length ?? 0;
+    
     final canPlaceOrder = checkoutState.items.isNotEmpty &&
         checkoutState.selectedShippingAddressId != null &&
         checkoutState.selectedPaymentMethodId != null &&
         checkoutState.selectedShippingMethodId != null &&
-        addressState is AddressesLoaded &&
-        addressState.addresses.isNotEmpty &&
+        hasAddressesLoaded &&
+        addressesCount > 0 &&
         hasValidPhone &&
         hasCompleteAddressDetails &&
         !checkoutState.isApplyingPaymentMethod &&
@@ -1904,8 +1916,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       debugPrint('   - Address Selected: ${checkoutState.selectedShippingAddressId != null} (ID: ${checkoutState.selectedShippingAddressId})');
       debugPrint('   - Payment Method Selected: ${checkoutState.selectedPaymentMethodId != null} (ID: ${checkoutState.selectedPaymentMethodId})');
       debugPrint('   - Shipping Method Selected: ${checkoutState.selectedShippingMethodId != null} (ID: ${checkoutState.selectedShippingMethodId})');
-      debugPrint('   - Addresses Loaded: ${addressState is AddressesLoaded}');
-      debugPrint('   - Addresses Count: ${addressState is AddressesLoaded ? addressState.addresses.length : 0}');
+      debugPrint('   - Addresses Loaded: $hasAddressesLoaded');
+      debugPrint('   - Addresses Count: $addressesCount');
       debugPrint('   - Has Valid Phone: $hasValidPhone');
       debugPrint('   - Has Complete Address Details: $hasCompleteAddressDetails');
       debugPrint('   - Order ID: $orderId');
@@ -1920,10 +1932,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       height: 56.h,
       child: ElevatedButton(
         onPressed: canPlaceOrder ? () async {
-          final addresses = addressState.addresses;
+          // Get addresses from either AddressesLoaded or AddressSuccess state
+          List<Address>? addressesList;
+          if (addressState is AddressesLoaded) {
+            addressesList = addressState.addresses;
+          } else if (addressState is AddressSuccess && addressState.addresses != null) {
+            addressesList = addressState.addresses;
+          }
+          
+          if (addressesList == null || addressesList.isEmpty) return;
+          
           final int? confirmedOrderId = orderId;
           if (confirmedOrderId == null) return;
-          final selectedAddress = addresses.where((address) => address.id == checkoutState.selectedShippingAddressId).firstOrNull ?? addresses.first;
+          final selectedAddress = addressesList.where((address) => address.id == checkoutState.selectedShippingAddressId).firstOrNull ?? addressesList.first;
 
           // Extra biometric auth if enabled
           try {
@@ -2440,16 +2461,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       
       // Auto-select default address if none is selected (both for initial load and after adding new address)
       if (state.addresses.isNotEmpty) {
-        // Find the default address, or use the first one if no default exists
-        Address addressToSelect;
-        final defaultAddresses = state.addresses.where((a) => a.isDefault).toList();
-        if (defaultAddresses.isNotEmpty) {
-          addressToSelect = defaultAddresses.first;
-        } else {
-          // If no default, select the first address
-          addressToSelect = state.addresses.first;
-        }
-        
         // Check if we need to auto-select (either no selection, waiting for new address, or only one address)
         final isOnlyAddress = state.addresses.length == 1;
         final needsAutoSelect = checkoutState.selectedShippingAddressId == null || 
@@ -2457,6 +2468,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 isOnlyAddress;
         
         if (needsAutoSelect) {
+          Address addressToSelect;
+          
+          // If waiting for new address, always select the most recently added address (last in list)
+          if (checkoutState.isWaitingForNewAddress) {
+            addressToSelect = state.addresses.last;
+            debugPrint('🔄 Selecting newly added address from AddressesLoaded: ${addressToSelect.id} (${addressToSelect.city})');
+          } else {
+            // Otherwise, find the default address, or use the first one if no default exists
+            final defaultAddresses = state.addresses.where((a) => a.isDefault).toList();
+            if (defaultAddresses.isNotEmpty) {
+              addressToSelect = defaultAddresses.first;
+            } else {
+              // If no default, select the first address
+              addressToSelect = state.addresses.first;
+            }
+          }
+          
           // Select immediately - the CheckoutBloc state listener will handle it if UpdateShippingAddresses hasn't processed yet
           debugPrint('🔄 Auto-selecting address: ${addressToSelect.id} (${addressToSelect.city})${isOnlyAddress ? ' [Only address - always selected]' : ''}');
           checkoutBloc.add(SelectShippingAddress(addressId: addressToSelect.id));
@@ -2479,13 +2507,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (checkoutState.isWaitingForNewAddress || checkoutState.selectedShippingAddressId == null || isOnlyAddress) {
         Address addressToSelect;
         
-        // First, try to find the default address
-        final defaultAddresses = state.addresses!.where((a) => a.isDefault).toList();
-        if (defaultAddresses.isNotEmpty) {
-          addressToSelect = defaultAddresses.first;
-        } else {
-          // If no default, select the last address (most recently added)
+        // If waiting for new address, always select the most recently added address (last in list)
+        if (checkoutState.isWaitingForNewAddress) {
           addressToSelect = state.addresses!.last;
+          debugPrint('🔄 Selecting newly added address: ${addressToSelect.id} (${addressToSelect.city})');
+        } else {
+          // Otherwise, try to find the default address first
+          final defaultAddresses = state.addresses!.where((a) => a.isDefault).toList();
+          if (defaultAddresses.isNotEmpty) {
+            addressToSelect = defaultAddresses.first;
+          } else {
+            // If no default, select the last address (most recently added)
+            addressToSelect = state.addresses!.last;
+          }
         }
         
         // Use a small delay to ensure UpdateShippingAddresses is processed first

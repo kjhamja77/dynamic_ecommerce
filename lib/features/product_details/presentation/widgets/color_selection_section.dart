@@ -148,6 +148,106 @@ class _ColorOptionCard extends StatelessWidget {
     return null;
   }
 
+  /// Check if this color is available for the currently selected size
+  /// This checks availability dynamically based on the current size selection
+  bool _isAvailableForCurrentSize() {
+    // If no variant combinations exist, assume available (fallback)
+    if (productDetails.variantCombinations.isEmpty) {
+      return true;
+    }
+    
+    // Get the English color name for matching
+    final englishColorName = _getEnglishColorName();
+    if (englishColorName == null || englishColorName.isEmpty) {
+      return true; // Default to available if we can't determine
+    }
+    
+    String normalize(String s) => s.toLowerCase().trim();
+    
+    // Get the currently selected size
+    String? selectedSize;
+    for (final opt in productDetails.variantAttributeOptions) {
+      final attrNameLower = opt.attributeName.toLowerCase();
+      if ((attrNameLower == 'size' || 
+           attrNameLower == productDetails.primaryVariantLabel.toLowerCase() ||
+           attrNameLower.contains('size') ||
+           attrNameLower.contains('قياس') ||
+           attrNameLower.contains('مقاس')) && 
+          opt.selectedValue.isNotEmpty) {
+        selectedSize = opt.selectedValue;
+        break;
+      }
+    }
+    if (selectedSize == null && productDetails.selectedSize.isNotEmpty) {
+      selectedSize = productDetails.selectedSize;
+    }
+    
+    // Helper to get color value from variant
+    String? getVariantColorValue(VariantCombination v) {
+      final colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
+      for (final attrName in colorAttrNames) {
+        final value = v.getAttributeValue(attrName);
+        if (value != null && value.isNotEmpty) {
+          return value;
+        }
+      }
+      return null;
+    }
+    
+    // Check if this color-size combination is in stock
+    if (selectedSize != null && selectedSize.isNotEmpty) {
+      // Size is selected - check if this color has stock with this size
+      for (final v in productDetails.variantCombinations) {
+        final bool sizeMatch = v.hasAttributeValue('SIZE', selectedSize) ||
+                             v.hasAttributeValue('size', selectedSize) ||
+                             v.hasAttributeValue(productDetails.primaryVariantLabel, selectedSize);
+        if (!sizeMatch) continue;
+        
+        final variantColorName = getVariantColorValue(v);
+        if (variantColorName == null) continue;
+        
+        final normalizedVariant = normalize(variantColorName);
+        final normalizedColor = normalize(englishColorName);
+        
+        final bool colorMatch = normalizedVariant == normalizedColor ||
+                              normalizedVariant.contains(normalizedColor) ||
+                              normalizedColor.contains(normalizedVariant);
+        
+        if (colorMatch) {
+          final qty = v.quantityAvailable ?? 0.0;
+          final isInStock = v.inStock && qty > 0;
+          if (isInStock) {
+            return true; // Found in-stock variant for this color-size combination
+          }
+        }
+      }
+      // No in-stock variant found for this color-size combination
+      return false;
+    } else {
+      // No size selected - check if color has any in-stock variants at all
+      for (final v in productDetails.variantCombinations) {
+        final variantColorName = getVariantColorValue(v);
+        if (variantColorName == null) continue;
+        
+        final normalizedVariant = normalize(variantColorName);
+        final normalizedColor = normalize(englishColorName);
+        
+        final bool colorMatch = normalizedVariant == normalizedColor ||
+                              normalizedVariant.contains(normalizedColor) ||
+                              normalizedColor.contains(normalizedVariant);
+        
+        if (colorMatch) {
+          final qty = v.quantityAvailable ?? 0.0;
+          final isInStock = v.inStock && qty > 0;
+          if (isInStock) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+  }
+
   /// Check if this color is available based on stock and current selections
   /// NOTE: This method is kept as a fallback, but the widget should use colorOption.isAvailable
   /// from the BLoC instead, which has correct English name matching logic.
@@ -354,9 +454,10 @@ class _ColorOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = colorOption.isSelected;
-    // We keep the availability flag only for styling, NOT for click blocking.
-    // All colors must be tappable so user can preview any color.
+    // Use availability from BLoC (now properly updated when size/color changes)
+    // The BLoC recalculates color availability based on selected size in both _onSelectSize and _onSelectColor
     final isAvailable = colorOption.isAvailable;
+    final bool isDisabled = !isAvailable;
     final imageUrl = _getColorImageUrl();
     
     debugPrint('🎨 ColorSelection Widget: "${colorOption.displayNameOrName}" - isAvailable from BLoC: $isAvailable');
@@ -386,32 +487,37 @@ class _ColorOptionCard extends StatelessWidget {
               height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                border: Border.all(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : (isAvailable 
-                          ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)
-                          : Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
-                  width: isSelected ? 3 : 1.5,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.05,
-                          ),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                border: isDisabled
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
+                        width: 1,
+                      )
+                    : Border.all(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                        width: isSelected ? 3 : 1.5,
+                      ),
+                boxShadow: isDisabled
+                    ? null // No shadow for out-of-stock items
+                    : (isSelected && isAvailable
+                        ? [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.05,
+                              ),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius - 1),
@@ -422,29 +528,39 @@ class _ColorOptionCard extends StatelessWidget {
                     return Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Color image
+                        // Color image with grayscale filter when disabled
                         if (imageUrl.isNotEmpty)
-                          CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            cacheKey: imageUrl, // Use normalized URL as cache key
-                            fit: BoxFit.fill,
-                            placeholder: (context, url) => Container(
-                              color: colorScheme.surface,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.primary,
+                          ColorFiltered(
+                            colorFilter: isDisabled
+                                ? const ColorFilter.matrix([
+                                    0.2126, 0.7152, 0.0722, 0, 0, // Grayscale
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0, 0, 0, 0.5, 0, // Reduce opacity
+                                  ])
+                                : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              cacheKey: imageUrl, // Use normalized URL as cache key
+                              fit: BoxFit.fill,
+                              placeholder: (context, url) => Container(
+                                color: colorScheme.surface,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              color: colorScheme.surface,
-                              child: Icon(
-                                Icons.image_not_supported_outlined,
-                                color: colorScheme.onSurface.withValues(alpha: 0.4),
-                                size: 32,
+                              errorWidget: (context, url, error) => Container(
+                                color: colorScheme.surface,
+                                child: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: colorScheme.onSurface.withValues(alpha: 0.4),
+                                  size: 32,
+                                ),
                               ),
                             ),
                           )
@@ -453,18 +569,43 @@ class _ColorOptionCard extends StatelessWidget {
                             color: colorScheme.surface,
                             child: Icon(
                               Icons.palette_outlined,
-                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                              color: isDisabled
+                                  ? colorScheme.onSurface.withValues(alpha: 0.3)
+                                  : colorScheme.onSurface.withValues(alpha: 0.4),
                               size: 32,
                             ),
                           ),
                         
-                        // Overlay for unavailable colors:
-                        // keep a subtle dimming effect, but remove the "blocked" icon
-                        // to avoid conflicting with the global "In stock" badge.
-                        if (!isAvailable)
+                        // Grey fill background + "out of stock" icon when this color has no stock
+                        if (isDisabled) ...[
+                          // Grey fill background overlay
                           Container(
-                            color: colorScheme.surface.withValues(alpha: 0.6),
+                            color: Colors.grey.withValues(alpha: 0.7),
                           ),
+                          // "No stock" block icon centered
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.block,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                        ],
                         
                         // Selected indicator
                         if (isSelected && isAvailable)

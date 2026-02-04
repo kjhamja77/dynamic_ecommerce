@@ -1898,8 +1898,85 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
-      // Update color options - preserve availability from current state
+      // CRITICAL: Recalculate color availability based on currently selected size
+      // When color changes, we need to check if each color is available for the selected size
       List<ColorOption> updatedColorOptions = currentProduct.colorOptions.map((color) {
+        // Get the English color name for matching
+        String? colorNameForMatching;
+        for (final opt in currentProduct.variantAttributeOptions) {
+          final attrNameLower = opt.attributeName.toLowerCase();
+          if (attrNameLower == 'color name' || 
+              attrNameLower == 'color' || 
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون') {
+            try {
+              final matchedValue = opt.values.firstWhere(
+                (v) => v.id == color.id,
+              );
+              if (!containsArabic(matchedValue.name)) {
+                colorNameForMatching = matchedValue.name;
+                break;
+              }
+            } catch (e) {
+              // ID not found, continue
+            }
+          }
+        }
+        if (colorNameForMatching == null) {
+          colorNameForMatching = color.name;
+        }
+        
+        // Check if this color is available for the currently selected size
+        bool hasInStockVariant = false;
+        if (actualSize != null && actualSize.isNotEmpty) {
+          // Size is selected - check if this color has stock with this size
+          for (final v in currentProduct.variantCombinations) {
+            final bool sizeMatch = v.hasAttributeValue('SIZE', actualSize) ||
+                                 v.hasAttributeValue('size', actualSize) ||
+                                 v.hasAttributeValue(currentProduct.primaryVariantLabel, actualSize);
+            if (!sizeMatch) continue;
+            
+            final variantColorName = getVariantColorValue(v);
+            if (variantColorName == null) continue;
+            
+            final normalizedVariant = normalize(variantColorName);
+            final normalizedColor = normalize(colorNameForMatching);
+            
+            final bool colorMatch = normalizedVariant == normalizedColor ||
+                                  normalizedVariant.contains(normalizedColor) ||
+                                  normalizedColor.contains(normalizedVariant);
+            
+            if (colorMatch) {
+              final isInStock = _isVariantInStock(v);
+              if (isInStock) {
+                hasInStockVariant = true;
+                break;
+              }
+            }
+          }
+        } else {
+          // No size selected - check if color has any in-stock variants
+          for (final v in currentProduct.variantCombinations) {
+            final variantColorName = getVariantColorValue(v);
+            if (variantColorName == null) continue;
+            
+            final normalizedVariant = normalize(variantColorName);
+            final normalizedColor = normalize(colorNameForMatching);
+            
+            final bool colorMatch = normalizedVariant == normalizedColor ||
+                                  normalizedVariant.contains(normalizedColor) ||
+                                  normalizedColor.contains(normalizedVariant);
+            
+            if (colorMatch) {
+              final isInStock = _isVariantInStock(v);
+              if (isInStock) {
+                hasInStockVariant = true;
+                break;
+              }
+            }
+          }
+        }
+        
         return ColorOption(
           id: color.id,
           name: color.name,
@@ -1907,7 +1984,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           code: color.code,
           images: color.images,
           isSelected: color.id == event.colorId,
-          isAvailable: color.isAvailable, // Preserve availability from current state
+          isAvailable: hasInStockVariant, // Recalculate based on selected size
         );
       }).toList();
 
@@ -2586,9 +2663,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
+      // CRITICAL: When size is selected, use hasInStockVariant as the primary source of truth
+      // This ensures we correctly reflect stock status for the exact color+size combination
+      bool finalInStock;
       if (selectedVariant != null) {
+        // CRITICAL: Use _isVariantInStock to properly check both inStock flag AND quantityAvailable
+        // This ensures we correctly identify when a variant is truly out of stock
+        bool variantInStock = _isVariantInStock(selectedVariant);
+        
         final double? quantityAvailable = selectedVariant.quantityAvailable;
-        bool variantInStock = selectedVariant.inStock;
 
         if (quantityAvailable != null) {
           // Check if there's already an item in cart with this variant ID
@@ -2611,6 +2694,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           final maxAllowed = quantityAvailable.toInt();
           final available = maxAllowed - existingCartQuantity;
           
+          // If no stock available (considering cart), mark as out of stock
           if (maxAllowed <= 0 || available <= 0) {
             variantInStock = false;
             nextQuantity = 1;
@@ -2626,25 +2710,48 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
           
-          developer.log('🎨 Color selected:  $actualColorName,'
-              ' variantId=${selectedVariant.variantId},'
-              ' totalAvailable=$maxAllowed, inCart=$existingCartQuantity, '
-              'available=$available, '
-              'adjustedQty=$nextQuantity'
-              ' ');
+          developer.log(
+            '📦 _onSelectColor → Found variant: size="${updatedProduct.selectedSize}", '
+            'color="$actualColorName", variantId=${selectedVariant.variantId}, '
+            'inStock=${selectedVariant.inStock}, qty=$quantityAvailable, '
+            'available=$available, finalInStock=$variantInStock',
+            name: 'ProductDetails/Stock',
+          );
           print('Zeinnaa 2: ${updatedVariantAttributeOptions.length} ,ID ${selectedVariant.variantId} , '
               'List of sizes :: ${ selectedVariant.attributes.length}');
         } else {
-          developer.log('⚠️ Selected variant has null quantityAvailable');
+          // If quantityAvailable is null, rely on _isVariantInStock result
+          developer.log(
+            '⚠️ Selected variant has null quantityAvailable, using inStock flag: $variantInStock',
+            name: 'ProductDetails/Stock',
+          );
         }
 
-        updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
+        // CRITICAL: If size is selected, prefer hasInStockVariant check over variant match
+        // This ensures we correctly reflect stock for the exact color+size combination
+        if (actualSize != null && actualSize.isNotEmpty) {
+          // Use the hasInStockVariant check we did earlier (more accurate for color+size combo)
+          finalInStock = hasInStockVariant;
+          developer.log('📦 Size selected: Using hasInStockVariant=$hasInStockVariant (variant check: $variantInStock) for color="$colorNameForMatching" with size="$actualSize"');
+        } else {
+          // No size selected - use variant check result
+          finalInStock = variantInStock;
+        }
       } else {
-        developer.log('⚠️ No variant found for selected color and size combination');
-        // If no variant found, mark as out of stock
-        updatedProduct = updatedProduct.copyWith(inStock: false);
-        nextQuantity = 1;
+        // No variant found - use hasInStockVariant check result
+        if (actualSize != null && actualSize.isNotEmpty) {
+          finalInStock = hasInStockVariant;
+          developer.log('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" with size="$actualSize"');
+        } else {
+          finalInStock = hasInStockVariant;
+          developer.log('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" (no size selected)');
+        }
+        if (!finalInStock) {
+          nextQuantity = 1;
+        }
       }
+      
+      updatedProduct = updatedProduct.copyWith(inStock: finalInStock);
       
       emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
       
@@ -2720,36 +2827,33 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         orElse: () => effectiveSizeOptions.first,
       );
       
-      // SIMPLE BEHAVIOR: size change should NOT touch color selection or complex filters.
-      // Just update selectedSize (source of truth) and leave the rest to existing logic.
-
+      // Update selectedSize and recompute stock for the exact size+color+attributes combination
       final selectedSizeName = selectedSizeOption.name;
 
-      final simpleUpdatedProduct = currentProduct.copyWith(
-        selectedSize: selectedSizeName,
-      );
-
-      emit(ProductDetailsLoaded(
-        simpleUpdatedProduct,
-        quantity: currentState.quantity,
-        isAdding: currentState.isAdding,
-      ));
-
-      // Do not run the complex variant/color logic below – it's not needed for simple size selection
-      return;
-      
-      // Helper to check if a string contains Arabic characters
+      // Recompute stock for the currently selected combination (size + color + other attrs).
+      // If there is no in-stock variant for the current selection, we must mark inStock=false
+      // so the UI can show "Out of stock" for that size/color combination.
       bool containsArabic(String text) {
         if (text.isEmpty) return false;
         final arabicRegex = RegExp(r'[\u0600-\u06FF]');
         return arabicRegex.hasMatch(text);
       }
-      
+
       String normalize(String s) => s.toLowerCase().trim();
-      
-      // Helper to get color value from variant trying multiple attribute names
+
       String? getVariantColorValue(VariantCombination v) {
-        final colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
+        final colorAttrNames = [
+          'COLOR NAME',
+          'color name',
+          'Color Name',
+          'color',
+          'Color',
+          'COLOR',
+          'colour',
+          'Colour',
+          'اللون',
+          'لون',
+        ];
         for (final attrName in colorAttrNames) {
           final value = v.getAttributeValue(attrName);
           if (value != null && value.isNotEmpty) {
@@ -2758,85 +2862,136 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
         return null;
       }
-      
-      // Get the actual color name from variantAttributeOptions (source of truth)
-      // CRITICAL: Always use English name for matching, even if variantAttributeOptions has Arabic
-      String? actualColorName;
-      for (final opt in currentProduct.variantAttributeOptions) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        if ((attrNameLower == 'color name' || 
-             attrNameLower == 'color' || 
-             attrNameLower == 'colour' ||
-             attrNameLower == 'اللون') && 
-            opt.selectedValue.isNotEmpty) {
-          final nameFromVariantAttrs = opt.selectedValue;
-          // If it's Arabic, try to find English equivalent from ColorOption
-          if (containsArabic(nameFromVariantAttrs)) {
-            // Find the color option that matches this selected value
-            for (final colorOpt in currentProduct.colorOptions) {
-              // Check if this color option's display name matches the selected value
-              if (colorOpt.displayNameOrName == nameFromVariantAttrs) {
-                // Use the English name from ColorOption.name (guaranteed to be English)
-                actualColorName = colorOpt.name;
-                developer.log('🌐 Found Arabic name "$nameFromVariantAttrs" in variantAttributeOptions, using English name "${colorOpt.name}" from ColorOption for matching');
-                break;
-              }
-            }
-            // If we couldn't find it, try to get from variant combinations
-            if (actualColorName == null || containsArabic(actualColorName)) {
-              for (final v in currentProduct.variantCombinations) {
-                final colorValue = getVariantColorValue(v);
-                if (colorValue != null && !containsArabic(colorValue)) {
-                  actualColorName = colorValue;
-                  developer.log('🌐 Fallback: Using English name "$colorValue" from variant combinations');
-                  break;
-                }
-              }
-            }
-          } else {
-            // It's already English, use it
-            actualColorName = nameFromVariantAttrs;
+
+      // Determine the effective selected color name for matching.
+      String? selectedColorName = currentProduct.selectedColor;
+      if (selectedColorName.isEmpty) {
+        // Try to get from colorOptions (first selected one)
+        try {
+          final selectedColorOpt = currentProduct.colorOptions.firstWhere(
+            (c) => c.isSelected,
+            orElse: () => currentProduct.colorOptions.isNotEmpty
+                ? currentProduct.colorOptions.first
+                : const ColorOption(
+                    id: '',
+                    name: '',
+                    displayName: null,
+                    code: '',
+                    images: [],
+                    isSelected: false,
+                  ),
+          );
+          selectedColorName = selectedColorOpt.name;
+        } catch (_) {
+          selectedColorName = '';
+        }
+      }
+
+      // If the color name is Arabic, try to resolve to an English one from colorOptions.
+      if (selectedColorName.isNotEmpty && containsArabic(selectedColorName)) {
+        for (final colorOpt in currentProduct.colorOptions) {
+          if (colorOpt.displayNameOrName == selectedColorName &&
+              !containsArabic(colorOpt.name)) {
+            selectedColorName = colorOpt.name;
+            break;
           }
+        }
+      }
+
+      final normalizedSelectedSize = normalize(selectedSizeName);
+      final normalizedSelectedColor =
+          selectedColorName != null ? normalize(selectedColorName!) : '';
+
+      bool hasAvailableVariantForSelection = false;
+
+      for (final v in currentProduct.variantCombinations) {
+        // Match size
+        bool sizeMatch = false;
+        final sizeVal = v.getAttributeValue('SIZE') ??
+            v.getAttributeValue('size') ??
+            v.getAttributeValue(currentProduct.primaryVariantLabel);
+        if (sizeVal != null && sizeVal.isNotEmpty) {
+          sizeMatch = normalize(sizeVal) == normalizedSelectedSize;
+        }
+        if (!sizeMatch) continue;
+
+        // Match color only when a color is effectively selected
+        bool colorMatch = true;
+        if (normalizedSelectedColor.isNotEmpty) {
+          final variantColorName = getVariantColorValue(v);
+          if (variantColorName == null || variantColorName.isEmpty) {
+            colorMatch = false;
+          } else {
+            final normalizedVariantColor = normalize(variantColorName);
+            colorMatch = normalizedVariantColor == normalizedSelectedColor ||
+                normalizedVariantColor.contains(normalizedSelectedColor) ||
+                normalizedSelectedColor.contains(normalizedVariantColor);
+          }
+        }
+        if (!colorMatch) continue;
+
+        // Check stock for this exact combination using the proper stock check function
+        if (_isVariantInStock(v)) {
+          hasAvailableVariantForSelection = true;
+          developer.log(
+            '📦 _onSelectSize → Found in-stock variant: size="$selectedSizeName", '
+            'color="${selectedColorName ?? 'none'}", variantId=${v.variantId}',
+            name: 'ProductDetails/Stock',
+          );
           break;
         }
       }
-      // Fallback to selectedColor - but check if it's Arabic
-      if (actualColorName == null && currentProduct.selectedColor.isNotEmpty) {
-        if (containsArabic(currentProduct.selectedColor)) {
-          // Try to find English name from ColorOption
-          for (final colorOpt in currentProduct.colorOptions) {
-            if (colorOpt.displayNameOrName == currentProduct.selectedColor) {
-              actualColorName = colorOpt.name;
-              developer.log('🌐 Fallback: Found Arabic selectedColor "${currentProduct.selectedColor}", using English name "${colorOpt.name}"');
-              break;
+
+      // CRITICAL: Recalculate color availability based on the newly selected size
+      List<ColorOption> updatedColorOptions = currentProduct.colorOptions.map((color) {
+        // Get the English color name for matching
+        String? colorNameForMatching;
+        for (final opt in currentProduct.variantAttributeOptions) {
+          final attrNameLower = opt.attributeName.toLowerCase();
+          if (attrNameLower == 'color name' || 
+              attrNameLower == 'color' || 
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون') {
+            try {
+              final matchedValue = opt.values.firstWhere(
+                (v) => v.id == color.id,
+              );
+              if (!containsArabic(matchedValue.name)) {
+                colorNameForMatching = matchedValue.name;
+                break;
+              }
+            } catch (e) {
+              // ID not found, continue
             }
           }
-        } else {
-          actualColorName = currentProduct.selectedColor;
         }
-      }
-      
-      // Check if this size has any in-stock variants
-      // If color is selected, check for that specific color+size combination
-      // If no color selected, just check if size has any in-stock variants
-      bool hasInStockVariant = false;
-      if (actualColorName != null && actualColorName.isNotEmpty) {
-        // Color is selected - check for this specific color+size combination
+        if (colorNameForMatching == null) {
+          colorNameForMatching = color.name;
+        }
+        
+        // Check if this color is available for the newly selected size
+        bool hasInStockVariant = false;
         for (final v in currentProduct.variantCombinations) {
-          final bool sizeMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedSizeOption.name) ||
-                               v.hasAttributeValue('size', selectedSizeOption.name) ||
-                               v.hasAttributeValue('SIZE', selectedSizeOption.name);
+          // Match size
+          bool sizeMatch = false;
+          final sizeVal = v.getAttributeValue('SIZE') ??
+              v.getAttributeValue('size') ??
+              v.getAttributeValue(currentProduct.primaryVariantLabel);
+          if (sizeVal != null && sizeVal.isNotEmpty) {
+            sizeMatch = normalize(sizeVal) == normalizedSelectedSize;
+          }
           if (!sizeMatch) continue;
           
-          // Try multiple attribute name variations to find color
-          final String? variantColorName = getVariantColorValue(v);
+          // Match color
+          final variantColorName = getVariantColorValue(v);
           if (variantColorName == null) continue;
           
-          final normalizedVariant = normalize(variantColorName);
-          final normalizedActual = normalize(actualColorName);
-          final bool colorMatch = normalizedVariant == normalizedActual ||
-                                normalizedVariant.contains(normalizedActual) ||
-                                normalizedActual.contains(normalizedVariant);
+          final normalizedVariantColor = normalize(variantColorName);
+          final normalizedColor = normalize(colorNameForMatching);
+          
+          final bool colorMatch = normalizedVariantColor == normalizedColor ||
+                                normalizedVariantColor.contains(normalizedColor) ||
+                                normalizedColor.contains(normalizedVariantColor);
           
           if (colorMatch) {
             final isInStock = _isVariantInStock(v);
@@ -2847,700 +3002,38 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
         
-        // If color is selected but no in-stock variant exists for this size, 
-        // proceed anyway - we'll automatically switch to an available color later
-        if (!hasInStockVariant) {
-          developer.log('⚠️ Current color "$actualColorName" is not available for size ${selectedSizeOption.name}, will auto-switch to available color');
-        }
-      } else {
-        // No color selected - check if this size has ANY in-stock variants
-        for (final v in currentProduct.variantCombinations) {
-          final bool sizeMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedSizeOption.name) ||
-                               v.hasAttributeValue('size', selectedSizeOption.name) ||
-                               v.hasAttributeValue('SIZE', selectedSizeOption.name);
-          if (sizeMatch) {
-            final isInStock = _isVariantInStock(v);
-            if (isInStock) {
-              hasInStockVariant = true;
-              break;
-            }
-          }
-        }
-        
-        // If no color selected and no in-stock variants exist for this size, don't allow selection
-        if (!hasInStockVariant) {
-          developer.log('⚠️ Cannot select size ${selectedSizeOption.name}: no in-stock variants available');
-          return;
-        }
-      }
-
-      // Update size options with stock check - check ALL combinations, not just selected color
-      final updatedSizeOptions = currentProduct.sizeOptions.map((size) {
-        // Check if this size has any in-stock variants with ANY color (if no color selected)
-        // OR with the selected color (if color is selected)
-        bool hasInStockVariant = false;
-        
-        for (final v in currentProduct.variantCombinations) {
-          final bool sizeMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, size.name) ||
-                                v.hasAttributeValue('size', size.name) ||
-                                v.hasAttributeValue('SIZE', size.name);
-          if (!sizeMatch) continue;
-          
-          // If color is selected, check if this variant matches the selected color
-          if (actualColorName != null && actualColorName.isNotEmpty) {
-            final variantColorName = getVariantColorValue(v);
-            if (variantColorName == null) continue;
-            
-            // Use flexible matching for color
-            final normalizedVariant = normalize(variantColorName);
-            final normalizedActual = normalize(actualColorName);
-            final bool colorMatch = normalizedVariant == normalizedActual ||
-                                  normalizedVariant.contains(normalizedActual) ||
-                                  normalizedActual.contains(normalizedVariant);
-            if (!colorMatch) continue;
-          }
-          
-          final isInStock = _isVariantInStock(v);
-          if (isInStock) {
-            hasInStockVariant = true;
-            break;
-          }
-        }
-        
-        return SizeOption(
-          id: size.id,
-          name: size.name,
-          isAvailable: hasInStockVariant,
-          isRecommended: size.isRecommended,
-          isSelected: size.id == event.sizeId,
-        );
-      }).toList();
-
-      // Helper to check if a string contains Arabic characters
-      bool _containsArabic(String text) {
-        if (text.isEmpty) return false;
-        final arabicRegex = RegExp(r'[\u0600-\u06FF]');
-        return arabicRegex.hasMatch(text);
-      }
-      
-      // Helper to get English color name from color option
-      // CRITICAL: Always returns English name for matching, even if variantAttributeOptions has Arabic
-      String? _getColorNameFromOption(ColorOption colorOption, ProductDetails product) {
-        // First, try to get from variantAttributeOptions
-        String? nameFromVariantAttrs;
-        for (final opt in product.variantAttributeOptions) {
-          final attrNameLower = opt.attributeName.toLowerCase();
-          if (attrNameLower == 'color name' || 
-              attrNameLower == 'color' || 
-              attrNameLower == 'colour' ||
-              attrNameLower == 'اللون') {
-            try {
-              final matchedValue = opt.values.firstWhere(
-                (v) => v.id == colorOption.id,
-              );
-              nameFromVariantAttrs = matchedValue.name;
-              break;
-            } catch (e) {
-              // ID not found, continue
-            }
-          }
-        }
-        
-        // If we found a name from variantAttributeOptions, check if it's English
-        if (nameFromVariantAttrs != null && !_containsArabic(nameFromVariantAttrs)) {
-          return nameFromVariantAttrs; // It's English, use it
-        }
-        
-        // If variantAttributeOptions has Arabic or nothing, use ColorOption.name (always English)
-        // ColorOption.name is guaranteed to be English as per the model parsing logic
-        if (colorOption.name.isNotEmpty && !_containsArabic(colorOption.name)) {
-          developer.log('📝 Using ColorOption.name (English) for color ID ${colorOption.id}: "${colorOption.name}"');
-          return colorOption.name;
-        }
-        
-        // Last resort: try to find English name from variant combinations
-        for (final v in product.variantCombinations) {
-          final colorValue = getVariantColorValue(v);
-          if (colorValue != null && !_containsArabic(colorValue)) {
-            // Check if this color value matches the color option by checking IDs in variant combinations
-            // This is a fallback - we should have found it by now
-            return colorValue;
-          }
-        }
-        
-        return null;
-      }
-      
-      // Get the English name for the selected size from variantAttributeOptions FIRST
-      // CRITICAL: Always use English name for matching, even if SizeOption.name is Arabic
-      developer.log('🔍 ========== SIZE SELECTION DEBUG (Arabic) ==========');
-      developer.log('🔍 Selected SizeOption: ID=${selectedSizeOption.id}, name="${selectedSizeOption.name}", isArabic=${_containsArabic(selectedSizeOption.name)}');
-      developer.log('🔍 PrimaryVariantLabel: "${currentProduct.primaryVariantLabel}"');
-      developer.log('🔍 Total variantAttributeOptions: ${currentProduct.variantAttributeOptions.length}');
-      
-      String? selectedSizeEnglishName;
-      for (final opt in currentProduct.variantAttributeOptions) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        developer.log('🔍 Checking variantAttributeOption: attributeName="${opt.attributeName}", values count=${opt.values.length}');
-        
-        if ((attrNameLower == 'size' || 
-             attrNameLower == currentProduct.primaryVariantLabel.toLowerCase() ||
-             attrNameLower.contains('size')) && 
-            opt.values.isNotEmpty) {
-          developer.log('🔍 ✅ Found size-related attribute: "${opt.attributeName}"');
-          try {
-            // Find the value that matches the selected size option by ID
-            final matchedValue = opt.values.firstWhere(
-              (v) => v.id == selectedSizeOption.id,
-            );
-            // variantAttributeOptions.values.name is always English (per model parsing)
-            selectedSizeEnglishName = matchedValue.name;
-            developer.log('📏 ✅ Found English size name from variantAttributeOptions: "$selectedSizeEnglishName" (ID: ${selectedSizeOption.id}, display: ${selectedSizeOption.name})');
-            break;
-          } catch (e) {
-            developer.log('⚠️ Could not find size value with ID ${selectedSizeOption.id} in variantAttributeOptions: $e');
-            developer.log('   Available IDs: ${opt.values.map((v) => '${v.id}:"${v.name}"').toList()}');
-          }
-        }
-      }
-      
-      // Fallback to selectedSizeOption.name if not found (should be English, but check)
-      if (selectedSizeEnglishName == null || _containsArabic(selectedSizeEnglishName)) {
-        developer.log('⚠️ English size name not found or is Arabic, trying fallback...');
-        if (!_containsArabic(selectedSizeOption.name)) {
-          selectedSizeEnglishName = selectedSizeOption.name;
-          developer.log('📏 Using SizeOption.name (English): "$selectedSizeEnglishName"');
-        } else {
-          developer.log('⚠️ SizeOption.name is Arabic, searching variant combinations...');
-          // Last resort: try to find from variant combinations
-          int checkedVariants = 0;
-          for (final v in currentProduct.variantCombinations) {
-            checkedVariants++;
-            for (final attr in v.attributes) {
-              final attrName = attr.attributeName.toLowerCase();
-              if ((attrName.contains('size') || attrName == currentProduct.primaryVariantLabel.toLowerCase()) &&
-                  !_containsArabic(attr.valueName)) {
-                selectedSizeEnglishName = attr.valueName;
-                developer.log('📏 Found English size from variant ${v.variantId}: "$selectedSizeEnglishName" (attribute: ${attr.attributeName})');
-                break;
-              }
-            }
-            if (selectedSizeEnglishName != null) break;
-          }
-          developer.log('📏 Checked $checkedVariants variants for English size name');
-        }
-      }
-      
-      final String selectedSizeForMatching = selectedSizeEnglishName ?? selectedSizeOption.name;
-      developer.log('📏 Final size for matching: "$selectedSizeForMatching" (isArabic: ${_containsArabic(selectedSizeForMatching)})');
-      
-      // Update variantAttributeOptions to reflect the selected size
-      final updatedVariantAttributeOptions = currentProduct.variantAttributeOptions.map((opt) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        if (attrNameLower == 'size' || 
-            attrNameLower == currentProduct.primaryVariantLabel.toLowerCase()) {
-          // Update selected value and selection state
-          // CRITICAL: variantAttributeOptions.values.name is always English (per model parsing)
-          final updatedValues = opt.values.map((v) {
-            // Match by ID first, then by English name
-            final isSelected = v.id == selectedSizeOption.id || 
-                             normalize(v.name) == normalize(selectedSizeForMatching);
-            return VariantAttributeValue(
-              id: v.id,
-              name: v.name, // Always English
-              isAvailable: v.isAvailable,
-              isSelected: isSelected,
-            );
-          }).toList();
-          
-          return VariantAttributeOption(
-            attributeName: opt.attributeName, // Always English (per model parsing)
-            values: updatedValues,
-            selectedValue: selectedSizeForMatching, // Always English for matching
-          );
-        }
-        return opt;
-      }).toList();
-
-      // Use the English name we already extracted
-      final String selectedPrimaryValue = selectedSizeForMatching;
-      developer.log('📏 Using size for matching: "$selectedPrimaryValue" (original: ${selectedSizeOption.name})');
-      
-      // Compute available colors for this selected size using "COLOR NAME" attribute
-      // CRITICAL: Check both existence AND stock availability (quantity_available > 0)
-      developer.log('🔍 ========== COLOR AVAILABILITY CHECK ==========');
-      developer.log('🔍 Checking colors for size: "$selectedPrimaryValue"');
-      developer.log('🔍 Total variant combinations: ${currentProduct.variantCombinations.length}');
-      
-      final Map<String, bool> colorAvailabilityMap = {}; // Map color name to availability
-      int variantsChecked = 0;
-      int variantsMatched = 0;
-      
-      for (final v in currentProduct.variantCombinations) {
-        variantsChecked++;
-        // Try multiple ways to match size (flexible matching)
-        bool primaryMatch = false;
-        
-        // Check standard SIZE attribute
-        primaryMatch = v.hasAttributeValue('SIZE', selectedPrimaryValue) ||
-                      v.hasAttributeValue('size', selectedPrimaryValue) ||
-                      v.hasAttributeValue('Size', selectedPrimaryValue);
-        
-        // Check primaryVariantLabel
-        if (!primaryMatch && currentProduct.primaryVariantLabel.isNotEmpty) {
-          primaryMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedPrimaryValue);
-        }
-        
-        // Check BRAND attribute (some products use brand as primary variant)
-        if (!primaryMatch) {
-          primaryMatch = v.hasAttributeValue('BRAND', selectedPrimaryValue) ||
-                        v.hasAttributeValue('brand', selectedPrimaryValue) ||
-                        v.hasAttributeValue('Brand', selectedPrimaryValue);
-        }
-        
-        // Also try flexible matching by checking all attributes
-        if (!primaryMatch) {
-          for (final attr in v.attributes) {
-            final attrName = attr.attributeName.toLowerCase();
-            final attrValue = attr.valueName;
-            
-            // Check if this attribute is a size-related attribute
-            final isSizeAttribute = attrName.contains('size') ||
-                                   attrName == currentProduct.primaryVariantLabel.toLowerCase() ||
-                                   attrName == 'brand' ||
-                                   attrName == 'القياس';
-            
-            if (isSizeAttribute) {
-              final normalizedAttr = normalize(attrValue);
-              final normalizedSelected = normalize(selectedPrimaryValue);
-              if (normalizedAttr == normalizedSelected) {
-                primaryMatch = true;
-                developer.log('🔍 ✅ Size match found via flexible matching: variantId=${v.variantId}, attribute="$attrName", value="$attrValue" == "$selectedPrimaryValue"');
-                break;
-              } else {
-                developer.log('🔍 Size mismatch: variantId=${v.variantId}, attribute="$attrName", value="$attrValue" != "$selectedPrimaryValue" (normalized: "$normalizedAttr" != "$normalizedSelected")');
-              }
-            }
-          }
-        }
-        
-        if (!primaryMatch) {
-          if (variantsChecked <= 3) {
-            // Log first few mismatches for debugging
-            developer.log('❌ Variant ${v.variantId}: Size does not match "$selectedPrimaryValue"');
-            developer.log('   Variant attributes: ${v.attributes.map((a) => '${a.attributeName}:"${a.valueName}"').toList()}');
-          }
-          continue;
-        }
-        
-        variantsMatched++;
-        
-        // Get color value using multiple attribute name variations
-        final colorValue = getVariantColorValue(v);
-        if (colorValue != null && colorValue.isNotEmpty) {
-          final normalizedColor = normalize(colorValue);
-          // Check stock (treat null quantity as available when inStock=true)
-          final qty = v.quantityAvailable;
-          final isInStock = _isVariantInStock(v);
-          
-          developer.log('🎨 Variant ${v.variantId}: color="$colorValue" (normalized: $normalizedColor), qty=$qty, inStock=${v.inStock}, available=$isInStock');
-          
-          // Also try to get color ID from variant for ID-based matching fallback
-          String? colorIdFromVariant;
-          for (final attr in v.attributes) {
-            final attrName = attr.attributeName.toLowerCase();
-            if (attrName == 'color name' || attrName == 'color' || attrName == 'colour' || attrName == 'اللون') {
-              colorIdFromVariant = attr.valueId;
-              break;
-            }
-          }
-          
-          // Update map: color is available if ANY variant with this color+size has stock
-          // Use both normalized name and ID as keys for flexible matching
-          if (!colorAvailabilityMap.containsKey(normalizedColor)) {
-            colorAvailabilityMap[normalizedColor] = isInStock;
-          } else if (isInStock) {
-            // If we already marked it as available, keep it available
-            colorAvailabilityMap[normalizedColor] = true;
-          }
-          
-          // Also store by ID if available (for fallback matching)
-          if (colorIdFromVariant != null && colorIdFromVariant.isNotEmpty) {
-            final idKey = 'COLOR_ID_$colorIdFromVariant';
-            if (!colorAvailabilityMap.containsKey(idKey)) {
-              colorAvailabilityMap[idKey] = isInStock;
-            } else if (isInStock) {
-              colorAvailabilityMap[idKey] = true;
-            }
-          }
-        } else {
-          developer.log('⚠️ Variant ${v.variantId}: No color value found');
-        }
-      }
-      
-      developer.log('🔍 ========== COLOR AVAILABILITY SUMMARY ==========');
-      developer.log('🔍 Variants checked: $variantsChecked, Variants matched: $variantsMatched');
-      developer.log('🎨 Size "$selectedPrimaryValue": Available colors from variants: ${colorAvailabilityMap.entries.map((e) => '${e.key}:${e.value}').toList()}');
-      developer.log('🎨 Total unique colors found: ${colorAvailabilityMap.length}');
-
-      // Determine next selected color: keep current if still available, else first available
-      String nextSelectedColorName = actualColorName ?? currentProduct.selectedColor;
-      final normalizedNextColor = normalize(nextSelectedColorName);
-      bool currentColorIsAvailable = colorAvailabilityMap.containsKey(normalizedNextColor) && 
-                                     colorAvailabilityMap[normalizedNextColor] == true;
-      
-      if (!currentColorIsAvailable) {
-        // Current color is not available, find first available color
-        developer.log('⚠️ Current color "$nextSelectedColorName" is not available for size "$selectedPrimaryValue", finding first available color...');
-        nextSelectedColorName = ''; // Clear selection first
-        
-        for (final entry in colorAvailabilityMap.entries) {
-          if (entry.value) {
-            // Skip ID-based keys for name matching
-            if (entry.key.startsWith('COLOR_ID_')) continue;
-            
-            // Find the color option that matches this normalized name
-            for (final colorOpt in currentProduct.colorOptions) {
-              final colorNameFromOpt = _getColorNameFromOption(colorOpt, currentProduct);
-              if (colorNameFromOpt != null && normalize(colorNameFromOpt) == entry.key) {
-                nextSelectedColorName = colorNameFromOpt;
-                developer.log('✅ Found first available color: "$nextSelectedColorName" (normalized: "${entry.key}")');
-                break;
-              }
-            }
-            if (nextSelectedColorName.isNotEmpty) break;
-          }
-        }
-        
-        // If still no color found, try ID-based matching
-        if (nextSelectedColorName.isEmpty) {
-          for (final entry in colorAvailabilityMap.entries) {
-            if (entry.value && entry.key.startsWith('COLOR_ID_')) {
-              final colorIdStr = entry.key.replaceFirst('COLOR_ID_', '');
-              for (final colorOpt in currentProduct.colorOptions) {
-                if (colorOpt.id == colorIdStr) {
-                  final colorNameFromOpt = _getColorNameFromOption(colorOpt, currentProduct);
-                  if (colorNameFromOpt != null) {
-                    nextSelectedColorName = colorNameFromOpt;
-                    developer.log('✅ Found first available color via ID: "$nextSelectedColorName" (ID: $colorIdStr)');
-                    break;
-                  }
-                }
-              }
-              if (nextSelectedColorName.isNotEmpty) break;
-            }
-          }
-        }
-        
-        if (nextSelectedColorName.isEmpty) {
-          developer.log('⚠️ No available colors found for size "$selectedPrimaryValue"');
-        }
-      } else {
-        developer.log('✅ Current color "$nextSelectedColorName" is still available for size "$selectedPrimaryValue"');
-      }
-
-      // Update color options selection reflecting availability for the selected size
-      developer.log('🔍 ========== UPDATING COLOR OPTIONS ==========');
-      developer.log('🔍 Updating ${currentProduct.colorOptions.length} color options for size "$selectedPrimaryValue"');
-      developer.log('🔍 Color availability map has ${colorAvailabilityMap.length} entries: ${colorAvailabilityMap.entries.map((e) => '"${e.key}":${e.value}').toList()}');
-      
-      List<ColorOption> updatedColorOptions = currentProduct.colorOptions.map((color) {
-        // Get the actual color name from variantAttributeOptions (for matching)
-        String? colorNameForMatching = _getColorNameFromOption(color, currentProduct);
-        if (colorNameForMatching == null) {
-          colorNameForMatching = color.name;
-          developer.log('⚠️ Could not find color name from variantAttributeOptions for color ID ${color.id}, using color.name: "$colorNameForMatching"');
-        }
-        
-        final normalizedColorName = normalize(colorNameForMatching);
-        developer.log('🔍 Checking color "${color.displayNameOrName}" (ID: ${color.id}, matching name: "$colorNameForMatching", normalized: "$normalizedColorName")');
-        
-        // Try to find availability in the map using flexible matching
-        bool isAvailable = colorAvailabilityMap[normalizedColorName] ?? false;
-        developer.log('  📊 Direct map lookup: $isAvailable');
-        
-        // If not found with exact match, try ID-based matching (for COLOR_ID_X fallback)
-        if (!isAvailable && color.name.startsWith('COLOR_ID_')) {
-          final colorIdKey = color.name; // e.g., "COLOR_ID_253"
-          isAvailable = colorAvailabilityMap[colorIdKey] ?? false;
-          if (isAvailable) {
-            developer.log('🎨 Found color match via ID: "$colorIdKey"');
-          } else {
-            developer.log('⚠️ Color ID key "$colorIdKey" not found in availability map');
-          }
-        }
-        
-        // If not found with exact match, try partial matching
-        if (!isAvailable && colorAvailabilityMap.isNotEmpty) {
-          for (final entry in colorAvailabilityMap.entries) {
-            final normalizedMapColor = entry.key;
-            // Skip ID-based keys for name matching (already tried above)
-            if (normalizedMapColor.startsWith('COLOR_ID_')) continue;
-            // Try exact match, partial match, or contains match
-            if (normalizedColorName == normalizedMapColor ||
-                normalizedColorName.contains(normalizedMapColor) ||
-                normalizedMapColor.contains(normalizedColorName)) {
-              isAvailable = entry.value;
-              if (isAvailable) {
-                developer.log('🎨 Found color match via flexible matching: "$normalizedColorName" ~= "$normalizedMapColor"');
-                break;
-              }
-            }
-          }
-        }
-        
-        // If still not available, check directly against variants for this size
-        if (!isAvailable) {
-          developer.log('  🔍 Performing direct variant check...');
-          int checkedVariants = 0;
-          for (final v in currentProduct.variantCombinations) {
-            final bool primaryMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedPrimaryValue) ||
-                                     v.hasAttributeValue('size', selectedPrimaryValue) ||
-                                     v.hasAttributeValue('SIZE', selectedPrimaryValue);
-            if (!primaryMatch) continue;
-            
-            checkedVariants++;
-            final variantColorName = getVariantColorValue(v);
-            if (variantColorName == null) {
-              developer.log('    ⚠️ Variant ${v.variantId}: No color value found');
-              continue;
-            }
-            
-            final normalizedVariant = normalize(variantColorName);
-            final colorMatch = normalizedVariant == normalizedColorName ||
-                             normalizedVariant.contains(normalizedColorName) ||
-                             normalizedColorName.contains(normalizedVariant);
-            
-            if (colorMatch) {
-              final qty = v.quantityAvailable;
-              final isInStock = _isVariantInStock(v);
-              developer.log('    ✅ Variant ${v.variantId}: color match! qty=$qty, inStock=${v.inStock}, available=$isInStock');
-              if (isInStock) {
-                isAvailable = true;
-                developer.log('🎨 Found available variant for color "$colorNameForMatching" with size $selectedPrimaryValue (direct check)');
-                break;
-              }
-            } else {
-              developer.log('    ❌ Variant ${v.variantId}: color mismatch ("$normalizedVariant" vs "$normalizedColorName")');
-            }
-          }
-          developer.log('  📊 Checked $checkedVariants variants for size $selectedPrimaryValue');
-        }
-        
-        // CRITICAL: Only mark as selected if it's available AND matches nextSelectedColorName
-        // Unavailable colors should NEVER be selected
-        final bool isSelected = isAvailable && 
-                               nextSelectedColorName.isNotEmpty &&
-                               normalize(colorNameForMatching) == normalize(nextSelectedColorName);
-        
-        developer.log('🎨 Size "$selectedPrimaryValue": Color "${color.displayNameOrName}" (${colorNameForMatching}, normalized: "$normalizedColorName") - Available: $isAvailable, Selected: $isSelected');
-        if (!isAvailable) {
-          developer.log('   ❌ Color will be DISABLED and NOT SELECTED - not found in availability map or marked as unavailable');
-        } else {
-          if (isSelected) {
-            developer.log('   ✅ Color will be ENABLED and SELECTED');
-          } else {
-            developer.log('   ✅ Color will be ENABLED but NOT SELECTED');
-          }
-        }
-        
         return ColorOption(
           id: color.id,
           name: color.name,
           displayName: color.displayName,
           code: color.code,
           images: color.images,
-          isSelected: isSelected, // CRITICAL: Only true if available AND matches nextSelectedColorName
-          isAvailable: isAvailable, // CRITICAL: Set availability
+          isSelected: color.isSelected,
+          isAvailable: hasInStockVariant, // Recalculate based on newly selected size
         );
       }).toList();
 
-      // UX rule: if there is ONLY one color for this size/primary selection,
-      // never disable it. Users should always see that color as available.
-      if (updatedColorOptions.length == 1) {
-        final only = updatedColorOptions.first;
-        updatedColorOptions = [
-          ColorOption(
-            id: only.id,
-            name: only.name,
-            displayName: only.displayName,
-            code: only.code,
-            images: only.images,
-            isSelected: true,
-            isAvailable: true,
-          ),
-        ];
-        developer.log(
-          '🎨 Single color detected after size/attribute change → forcing available & selected: "${only.displayNameOrName}"',
-          name: 'ProductDetails/ColorOptions',
-        );
-      }
-      
-      final enabledColors = updatedColorOptions.where((c) => c.isAvailable).length;
-      final disabledColors = updatedColorOptions.where((c) => !c.isAvailable).length;
-      developer.log('🔍 ========== COLOR OPTIONS UPDATE SUMMARY ==========');
-      developer.log('🔍 Total colors: ${updatedColorOptions.length}, Enabled: $enabledColors, Disabled: $disabledColors');
-      if (disabledColors > 0) {
-        developer.log('⚠️ WARNING: $disabledColors color(s) are disabled!');
-        for (final color in updatedColorOptions.where((c) => !c.isAvailable)) {
-          developer.log('   ❌ Disabled: "${color.displayNameOrName}" (ID: ${color.id})');
-        }
-      }
-      
-      // Update variantAttributeOptions for color to reflect the new selection
-      // CRITICAL: Only set selectedValue if we have an available color
-      final updatedVariantAttributeOptionsWithColor = updatedVariantAttributeOptions.map((opt) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        if (attrNameLower == 'color name' || 
-            attrNameLower == 'color' || 
-            attrNameLower == 'colour' ||
-            attrNameLower == 'اللون') {
-          // Update selected value and selection state
-          // Only mark as selected if the color is available AND matches nextSelectedColorName
-          final updatedValues = opt.values.map((v) {
-            final isSelected = nextSelectedColorName.isNotEmpty &&
-                              normalize(v.name) == normalize(nextSelectedColorName) &&
-                              v.isAvailable; // CRITICAL: Only select if available
-            return VariantAttributeValue(
-              id: v.id,
-              name: v.name,
-              isAvailable: v.isAvailable,
-              isSelected: isSelected,
-            );
-          }).toList();
-          
-          return VariantAttributeOption(
-            attributeName: opt.attributeName,
-            values: updatedValues,
-            selectedValue: nextSelectedColorName.isNotEmpty ? nextSelectedColorName : '', // Only set if we have a color
-          );
-        }
-        return opt;
-      }).toList();
-
-      // Switch images: use variantImagesMap to get all images for the matched variant
-      List<String> nextImages = currentProduct.images;
-      VariantCombination? matchedVariant;
-      try {
-        matchedVariant = currentProduct.variantCombinations.firstWhere((v) {
-          final bool primaryMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedPrimaryValue) ||
-                                    v.hasAttributeValue('size', selectedPrimaryValue) ||
-                                    v.hasAttributeValue('SIZE', selectedPrimaryValue);
-          final String? variantColorName = v.getAttributeValue('COLOR NAME');
-          final bool colorMatch = variantColorName != null && 
-                                normalize(variantColorName) == normalize(nextSelectedColorName);
-          return primaryMatch && colorMatch;
-        });
-      } catch (_) {}
-      if (matchedVariant != null && matchedVariant.variantId.isNotEmpty) {
-        // Get all images for this variant from variantImagesMap
-        final variantImages = currentProduct.getImagesForVariant(matchedVariant.variantId);
-        if (variantImages.isNotEmpty) {
-          nextImages = variantImages;
-        } else {
-          // Fallback to single variant image if map doesn't have it
-          final variantImgPath = '/web/image/product.product/${matchedVariant.variantId}/image_1920';
-          nextImages = ['${AppConstants.baseUrl}${variantImgPath.startsWith('/') ? variantImgPath.substring(1) : variantImgPath}'];
-        }
-      }
-
-      var updatedProduct = ProductDetails(
-        id: currentProduct.id,
-        brand: currentProduct.brand,
-        name: currentProduct.name,
-        description: currentProduct.description,
-        price: currentProduct.price,
-        originalPrice: currentProduct.originalPrice,
-        rating: currentProduct.rating,
-        reviewCount: currentProduct.reviewCount,
-        images: nextImages,
-        colorOptions: updatedColorOptions,
-        sizeOptions: updatedSizeOptions,
-        variantAttributeOptions: updatedVariantAttributeOptionsWithColor,
-        selectedColor: nextSelectedColorName,
-        selectedSize: selectedSizeOption.name,
-        isFavorite: currentProduct.isFavorite,
-        hasDiscount: currentProduct.hasDiscount,
-        discountPercentage: currentProduct.discountPercentage,
-        features: currentProduct.features,
-        material: currentProduct.material,
-        materialsList: currentProduct.materialsList,
-        materialOptions: currentProduct.materialOptions,
-        selectedMaterial: currentProduct.selectedMaterial,
-        careInstructions: currentProduct.careInstructions,
-        heelHeightCm: currentProduct.heelHeightCm,
-        heelType: currentProduct.heelType,
-        heelHeightOptions: currentProduct.heelHeightOptions,
-        selectedHeelHeightCm: currentProduct.selectedHeelHeightCm,
-        isPlusMember: currentProduct.isPlusMember,
-        pointsEarned: currentProduct.pointsEarned,
-        optionalProducts: currentProduct.optionalProducts,
-        accessoryProducts: currentProduct.accessoryProducts,
-        alternativeProducts: currentProduct.alternativeProducts,
-        variantCombinations: currentProduct.variantCombinations,
-        primaryVariantLabel: currentProduct.primaryVariantLabel,
-        tags: currentProduct.tags,
-        variantImagesMap: currentProduct.variantImagesMap,
+      final simpleUpdatedProduct = currentProduct.copyWith(
+        selectedSize: selectedSizeName,
+        colorOptions: updatedColorOptions, // Update with recalculated availability
+        inStock: hasAvailableVariantForSelection,
       );
-      
-      // Sync stock & quantity with the matched variant for this size/color
-      int nextQuantity = currentState.quantity;
-      final VariantCombination? selectedVariant = _findSelectedVariant(updatedProduct);
-      if (selectedVariant != null) {
-        final double? quantityAvailable = selectedVariant.quantityAvailable;
-        bool variantInStock = selectedVariant.inStock;
 
-        if (quantityAvailable != null) {
-          // Check if there's already an item in cart with this variant ID
-          int existingCartQuantity = 0;
-          final variantIdToCheck = selectedVariant.variantId;
-          // Convert variantId to String for comparison (cart items use String IDs)
-          final variantIdStr = variantIdToCheck.toString();
-          if (cartBloc.state is CartLoaded) {
-            final cartState = cartBloc.state as CartLoaded;
-            try {
-              final existingItem = cartState.cartItems.firstWhere(
-                (item) => item.product.id.toString() == variantIdStr,
-              );
-              existingCartQuantity = existingItem.quantity;
-            } catch (e) {
-              // Item not found in cart, existingCartQuantity remains 0
-            }
-          }
-          
-          final maxAllowed = quantityAvailable.toInt();
-          final available = maxAllowed - existingCartQuantity;
-          
-          if (maxAllowed <= 0 || available <= 0) {
-            variantInStock = false;
-            nextQuantity = 1;
-          } else {
-            // Clamp to available quantity (accounting for cart items)
-            if (nextQuantity > available) {
-              nextQuantity = available;
-            }
-            if (nextQuantity <= 0) {
-              nextQuantity = 1;
-            }
-          }
-          
-          developer.log('📏 Size selected: ${selectedSizeOption.name}, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
-        }
+      developer.log(
+        '📦 _onSelectSize → size="$selectedSizeName", color="${selectedColorName ?? 'none'}", '
+        'hasAvailableVariant=$hasAvailableVariantForSelection → inStock=${hasAvailableVariantForSelection}',
+        name: 'ProductDetails/Stock',
+      );
 
-        updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
-      }
-      
-      emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
-      
-      final result = await selectSize(SelectSizeParams(
-        productId: event.productId,
-        sizeId: event.sizeId,
+      emit(ProductDetailsLoaded(
+        simpleUpdatedProduct,
+        quantity: currentState.quantity,
+        isAdding: currentState.isAdding,
       ));
-      
-      result.fold(
-        (failure) => emit(ProductDetailsError(failure.message)),
-        (_) => emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false)),
-      );
+
+      // Do not run the legacy complex variant/color logic below – we now explicitly
+      // recompute stock for the current size/color selection above.
+      return;
     }
   }
 
