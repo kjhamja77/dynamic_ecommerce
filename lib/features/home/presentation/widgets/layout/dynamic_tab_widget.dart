@@ -108,12 +108,11 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
                     ..sort((a, b) => ((a.order ?? a.id).compareTo(b.order ?? b.id)));
                   return _buildDynamicTabView(sortedPages);
                 } else {
-                  // If still fetching pages for the first time, show skeleton instead of empty
-                  if (state.isFetchingPages) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  // Truly empty
-                  return _buildEmptyState();
+                  // When there are no pages (e.g. immediately after a locale
+                  // change or during initial load), always show the shared
+                  // home skeleton instead of the CMS/admin "Add pages" empty
+                  // state. This prevents the brief flash shown in the screenshot.
+                  return const HomeSkeleton();
                 }
               } else if (state is HomeError) {
                 return _buildErrorContent(state.message);
@@ -129,11 +128,10 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
                     ],
                   );
                 }
-                // No pages yet during initial load - show loading indicator
+                // No pages yet during initial load – present the same
+                // home skeleton so the loading experience is consistent.
                 if (state is HomeLoading || state is HomeInitial) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const HomeSkeleton();
                 }
                 return const SizedBox.shrink();
               }

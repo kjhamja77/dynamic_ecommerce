@@ -19,6 +19,7 @@ import '../../../favorites/presentation/bloc/favorites_event.dart';
 import '../../../profile/presentation/bloc/profile_bloc.dart';
 import '../../../profile/presentation/bloc/profile_event.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
+import '../../../../core/widgets/app_loading_widget.dart';
 
 class LanguageSelector extends StatelessWidget {
   final Language currentLanguage;
@@ -42,7 +43,7 @@ class LanguageSelector extends StatelessWidget {
         // Get current language from localization service (this is the source of truth)
         final currentLocale = localizationService.currentLocale;
         
-        return Container(
+        final content = Container(
           padding: EdgeInsets.all(ResponsiveConstants.mdSpacing),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,6 +64,10 @@ class LanguageSelector extends StatelessWidget {
                   onTap: () async {
                     final isSelected = language.code.code == currentLocale.languageCode;
                     if (!isSelected) {
+                      // Start global language-change loader so ALL pages can
+                      // show a consistent skeleton while translations + data
+                      // are being refreshed.
+                      localizationService.beginLanguageChange();
                       try {
                         // Get success message in the target language before switching
                         final successMessage = language.code.code == 'ar' 
@@ -78,20 +83,17 @@ class LanguageSelector extends StatelessWidget {
                           ),
                         );
 
-                        // IMPORTANT: Update LanguageService FIRST before changing locale
-                        // This ensures API requests use the new language header immediately
-                        await LanguageService().setFromAppLanguageCode(language.code.code);
-                        
-                        // Update the localization service (primary source of truth)
+                        // Update the localization service (primary source of truth).
+                        // AppLocalizationService internally:
+                        // - Persists the language
+                        // - Marks language as selected
+                        // - Syncs LanguageService / Accept-Language header.
                         await localizationService.setLanguage(language.code.code);
                         
                         // Update SettingsBloc for consistency
                         if (context.mounted) {
                           context.read<SettingsBloc>().add(UpdateLanguage(language));
                         }
-
-                        // Mark language as selected for first launch tracking
-                        await FirstLaunchService().markLanguageSelected();
 
                         // Proactively refresh ALL data-dependent BLoCs in the new language
                         // This ensures all API-driven content is reloaded with the updated Accept-Language header
@@ -152,6 +154,10 @@ class LanguageSelector extends StatelessWidget {
                             ),
                           );
                         }
+                      } finally {
+                        // Keep the loader a bit longer so that home, search,
+                        // etc. have time to reload their API data in the new language.
+                        await localizationService.endLanguageChange();
                       }
                     }
                   },
@@ -159,6 +165,29 @@ class LanguageSelector extends StatelessWidget {
             ],
           ),
         );
+
+        // When language is changing, show a loader overlay on top of the
+        // language selector section so the user clearly sees that the
+        // change is in progress.
+        if (localizationService.isChangingLanguage) {
+          return Stack(
+            children: [
+              content,
+              Positioned.fill(
+                child: Container(
+                  color: theme.colorScheme.background.withValues(alpha: 0.6),
+                  child: Center(
+                    child: const AppLoadingWidget.small(
+                      showMessage: false,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return content;
       },
     );
   }

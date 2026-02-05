@@ -63,6 +63,7 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
           if (parentId != null) 'parent_id': parentId,
         },
       );
+      print('response from the get filer data ${response.data}');
 
       print('📡 FilterRemoteDataSource: Response status: ${response.statusCode}');
       print('📡 FilterRemoteDataSource: Response data: ${response.data}');
@@ -88,7 +89,7 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
           final categories = categoriesData
               .map((category) => FilterCategory.fromJson(category as Map<String, dynamic>))
               .toList();
-          
+          print('get categories from filters $categories');
           print('✅ FilterRemoteDataSource: Parsed ${categories.length} categories');
           return categories;
         }
@@ -282,7 +283,9 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
   }) async {
     try {
       print('🌐 FilterRemoteDataSource: GET /ecom/get/product/attributes');
-      print('   Params: page=$page, limit=$limit, categoryIds=$categoryIds');
+      print('   ➤ Endpoint: /ecom/get/product/attributes');
+      print('   ➤ HTTP Method: GET');
+      print('   ➤ High-level params: page=$page, limit=$limit, categoryIds=$categoryIds');
 
       // IMPORTANT:
       // This backend expects GET parameters as "attributes" in the request body (form-data),
@@ -305,8 +308,12 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
         // Send as JSON-encoded string: "[559]" or "[559,560]"
         final json = jsonEncode(categoryIds);
         formDataMap['category_id'] = json;
-        print('📤 FilterRemoteDataSource: Sending category_id as JSON string: $json');
+        print('📤 FilterRemoteDataSource: category_id payload (JSON string) → $json');
       }
+      
+      // Log the exact body we are about to send
+      print('📤 FilterRemoteDataSource: Final request body for /ecom/get/product/attributes:');
+      print('   FormData map: $formDataMap');
       
       final formData = FormData.fromMap(formDataMap);
 
@@ -316,8 +323,10 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
         data: formData,
       );
 
-      print('📡 FilterRemoteDataSource: Response status: ${response.statusCode}');
-      print('📡 FilterRemoteDataSource: Response data: ${response.data}');
+      // Log response right after the request so we see full round-trip for this endpoint.
+      print('📡 FilterRemoteDataSource: Response from /ecom/get/product/attributes');
+      print('   Status: ${response.statusCode}');
+      print('   Raw data: ${response.data}');
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -514,6 +523,11 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
         method: 'POST',
         params: jsonBody,
       );
+
+      // Log response right after calling the filter-search endpoint.
+      print('📡 FilterRemoteDataSource: Response from /ecom/get/product/filter-search');
+      print('   Status: ${response.statusCode}');
+      print('   Raw data: ${response.data}');
 
       if (response.statusCode == 200) {
         final data = response.data;

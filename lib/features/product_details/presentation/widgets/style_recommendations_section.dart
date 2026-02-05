@@ -393,10 +393,10 @@ class StyleRecommendationsSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _serviceFeature('1-on-1 virtual consultation', Icons.video_call),
-                  _serviceFeature('Personalized style recommendations', Icons.palette),
-                  _serviceFeature('Wardrobe analysis & tips', Icons.checkroom),
-                  _serviceFeature('Styling for special occasions', Icons.event),
+                  _serviceFeature('1-on-1 virtual consultation', Icons.video_call,context),
+                  _serviceFeature('Personalized style recommendations', Icons.palette,context),
+                  _serviceFeature('Wardrobe analysis & tips', Icons.checkroom,context),
+                  _serviceFeature('Styling for special occasions', Icons.event,context),
                   
                   SizedBox(height: ResponsiveConstants.lgSpacing),
                   
@@ -459,7 +459,7 @@ class StyleRecommendationsSection extends StatelessWidget {
     );
   }
 
-  Widget _serviceFeature(String title, IconData icon) {
+  Widget _serviceFeature(String title, IconData icon,BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     

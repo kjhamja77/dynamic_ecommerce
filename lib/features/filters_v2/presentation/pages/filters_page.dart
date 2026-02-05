@@ -173,7 +173,7 @@ class _FiltersPageState extends State<FiltersPage> {
         brandIds: brandIds,
       );
     } catch (e) {
-      print('Error mapping attribute names to IDs: $e');
+      debugPrint('Error mapping attribute names to IDs: $e');
       // Return original criteria if mapping fails
       return criteria;
     }
@@ -230,10 +230,11 @@ class _FiltersPageState extends State<FiltersPage> {
         }
         final int? sentCategoryId =
             mappedCriteria.categoryIds.isNotEmpty ? mappedCriteria.categoryIds.last : null;
+        // Keep a compact summary for count updates
         debugPrint(
-          '🔢 Count updated: categoryPath=${mappedCriteria.categoryIds} '
-          'sent category_id=$sentCategoryId attributeValues=${mappedCriteria.attributeIds.length} '
-          '→ total_count=${total ?? -1}',
+          '🔢 Count updated → total_count=${total ?? -1} '
+          '(categoryPath=${mappedCriteria.categoryIds}, sent category_id=$sentCategoryId, '
+          'attributeValues=${mappedCriteria.attributeIds.length})',
         );
         if (mounted) setState(() => _resultCount = total);
       } catch (_) {
@@ -280,9 +281,9 @@ class _FiltersPageState extends State<FiltersPage> {
             ? deepestCategoryIds
             : null;
         
-        debugPrint('🎯 initState: Initial category IDs: ${widget.initial.categoryIds}');
-        debugPrint('🎯 initState: Deepest category IDs for attributes: $deepestCategoryIds');
-        debugPrint('🎯 initState: Will fetch attributes for: $categoryIdsForAttributes');
+        debugPrint('🎯 initState: categoryIds=${widget.initial.categoryIds}, '
+            'deepestForAttributes=$deepestCategoryIds, '
+            'willFetchAttributesFor=$categoryIdsForAttributes');
         
         _reloadAttributesForCategoryIds(categoryIdsForAttributes, forceNetwork: true);
       } else {
@@ -308,10 +309,29 @@ class _FiltersPageState extends State<FiltersPage> {
       final ds = di.sl<FilterRemoteDataSource>();
       final int requestSeq = ++_attributesRequestSeq;
 
+      // BUSINESS REQUIREMENT:
+      // For the attributes endpoint (/ecom/get/product/attributes) we must send
+      // ONLY the last selected (deepest) category/subcategory ID, not the full
+      // list including parents or multiple siblings.
+      //
+      // Example:
+      //   categoryIds = [554, 559, 565, 573, 569]
+      //   → effectiveCategoryIdsForApi = [569]
+      //
+      // The UI can still keep the full path in criteria.categoryIds so chips
+      // show all selected categories, but this method will narrow the list to
+      // a single id for the API call and caching.
+      List<int>? effectiveCategoryIdsForApi;
+      if (categoryIds != null && categoryIds.isNotEmpty) {
+        final lastId = categoryIds.last;
+        effectiveCategoryIdsForApi = [lastId];
+        debugPrint('🎯 Attributes: original categoryIds=$categoryIds → using lastSelected=$lastId');
+      }
+
       // Create cache key from sorted category IDs list (for consistent caching)
       List<int>? cacheKey;
-      if (categoryIds != null && categoryIds.isNotEmpty) {
-        cacheKey = List<int>.from(categoryIds)..sort();
+      if (effectiveCategoryIdsForApi != null && effectiveCategoryIdsForApi.isNotEmpty) {
+        cacheKey = List<int>.from(effectiveCategoryIdsForApi)..sort();
       }
 
       // Cache hit => instant UI update, no network
@@ -332,19 +352,24 @@ class _FiltersPageState extends State<FiltersPage> {
           _deepestCategoryIdsForAttributes = categoryIds;
           _isAttributesLoading = false;
         });
-        print('🎨 Using cached attributes for categoryIds: $categoryIds');
+        debugPrint('🎨 Using cached attributes for categoryIds=$categoryIds');
         return;
       }
       
       // If cache exists but is empty, don't use it - fetch fresh to ensure we get latest data
       if (!forceNetwork && cached != null && cached.isEmpty) {
-        print('⚠️ Cache exists but is empty for categoryIds: $categoryIds, fetching fresh');
+        debugPrint('⚠️ Attributes cache empty for categoryIds=$categoryIds → fetching fresh');
         // Continue to fetch fresh attributes
       }
       
       // CRITICAL: If we're fetching for a specific category, ensure we don't accidentally use global attributes
-      if (categoryIds != null && categoryIds.isNotEmpty && _currentAttributesCategoryId == null) {
-        print('⚠️ Fetching for category $categoryIds but _currentAttributesCategoryId is null (global) - clearing to prevent showing wrong attributes');
+      if (effectiveCategoryIdsForApi != null &&
+          effectiveCategoryIdsForApi.isNotEmpty &&
+          _currentAttributesCategoryId == null) {
+        debugPrint(
+          '⚠️ Attributes: fetching for categoryIds=$effectiveCategoryIdsForApi '
+          'while _currentAttributesCategoryId is null (global) → clearing to avoid stale data',
+        );
         if (mounted) {
           setState(() {
             _currentAttributes = []; // Clear any global attributes
@@ -358,24 +383,35 @@ class _FiltersPageState extends State<FiltersPage> {
         _isAttributesLoading = true;
       });
 
-      print('🎨 Reloading attributes for categoryIds: $categoryIds');
-      print('🎨 Cache key: $cacheKey');
-      print('🎨 Current cached attributes categoryId: $_currentAttributesCategoryId');
-      if (categoryIds != null && categoryIds.isNotEmpty) {
-        print('🎨 Sending category_ids to API: $categoryIds (these are the deepest selected IDs - subcategories only if selected, parent only if no subcategories)');
+      debugPrint('🎨 Reloading attributes: '
+          'uiCategoryIds=$categoryIds, '
+          'apiCategoryIds=$effectiveCategoryIdsForApi, '
+          'cacheKey=$cacheKey, '
+          'currentAttributesCategoryId=$_currentAttributesCategoryId');
+      if (effectiveCategoryIdsForApi != null && effectiveCategoryIdsForApi.isNotEmpty) {
+        debugPrint('🎨 Attributes API category_id payload=$effectiveCategoryIdsForApi');
       } else {
-        print('🎨 No category IDs - fetching global attributes');
+        debugPrint('🎨 Attributes API: no category_ids → fetching global attributes');
       }
       
+      // High-level log for product-attributes API request from filters UI
+      debugPrint('🛰 Attributes API call: '
+          'endpoint=/ecom/get/product/attributes, page=1, limit=120, '
+          'category_id=${effectiveCategoryIdsForApi ?? []}');
+
       final attrs = await ds.getAttributes(
         page: 1,
         limit: 120, // smaller payload for faster UI refresh
-        categoryIds: categoryIds,
+        categoryIds: effectiveCategoryIdsForApi,
       );
+
+      // High-level summary of response before UI mapping
+      debugPrint('🛰 Attributes API response: count=${attrs.length}, '
+          'names=${attrs.map((a) => a.name).toList()}');
 
       // If user changed selection while this request was in-flight/queued, ignore stale response.
       if (!mounted || requestSeq != _attributesRequestSeq) {
-        print('⚠️ Ignoring stale attributes response (requestSeq mismatch or widget disposed)');
+        debugPrint('⚠️ Ignoring stale attributes response (requestSeq mismatch or widget disposed)');
         return;
       }
 
@@ -395,10 +431,10 @@ class _FiltersPageState extends State<FiltersPage> {
 
         final hasDisplayableValues = nonEmptyValues.isNotEmpty;
         if (!hasDisplayableValues) {
-          debugPrint(
-            '⚠️ Dropping attribute "${attr.name}" for categoryIds=$categoryIds '
-            'because all values have product_count=0 or empty names.',
-          );
+            debugPrint(
+              '⚠️ Dropping attribute "${attr.name}" for categoryIds=$categoryIds '
+              'because all values have product_count=0 or empty names.',
+            );
         }
 
         return attr.name.trim().isNotEmpty && hasDisplayableValues;
@@ -407,13 +443,14 @@ class _FiltersPageState extends State<FiltersPage> {
       setState(() {
         _currentAttributes = validAttrs; // Only store attributes with valid values
         _currentAttributesCategoryId = cacheKey;
-        _deepestCategoryIdsForAttributes = categoryIds; // Store the deepest IDs used
+        _deepestCategoryIdsForAttributes =
+            effectiveCategoryIdsForApi; // Store the id actually used for attributes API
         // Only cache non-empty attributes to avoid caching empty results incorrectly
         if (cacheKey != null) {
           if (validAttrs.isEmpty) {
             // Don't cache empty attributes - clear cache entry if it exists
             _attributesCache.remove(cacheKey);
-            print('⚠️ Not caching empty attributes for categoryIds: $categoryIds');
+            debugPrint('⚠️ Not caching empty attributes for categoryIds=$categoryIds');
           } else {
             _attributesCache[cacheKey] = validAttrs;
           }
@@ -421,18 +458,10 @@ class _FiltersPageState extends State<FiltersPage> {
         _isAttributesLoading = false;
       });
 
-      print('🎨 Loaded ${attrs.length} attributes for categoryIds: $categoryIds');
-      print('🎨 Valid attributes (with values): ${validAttrs.length}');
-      if (validAttrs.isEmpty) {
-        print('⚠️ No valid attributes found for categoryIds: $categoryIds - UI will show no attribute sections');
-      } else {
-        print('🎨 First valid attribute: ${validAttrs.first.name} with ${validAttrs.first.values.length} values');
-        if (validAttrs.first.name == 'COLOR') {
-          print('🎨 COLOR values: ${validAttrs.first.values.map((v) => v.name).toList()}');
-        }
-      }
+      debugPrint('🎨 Attributes loaded: raw=${attrs.length}, valid=${validAttrs.length} '
+          'for categoryIds=$categoryIds');
     } catch (e) {
-      print('❌ Error reloading attributes for category: $e');
+      debugPrint('❌ Error reloading attributes for category: $e');
       if (!mounted) return;
       setState(() {
         _isAttributesLoading = false;
@@ -493,11 +522,11 @@ class _FiltersPageState extends State<FiltersPage> {
     // If subcategories are selected, use ONLY those (exclude parents)
     // This ensures attributes are fetched for Bags only, not Women+Bags
     if (selectedSubcategoryIds.isNotEmpty) {
-      debugPrint('🎯 _getDeepestCategoryIds: Found subcategories=$selectedSubcategoryIds, parents=$selectedParentIds → returning subcategories only');
+      debugPrint('🎯 _getDeepestCategoryIds: subcategories=$selectedSubcategoryIds, parents=$selectedParentIds');
       return selectedSubcategoryIds;
     } else {
       // Only parent categories selected, use those
-      debugPrint('🎯 _getDeepestCategoryIds: Only parents selected=$selectedParentIds → returning parents');
+      debugPrint('🎯 _getDeepestCategoryIds: onlyParents=$selectedParentIds');
       return selectedParentIds;
     }
   }
@@ -527,11 +556,8 @@ class _FiltersPageState extends State<FiltersPage> {
     final deepestCategoryIds = _getDeepestCategoryIds(newCategoryIds, subcategoriesMap);
     final categoryIdsForAttributes = deepestCategoryIds.isNotEmpty ? deepestCategoryIds : null;
     
-    debugPrint('🎯 _onCategoryIdsChanged:');
-    debugPrint('   - All selected category IDs: $newCategoryIds');
-    debugPrint('   - Deepest category IDs (for attributes): $deepestCategoryIds');
-    debugPrint('   - Will fetch attributes for: $categoryIdsForAttributes');
-    debugPrint('   - Subcategories map keys: ${subcategoriesMap.keys.toList()}');
+    debugPrint('🎯 _onCategoryIdsChanged: all=$newCategoryIds, deepest=$deepestCategoryIds, '
+        'forAttributes=$categoryIdsForAttributes');
     
     // Create cache key for the new category
     List<int>? newCacheKey;
@@ -549,9 +575,8 @@ class _FiltersPageState extends State<FiltersPage> {
       });
     }
     
-    debugPrint('🎯 Category selection: all=$newCategoryIds, deepest=$deepestCategoryIds');
-    debugPrint('🎯 Will fetch attributes for: $categoryIdsForAttributes (excluding parent if subcategories selected)');
-    debugPrint('🎯 Cleared _currentAttributes to prevent showing stale attributes');
+    debugPrint('🎯 Category selection: all=$newCategoryIds, deepest=$deepestCategoryIds, '
+        'forAttributes=$categoryIdsForAttributes (parents excluded when subcategories selected)');
     await _reloadAttributesForCategoryIds(categoryIdsForAttributes, forceNetwork: true);
   }
 
@@ -872,14 +897,14 @@ class _FiltersPageState extends State<FiltersPage> {
                           final state = context.read<FiltersBloc>().state;
                           if (state is FiltersLoaded) {
                             // CRITICAL: Map attribute names to IDs before applying filters
-                            print('🎯 FiltersPage: Mapping attribute names to IDs before applying...');
+                            debugPrint('🎯 FiltersPage: Mapping attribute names to IDs before applying...');
                             final mappedCriteria = await _mapAttributeNamesToIds(state.criteria);
-                            print('🎯 FiltersPage: Mapped FilterCriteria:');
-                            print('   - Category IDs: ${mappedCriteria.categoryIds}');
-                            print('   - Brand IDs: ${mappedCriteria.brandIds}');
-                            print('   - Attribute IDs: ${mappedCriteria.attributeIds}');
-                            print('   - Limit: ${mappedCriteria.limit}');
-                            print('   - Sort: ${mappedCriteria.sortByField} (${mappedCriteria.sortOrder})');
+                            debugPrint('🎯 FiltersPage: Mapped FilterCriteria → '
+                                'categoryIds=${mappedCriteria.categoryIds}, '
+                                'brandIds=${mappedCriteria.brandIds}, '
+                                'attributeIds=${mappedCriteria.attributeIds}, '
+                                'limit=${mappedCriteria.limit}, '
+                                'sort=${mappedCriteria.sortByField} (${mappedCriteria.sortOrder})');
                             widget.onApply(mappedCriteria);
                           }
                         } finally {
@@ -1154,7 +1179,6 @@ class _FiltersPageState extends State<FiltersPage> {
           .toList();
       return attr.name.trim().isNotEmpty && values.isNotEmpty;
     }).toList();
-    
     for (final attribute in validAttributes) {
       final section = _buildSingleAttributeSection(context, criteria, attribute);
       if (section != null) {
@@ -1660,19 +1684,6 @@ class _FiltersPageState extends State<FiltersPage> {
             selectedCategory?.hasChildren == true ||
             selectedCategory?.children.isNotEmpty == true);
     
-    // Debug logging for subcategory display
-    debugPrint('🌳 _buildCategorySection:');
-    debugPrint('   - Selected category ID: $selectedCategoryId');
-    debugPrint('   - Selected category name: ${selectedCategory?.name}');
-    debugPrint('   - Selected category hasChildren: ${selectedCategory?.hasChildren}');
-    debugPrint('   - Subcategories map keys: ${subcategories.keys.toList()}');
-    debugPrint('   - Loaded subcategories for $selectedCategoryId: ${loadedSubcategories.length}');
-    debugPrint('   - Is currently loading: $isCurrentlyLoading');
-    debugPrint('   - Should show subcategories: $shouldShowSubcategories');
-    if (loadedSubcategories.isNotEmpty) {
-      debugPrint('   - Subcategory names: ${loadedSubcategories.map((s) => s.name).toList()}');
-    }
-
     final anyCategoryLoading = _loadingCategoryIds.isNotEmpty;
 
     return [
@@ -1979,13 +1990,9 @@ class _FiltersPageState extends State<FiltersPage> {
   }
 
   Future<void> _loadSubcategories(BuildContext blocContext, int parentId) async {
-    print('🌳 _loadSubcategories called for parentId: $parentId');
-    print('🌳 Current loading IDs: $_loadingCategoryIds');
-    print('🌳 API calls in progress: $_subcategoriesApiInProgress');
-    
     // Prevent duplicate API calls using separate tracking
     if (_subcategoriesApiInProgress.contains(parentId)) {
-      print('⚠️ API call already in progress for parentId: $parentId, skipping duplicate call...');
+      debugPrint('⚠️ API call already in progress for parentId: $parentId, skipping duplicate call...');
       return;
     }
     
@@ -1997,17 +2004,11 @@ class _FiltersPageState extends State<FiltersPage> {
       setState(() {
         _loadingCategoryIds.add(parentId);
       });
-      print('🌳 Loading state set as fallback for parentId: $parentId');
     }
     
-    print('🌳 Starting subcategory load for parentId: $parentId');
-
     try {
       final int requestSeq = ++_subcategoriesRequestSeq;
 
-      print('🌳 Loading subcategories for parentId: $parentId');
-      print('🌳 Calling /ecom/get/product-category with parent_id: $parentId, max_depth: 1');
-      
       // Optimize API call - use timeout to ensure fast response
       final dataSource = di.sl<FilterRemoteDataSource>();
       final List<FilterCategory> subcats = await dataSource.getCategoriesWithChildren(
@@ -2017,41 +2018,29 @@ class _FiltersPageState extends State<FiltersPage> {
         // Requests are queued globally; a short timeout here causes false "no subcategories".
         // Give enough time for queueing + network (Dio connectTimeout is 60s).
         const Duration(seconds: 75),
-        onTimeout: () {
-          print('⏱️ Timeout loading subcategories for parentId: $parentId (ignored)');
-          return <FilterCategory>[];
-        },
+        onTimeout: () => <FilterCategory>[],
       );
       
       // If user changed selection while this request was in-flight/queued, ignore stale response.
-      if (!mounted || requestSeq != _subcategoriesRequestSeq) {
-        print('⚠️ Request sequence changed or widget unmounted, ignoring stale response');
+        if (!mounted || requestSeq != _subcategoriesRequestSeq) {
+        debugPrint('⚠️ Ignoring stale subcategory response (requestSeq mismatch or widget disposed)');
         return;
-      }
-
-      print('🌳 Loaded ${subcats.length} subcategories for parentId: $parentId');
-      for (final subcat in subcats) {
-        print(
-          '   - ${subcat.name} (ID: ${subcat.id}, hasChildren: ${subcat.hasChildren}, children: ${subcat.children.length})',
-        );
       }
       
       // Update BLoC state with loaded subcategories
       if (subcats.isNotEmpty) {
         // Check mounted one more time before dispatching event
         if (!mounted) {
-          print('⚠️ Widget disposed before BLoC update, skipping');
+          debugPrint('⚠️ Widget disposed before BLoC update, skipping subcategory set');
           return;
         }
         
         blocContext.read<FiltersBloc>().add(FiltersSubcategoriesSet(parentId, subcats));
-        print('🌳 Subcategories stored in BLoC state');
-        print('🌳 BlocBuilder should automatically rebuild to show subcategories');
       } else {
-        print('🌳 No subcategories found for parentId: $parentId');
+        debugPrint('🌳 No subcategories found for parentId: $parentId');
       }
     } catch (e) {
-      print('❌ Error loading subcategories: $e');
+      debugPrint('❌ Error loading subcategories for parentId=$parentId: $e');
     } finally {
       // Always remove loading state and API tracking, re-enable buttons
       _subcategoriesApiInProgress.remove(parentId);
@@ -2059,7 +2048,6 @@ class _FiltersPageState extends State<FiltersPage> {
         setState(() {
           _loadingCategoryIds.remove(parentId);
         });
-        print('✅ Loading complete for parentId: $parentId, buttons re-enabled');
       }
     }
   }
@@ -2170,8 +2158,8 @@ class _FiltersPageState extends State<FiltersPage> {
                             final newCategoryIds = List<int>.from(criteria.categoryIds);
 
                             if (subSelected) {
+                              // Unselect this subcategory (and any of its children)
                               newCategoryIds.remove(subcategory.id);
-                              // Clear subcategories of this category
                               final subcats = subcategories[subcategory.id] ?? [];
                               for (final subcat in subcats) {
                                 newCategoryIds.remove(subcat.id);
@@ -2180,16 +2168,21 @@ class _FiltersPageState extends State<FiltersPage> {
                                 FiltersSubcategoriesCleared(subcategory.id),
                               );
                             } else {
-                              // Ensure parent is selected (for UI display)
+                              // UI selection model: keep both the parent category id
+                              // AND the selected subcategory id in criteria.categoryIds
+                              // so that chips / headers can show the full path.
+                              //
+                              // API model: when calling endpoints we ALWAYS pass only the
+                              // deepest ids (subcategories) via _getDeepestCategoryIds /
+                              // FilterCriteria.getDeepestCategoryIds, so parents are
+                              // automatically removed before hitting the backend.
                               if (!newCategoryIds.contains(parentId)) {
                                 newCategoryIds.add(parentId);
                               }
-                              // Add subcategory ID
                               if (!newCategoryIds.contains(subcategory.id)) {
                                 newCategoryIds.add(subcategory.id);
                               }
                             }
-
                             // Update selection + attributes FIRST so COLOR list changes immediately.
                             // _getDeepestCategoryIds will extract only subcategory IDs (excluding parent) for API call
                             await _onCategoryIdsChanged(context, criteria, newCategoryIds);

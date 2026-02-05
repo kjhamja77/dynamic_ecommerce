@@ -84,11 +84,12 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
 
     setState(() => _isSaving = true);
     try {
+      final localizationService = AppLocalizationService();
+      localizationService.beginLanguageChange();
+
       await HapticService.buttonClick();
-      await AppLocalizationService().setLanguage(_selectedLanguage!);
-      await LanguageService().setFromAppLanguageCode(_selectedLanguage!);
+      await localizationService.setLanguage(_selectedLanguage!);
       await FirstLaunchService().markFirstLaunchCompleted();
-      await FirstLaunchService().markLanguageSelected();
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/onboarding');
       }
@@ -96,6 +97,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
       if (mounted) {
         setState(() => _isSaving = false);
       }
+      await AppLocalizationService().endLanguageChange();
     }
   }
 

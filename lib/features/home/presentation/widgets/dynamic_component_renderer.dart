@@ -326,7 +326,32 @@ class DynamicComponentRenderer extends StatelessWidget {
               final content = child.content['product'] as Map<String, dynamic>?;
               
               // Extract product data from API response
-              final String name = (content?['name'] as String?) ?? '';
+              // Prefer a human‑readable / localized template name when available.
+              final Map<String, dynamic>? productTemplate =
+                  content?['product_template'] as Map<String, dynamic>?;
+              final String templateName =
+                  (productTemplate?['name'] as String?)?.trim() ?? '';
+              final String rawDisplayName =
+                  (content?['display_name'] as String?)?.trim() ?? '';
+              final String rawName =
+                  (content?['name'] as String?)?.trim() ?? '';
+              final String rawDescription =
+                  (content?['description'] as String?)?.trim() ?? '';
+
+              // Heuristic to pick the best title:
+              // 1) Prefer product_template.name (translatable template name).
+              // 2) Then display_name if present.
+              // 3) Then raw name.
+              // 4) If description is in Arabic while the chosen title is not (or empty),
+              //    use description instead so Arabic product titles are shown correctly.
+              String effectiveName = templateName.isNotEmpty
+                  ? templateName
+                  : (rawDisplayName.isNotEmpty ? rawDisplayName : rawName);
+              if ((effectiveName.isEmpty || !_containsArabic(effectiveName)) &&
+                  _containsArabic(rawDescription)) {
+                effectiveName = rawDescription;
+              }
+
               final String type = (content?['type'] as String?) ?? 'variant';
               final String? image = content?['image'] as String?;
               final num price = (content?['price'] as num?) ?? 0;
@@ -350,8 +375,8 @@ class DynamicComponentRenderer extends StatelessWidget {
               // Create Product entity for ProductCard
               final Product product = Product(
                 id: productId.toString(),
-                name: name,
-                description: (content?['description'] as String?) ?? '',
+                name: effectiveName,
+                description: rawDescription,
                 price: price.toDouble(),
                 originalPrice: null, // No original price in API response
                 images: fullImageUrl != null ? [fullImageUrl] : [],

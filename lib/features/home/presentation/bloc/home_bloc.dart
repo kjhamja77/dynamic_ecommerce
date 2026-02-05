@@ -170,19 +170,23 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     LoadFeaturedProducts event,
     Emitter<HomeState> emit,
   ) async {
-    // Emit loading state if not already in HomeLoaded state
-    if (state is! HomeLoaded) {
-      emit(HomeLoading());
-    }
+    // Always emit a loading state while fetching featured products so that
+    // Home can show its skeleton loader even during refreshes (e.g. after
+    // changing the locale). Preserve the previous data so we can restore
+    // other fields when the load completes.
+    final previousState = state;
+    emit(HomeLoading());
 
     final result = await getFeaturedProductsUseCase(NoParams());
 
     result.fold(
       (failure) => emit(HomeError(failure.message)),
       (products) {
-        final s = state; // re-read state after await to avoid overwriting newer data
-        if (s is HomeLoaded) {
-          emit(s.copyWith(featuredProducts: products));
+        // If we had a HomeLoaded state before loading, restore its fields
+        // while updating only the featuredProducts list. Otherwise, create
+        // a fresh HomeLoaded state.
+        if (previousState is HomeLoaded) {
+          emit(previousState.copyWith(featuredProducts: products));
         } else {
           emit(HomeLoaded(
             featuredProducts: products,

@@ -14,6 +14,8 @@ import '../../../home/presentation/widgets/welcome_section_widget.dart';
 import 'search_input_page.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../../../../core/services/app_localization_service.dart';
+import '../utils/category_localization_helper.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -27,6 +29,7 @@ class _SearchPageState extends State<SearchPage>
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   List<String> _tabNames = []; // Will be updated dynamically
+  late String _lastLocaleCode;
 
   @override
   void initState() {
@@ -36,6 +39,9 @@ class _SearchPageState extends State<SearchPage>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
+
+    // Track the locale at the time this page is first created.
+    _lastLocaleCode = AppLocalizationService().currentLocale.languageCode;
     
     // Set initial tab to second tab (index 1) if available, otherwise 0
     if (_tabNames.isNotEmpty && _tabNames.length > 1) {
@@ -59,6 +65,26 @@ class _SearchPageState extends State<SearchPage>
         debugPrint('⚠️ SearchPage: Failed to load initial data (bloc may be closed): $e');
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // If the app locale changed while we were away from this screen,
+    // "re‑init" the search data by reloading it with the latest locale.
+    final currentLocaleCode = AppLocalizationService().currentLocale.languageCode;
+    if (currentLocaleCode != _lastLocaleCode) {
+      _lastLocaleCode = currentLocaleCode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          context.read<SearchBloc>().add(const LoadSearchData());
+        } catch (e) {
+          debugPrint('⚠️ SearchPage: Failed to reload data after locale change: $e');
+        }
+      });
+    }
   }
 
   void _updateTabsFromState(SearchLoaded state) {
@@ -286,12 +312,14 @@ class _SearchPageState extends State<SearchPage>
                               final isLoading = state.loadingSubcategories.contains(tab.id);
                               final tabIndex = state.tabs.indexOf(tab);
                               final isSelected = _tabController.index == tabIndex;
+                              final localizedTitle = CategoryLocalizationHelper
+                                  .localizeCategoryName(context, tab.title);
                               return Tab(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(tab.title),
+                                    Text(localizedTitle),
                                     if (isLoading) ...[
                                       SizedBox(width: ResponsiveConstants.smSpacing),
                                       SizedBox(

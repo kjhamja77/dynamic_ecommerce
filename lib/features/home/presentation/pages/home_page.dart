@@ -21,6 +21,9 @@ import '../../../favorites/presentation/bloc/favorites_event.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../../../../core/services/app_localization_service.dart';
+import '../bloc/home_bloc.dart';
+import '../../../../core/widgets/app_loading_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,6 +38,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late final Widget _profileTab;
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
+  late String _lastLocaleCode;
 
   @override
   void initState() {
@@ -53,6 +57,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       vsync: this,
       animationDuration: HomeConstants.tabAnimationDuration,
     );
+
+    // Track the locale when HomePage is first created.
+    _lastLocaleCode = AppLocalizationService().currentLocale.languageCode;
 
     // Build Search tab once to preserve its state and bloc instance
     _searchTab = BlocProvider(
@@ -80,6 +87,33 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await Future.delayed(const Duration(milliseconds: 200));
       context.read<FavoritesBloc>().add(LoadFavorites());
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // If the app locale changed while we were away from Home, "re-init"
+    // HomeBloc by reloading pages and featured products using the latest
+    // language/headers.
+    final currentLocaleCode = AppLocalizationService().currentLocale.languageCode;
+    if (currentLocaleCode != _lastLocaleCode) {
+      _lastLocaleCode = currentLocaleCode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          final homeBloc = context.read<HomeBloc>();
+          homeBloc
+            ..add(const LoadPages(1))
+            ..add(LoadFeaturedProducts());
+        } catch (e) {
+          developer.log(
+            '⚠️ HomePage: Failed to reload HomeBloc after locale change: $e',
+            name: 'HomePage',
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -285,66 +319,93 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildBody() {
-    return GestureDetector(
-      onTap: () async {
-          await HapticService.buttonClick();
-          FocusScope.of(context).unfocus();
-        },
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+    final localizationService = AppLocalizationService();
+
+    return ListenableBuilder(
+      listenable: localizationService,
+      builder: (context, _) {
+        final isChangingLanguage = localizationService.isChangingLanguage;
+
+        return GestureDetector(
+          onTap: () async {
+            await HapticService.buttonClick();
+            FocusScope.of(context).unfocus();
+          },
+          child: SafeArea(
+            child: Stack(
               children: [
-                Expanded(
-                  child: TabBarView(
-                    controller: _outerTabController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: HomeConstants.outerTabs.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      String outerTab = entry.value;
-                      return _buildOuterTabContent(index, outerTab);
-                    }).toList(),
-                  ),
+                Column(
+                  children: [
+                    Expanded(
+                      child: TabBarView(
+                        controller: _outerTabController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: HomeConstants.outerTabs
+                            .asMap()
+                            .entries
+                            .map((entry) {
+                          int index = entry.key;
+                          String outerTab = entry.value;
+                          return _buildOuterTabContent(index, outerTab);
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            // Use SafeArea and ignore pointer when hidden to avoid stealing TabBar gestures
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: SafeArea(
-                minimum: const EdgeInsets.only(bottom: 8, right: 8),
-                child: IgnorePointer(
-                  ignoring: !_showScrollToTop,
-                  child: AnimatedScale(
-                    scale: _showScrollToTop ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _showScrollToTop ? 1 : 0,
-                      child: FloatingActionButton(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        onPressed: () async {
-                          await HapticService.buttonClick();
-                          if (_scrollController.hasClients) {
-                            _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOut,
-                            );
-                          }
-                        },
-                        child: const Icon(Icons.arrow_upward),
+                // Scroll‑to‑top FAB
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: SafeArea(
+                    minimum: const EdgeInsets.only(bottom: 8, right: 8),
+                    child: IgnorePointer(
+                      ignoring: !_showScrollToTop,
+                      child: AnimatedScale(
+                        scale: _showScrollToTop ? 1 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _showScrollToTop ? 1 : 0,
+                          child: FloatingActionButton(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            onPressed: () async {
+                              await HapticService.buttonClick();
+                              if (_scrollController.hasClients) {
+                                _scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 400),
+                                  curve: Curves.easeOut,
+                                );
+                              }
+                            },
+                            child: const Icon(Icons.arrow_upward),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+                // Language‑change skeleton/loader overlay for the whole Home page.
+                if (isChangingLanguage)
+                  Positioned.fill(
+                    child: Container(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .background
+                          .withValues(alpha: 0.98),
+                      child: const Center(
+                        child: AppLoadingWidget.large(
+                          showMessage: false,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

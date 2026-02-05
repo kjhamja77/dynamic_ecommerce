@@ -16,6 +16,7 @@ import '../widgets/empty_states/page_components_empty_state.dart';
 import '../../../../core/widgets/app_pull_to_refresh.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/app_localization_service.dart';
 
 /// Safely cast a value to String, handling bool and null cases
 String _safeStringCast(dynamic value) {
@@ -106,6 +107,13 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
+        // When language is changing, show skeleton instead of mixed-language
+        // dynamic content (e.g. "Happy New Year" header).
+        final localizationService = AppLocalizationService();
+        if (localizationService.isChangingLanguage) {
+          return _SkeletonPage(scrollController: widget.scrollController);
+        }
+
         // Skeletons while fetching components initially
         if (state is HomeLoaded && state.isFetchingComponents && state.fetchingComponentsForPageId == widget.pageId && !state.componentsByPageId.containsKey(widget.pageId)) {
           return const _SkeletonPage();
@@ -167,37 +175,12 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
             debugPrint('🔍 DynamicPageWidget: Showing skeleton for page ${widget.pageId}');
             return _SkeletonPage(scrollController: widget.scrollController);
           }
-          // Fetched but empty → show empty-state guidance
+          // Fetched but empty → show skeleton instead of admin empty-state text
           if (pcForThis.pageComponents.isEmpty) {
-            return AppPullToRefresh(
-              onRefresh: () async {
-                context.read<HomeBloc>().add(
-                      LoadPageComponents(
-                        componentId: widget.pageId,
-                        page: 1,
-                        pageSize: 10,
-                      ),
-                    );
-              },
-              child: SingleChildScrollView(
-                controller: widget.scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.8,
-                  child: PageComponentsEmptyState(
-                    onRefresh: () {
-                      context.read<HomeBloc>().add(
-                            LoadPageComponents(
-                              componentId: widget.pageId,
-                              page: 1,
-                              pageSize: 10,
-                            ),
-                          );
-                    },
-                  ),
-                ),
-              ),
-            );
+            // For end-users we prefer to show a skeleton while page
+            // components are (re)loading, instead of "add components"
+            // admin guidance.
+            return _SkeletonPage(scrollController: widget.scrollController);
           }
 
           final pc = pcForThis;
@@ -453,6 +436,20 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
 }
 
 // --------------------- Shimmer Skeletons ---------------------
+
+/// Public home skeleton widget that can be reused by other home
+/// layout widgets (tabs, containers) without exposing the private
+/// implementation details of the skeleton.
+class HomeSkeleton extends StatelessWidget {
+  final ScrollController? scrollController;
+  const HomeSkeleton({super.key, this.scrollController});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SkeletonPage(scrollController: scrollController);
+  }
+}
+
 class _SkeletonPage extends StatelessWidget {
   final ScrollController? scrollController;
   
@@ -691,9 +688,10 @@ class PageTabsWidget extends StatelessWidget {
         }
 
         if (state is HomeLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          // While the home page is (re)loading – for example after a
+          // locale change – show the full-page skeleton instead of a
+          // circular progress indicator so the UX stays consistent.
+          return const HomeSkeleton();
         }
 
         if (state is HomeError) {

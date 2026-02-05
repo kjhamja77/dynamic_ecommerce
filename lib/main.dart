@@ -20,6 +20,7 @@ import 'core/services/connectivity_navigation_service.dart';
 import 'core/providers/currency_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'core/services/app_restart.dart';
+import 'core/widgets/app_loading_widget.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
@@ -147,9 +148,11 @@ class AppRoot extends StatelessWidget {
                         ],
                         locale: localizationService.currentLocale,
                         
-                        // RTL support
+                        // RTL support + global language-change loader overlay
                         builder: (context, child) {
-                          return GestureDetector(
+                          // Base app content with correct text direction and
+                          // global tap-to-unfocus behavior.
+                          Widget content = GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onTap: () => FocusScope.of(context).unfocus(),
                             onPanDown: (_) => FocusScope.of(context).unfocus(),
@@ -158,6 +161,35 @@ class AppRoot extends StatelessWidget {
                               child: child!,
                             ),
                           );
+
+                          // When language is being changed, show a full-screen
+                          // skeleton/loader overlay above the entire app.
+                          if (localizationService.isChangingLanguage) {
+                            content = Stack(
+                              children: [
+                                content,
+                                Positioned.fill(
+                                  child: Container(
+                                    // Use near-opaque background so the user
+                                    // doesn't see texts changing one‑by‑one
+                                    // underneath while language is switching.
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .background
+                                        .withValues(alpha: 0.95),
+                                    child: Center(
+                                      child: AppLoadingWidget.large(
+                                        message: AppLocalizations.of(context)?.changingLanguage,
+                                        showMessage: true,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return content;
                         },
                       ),
                     );

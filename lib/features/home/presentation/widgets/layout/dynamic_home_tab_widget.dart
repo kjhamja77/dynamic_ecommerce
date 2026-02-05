@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:zalando_clone_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:zalando_clone_app/features/home/domain/entities/page.dart' as home_page;
 import 'dynamic_tab_widget.dart';
+import '../dynamic_page_widget.dart'; // for HomeSkeleton
 
 class DynamicHomeTabWidget extends StatefulWidget {
   final TabController outerTabController;
@@ -156,10 +157,9 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
           // Listener above handles updates; avoid duplicating here
 
           if (_innerTabController == null) {
-            // Show loading indicator while controller initializes
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            // While the inner tab controller is initializing (or pages are
+            // not yet available), show the same home skeleton used elsewhere.
+            return const HomeSkeleton();
           }
 
           return RefreshIndicator(

@@ -10,6 +10,7 @@ import '../../domain/entities/search_category.dart';
 import '../../domain/entities/search_subcategory.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../utils/category_localization_helper.dart';
 import '../bloc/search_bloc.dart';
 import '../pages/category_details_page.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -159,9 +160,12 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
               
               SizedBox(height: ResponsiveConstants.mdSpacing),
               
-              // Category title - centered
+              // Category title - centered (localized)
               Text(
-                _getCategoryName(category),
+                CategoryLocalizationHelper.localizeCategoryName(
+                  context,
+                  _getCategoryName(category),
+                ),
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
                   fontWeight: FontWeight.w700,
@@ -260,7 +264,10 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _getCategoryName(category),
+                          CategoryLocalizationHelper.localizeCategoryName(
+                            context,
+                            _getCategoryName(category),
+                          ),
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.smFontSize,
                             fontWeight: FontWeight.w600,
@@ -309,7 +316,8 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
   void _onCategoryTap(dynamic category, {int level = 0}) {
     final categoryId = _getCategoryId(category);
     final hasChildren = _hasChildren(category);
-    final categoryName = _getCategoryName(category);
+    final rawName = _getCategoryName(category);
+    final localizedName = CategoryLocalizationHelper.localizeCategoryName(context, rawName);
     
     if (hasChildren) {
       // Always navigate to category details page instead of expanding inline
@@ -328,7 +336,7 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
             value: searchBloc,
             child: CategoryDetailsPage(
               categoryId: categoryId.toString(),
-              title: categoryName,
+              title: localizedName,
             ),
           ),
         ),
@@ -339,8 +347,10 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
         context,
         '/catalog',
         arguments: CatalogArgs(
-          title: categoryName,
-          category: categoryName,
+          title: localizedName,
+          // Use the raw backend name for filters/query to keep semantics,
+          // and show the localized label only in the UI.
+          category: rawName,
           categoryId: categoryId.toString(),
         ),
       );

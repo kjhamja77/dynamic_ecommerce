@@ -7,12 +7,14 @@ class AppLocalizationService extends ChangeNotifier {
   static const String _languageKey = 'app_language';
   
   Locale _currentLocale = const Locale('ar');
+  bool _isChangingLanguage = false;
   
   Locale get currentLocale => _currentLocale;
   
   bool get isRTL => _currentLocale.languageCode == 'ar';
   
   TextDirection get textDirection => isRTL ? TextDirection.rtl : TextDirection.ltr;
+  bool get isChangingLanguage => _isChangingLanguage;
   
   static final AppLocalizationService _instance = AppLocalizationService._internal();
   factory AppLocalizationService() => _instance;
@@ -41,28 +43,49 @@ class AppLocalizationService extends ChangeNotifier {
   }
   
   Future<void> setLocale(Locale locale) async {
-    if (_currentLocale != locale) {
-      _currentLocale = locale;
-      
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_languageKey, locale.languageCode);
-        
-        // Mark language as selected when user changes it
-        await FirstLaunchService().markLanguageSelected();
+    if (_currentLocale == locale) return;
 
-        // Sync API Accept-Language code with selected app language
-        await LanguageService().setFromAppLanguageCode(locale.languageCode);
-      } catch (e) {
-        debugPrint('Error saving language: $e');
-      }
+    _currentLocale = locale;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_languageKey, locale.languageCode);
       
-      notifyListeners();
+      // Mark language as selected when user changes it
+      await FirstLaunchService().markLanguageSelected();
+
+      // Sync API Accept-Language code with selected app language
+      await LanguageService().setFromAppLanguageCode(locale.languageCode);
+    } catch (e) {
+      debugPrint('Error saving language: $e');
     }
+    
+    notifyListeners();
   }
   
   Future<void> setLanguage(String languageCode) async {
     await setLocale(Locale(languageCode));
+  }
+
+  /// Explicitly mark the beginning of a language change operation so that
+  /// the UI can show a global loader while API‑driven content reloads.
+  void beginLanguageChange() {
+    if (_isChangingLanguage) return;
+    _isChangingLanguage = true;
+    notifyListeners();
+  }
+
+  /// Mark the end of a language change. An optional delay can be provided
+  /// to keep the loader visible while downstream BLoCs refresh their data.
+  /// We use a slightly larger default delay so that the user does not see
+  /// texts switching one‑by‑one on slow networks.
+  Future<void> endLanguageChange({Duration delay = const Duration(milliseconds: 1500)}) async {
+    if (!_isChangingLanguage) return;
+    if (delay.inMilliseconds > 0) {
+      await Future.delayed(delay);
+    }
+    _isChangingLanguage = false;
+    notifyListeners();
   }
   
   // Helper method to get localized text with RTL support

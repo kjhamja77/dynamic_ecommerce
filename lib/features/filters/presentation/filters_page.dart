@@ -1656,18 +1656,23 @@ class _FiltersPageState extends State<FiltersPage> {
       return [];
     }
 
-    return categories.map((category) {
+    return categories.map<Widget>((category) {
       final isSelected = criteria.categoryIds.contains(category.id);
-      // Use category's own children first (from API nested response), 
+      // Use category's own children first (from API nested response),
       // then check loaded subcategories from cubit, otherwise use empty
-      final categoryChildren = category.children.isNotEmpty 
-          ? category.children 
-          : (cubit != null 
-              ? (cubit.state.subcategories[category.id] ?? [])
-              : []);
-      final hasChildren = category.hasChildren || category.children.isNotEmpty || categoryChildren.isNotEmpty;
+      final List<FilterCategory> categoryChildren = category.children.isNotEmpty
+          ? category.children
+          : (cubit != null
+              ? (cubit.state.subcategories[category.id] ?? const <FilterCategory>[])
+              : const <FilterCategory>[]);
+      final hasChildren =
+          category.hasChildren || category.children.isNotEmpty || categoryChildren.isNotEmpty;
       final isExpanded = _expandedCategories[category.id] ?? false;
-      final subcategories = categoryChildren;
+      final List<FilterCategory> subcategories = categoryChildren;
+
+      // Decide which children to show when expanded
+      final List<FilterCategory> childrenToShow =
+          category.children.isNotEmpty ? category.children : subcategories;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1679,121 +1684,119 @@ class _FiltersPageState extends State<FiltersPage> {
               bottom: ResponsiveConstants.xsSpacing,
             ),
             child: Row(
-                children: [
-                  // Expand/collapse icon
-                  if (hasChildren)
-                    Semantics(
-                      label: isExpanded 
-                          ? AppLocalizations.of(context)!.collapseCategory
-                          : AppLocalizations.of(context)!.expandCategory,
-                      button: true,
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _expandedCategories[category.id] = !isExpanded;
-                          });
-                        },
-                        child: Padding(
-                          padding: EdgeInsets.all(ResponsiveConstants.xsPadding),
-                          child: Icon(
-                            isExpanded ? Icons.expand_more : Icons.chevron_right,
-                            size: 20,
-                            color: Colors.grey.shade700,
-                          ),
+              children: [
+                // Expand/collapse icon
+                if (hasChildren)
+                  Semantics(
+                    label: isExpanded
+                        ? AppLocalizations.of(context)!.collapseCategory
+                        : AppLocalizations.of(context)!.expandCategory,
+                    button: true,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _expandedCategories[category.id] = !isExpanded;
+                        });
+                      },
+                      child: Padding(
+                        padding: EdgeInsets.all(ResponsiveConstants.xsPadding),
+                        child: Icon(
+                          isExpanded ? Icons.expand_more : Icons.chevron_right,
+                          size: 20,
+                          color: Colors.grey.shade700,
                         ),
                       ),
-                    )
-                  else
-                    SizedBox(width: ResponsiveConstants.xsSpacing),
-                  
-                  // Category checkbox/selection
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: (_) async {
-                      await HapticService.selectionClick();
-                      
-                      final newCategoryIds = List<int>.from(criteria.categoryIds);
-                      
-                      if (isSelected) {
-                        newCategoryIds.remove(category.id);
-                        _removeCategoryAndChildren(newCategoryIds, category, subcategories);
-                      } else {
-                        if (!newCategoryIds.contains(parentId)) {
-                          newCategoryIds.add(parentId);
-                        }
-                        if (!newCategoryIds.contains(category.id)) {
-                          newCategoryIds.add(category.id);
-                        }
-                        
-                        // Always load children if not already loaded
-                        if (subcategories.isEmpty && cubit != null) {
-                          await _loadSubcategories(context, category.id, cubit);
-                          // After loading, get the updated subcategories
-                          final updatedSubcats = cubit.state.subcategories[category.id] ?? category.children;
-                          if (updatedSubcats.isNotEmpty) {
-                            setState(() {
-                              _expandedCategories[category.id] = true;
-                            });
-                          }
-                        } else if (hasChildren) {
-                          // Expand if has children (already loaded)
+                    ),
+                  )
+                else
+                  SizedBox(width: ResponsiveConstants.xsSpacing),
+
+                // Category checkbox/selection
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (_) async {
+                    await HapticService.selectionClick();
+
+                    final newCategoryIds = List<int>.from(criteria.categoryIds);
+
+                    if (isSelected) {
+                      newCategoryIds.remove(category.id);
+                      _removeCategoryAndChildren(newCategoryIds, category, subcategories);
+                    } else {
+                      if (!newCategoryIds.contains(parentId)) {
+                        newCategoryIds.add(parentId);
+                      }
+                      if (!newCategoryIds.contains(category.id)) {
+                        newCategoryIds.add(category.id);
+                      }
+
+                      // Always load children if not already loaded
+                      if (subcategories.isEmpty && cubit != null) {
+                        await _loadSubcategories(context, category.id, cubit);
+                        // After loading, get the updated subcategories
+                        final updatedSubcats =
+                            cubit.state.subcategories[category.id] ?? category.children;
+                        if (updatedSubcats.isNotEmpty) {
                           setState(() {
                             _expandedCategories[category.id] = true;
                           });
                         }
+                      } else if (hasChildren) {
+                        // Expand if has children (already loaded)
+                        setState(() {
+                          _expandedCategories[category.id] = true;
+                        });
                       }
-                      
-                      if (cubit != null) {
-                        cubit.setCategoryIds(newCategoryIds);
-                        _scheduleCountFetch(criteria.copyWith(categoryIds: newCategoryIds, category: null));
-                        
-                        if (!hasChildren) {
-                          await _reloadFiltersForCategory(context, category.id);
-                        }
-                      } else {
-                        final newCriteria = criteria.copyWith(categoryIds: newCategoryIds, category: null);
-                        context.read<FilterBloc>().add(UpdateFilterCriteria(newCriteria));
-                        _scheduleCountFetch(newCriteria);
+                    }
+
+                    if (cubit != null) {
+                      cubit.setCategoryIds(newCategoryIds);
+                      _scheduleCountFetch(
+                        criteria.copyWith(categoryIds: newCategoryIds, category: null),
+                      );
+
+                      if (!hasChildren) {
+                        await _reloadFiltersForCategory(context, category.id);
                       }
-                    },
-                    activeColor: Colors.black,
+                    } else {
+                      final newCriteria =
+                          criteria.copyWith(categoryIds: newCategoryIds, category: null);
+                      context.read<FilterBloc>().add(UpdateFilterCriteria(newCriteria));
+                      _scheduleCountFetch(newCriteria);
+                    }
+                  },
+                  activeColor: Colors.black,
+                ),
+
+                // Category name
+                Expanded(
+                  child: Text(
+                    category.name,
+                    style: AppFonts.getTextStyle(
+                      fontSize: 14,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? Colors.black : Colors.grey.shade700,
+                    ),
                   ),
-                  
-                  // Category name
-                  Expanded(
+                ),
+
+                // Product count if available
+                if (category.productCount > 0)
+                  Padding(
+                    padding: EdgeInsets.only(right: ResponsiveConstants.xsSpacing),
                     child: Text(
-                      category.name,
+                      '(${category.productCount})',
                       style: AppFonts.getTextStyle(
-                        fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected ? Colors.black : Colors.grey.shade700,
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
                       ),
                     ),
                   ),
-                  
-                  // Product count if available
-                  if (category.productCount > 0)
-                    Padding(
-                      padding: EdgeInsets.only(right: ResponsiveConstants.xsSpacing),
-                      child: Text(
-                        '(${category.productCount})',
-                        style: AppFonts.getTextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
-          
+
           // Recursively show children if expanded
-          // Use category's own children (from nested API response) for dynamic tree
-          final childrenToShow = category.children.isNotEmpty 
-              ? category.children 
-              : subcategories;
-          
           if (hasChildren && isExpanded && childrenToShow.isNotEmpty)
             ..._buildCategoryTree(
               context,
