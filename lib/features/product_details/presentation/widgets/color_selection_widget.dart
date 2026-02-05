@@ -168,13 +168,16 @@ class ColorSelectionWidget extends StatelessWidget {
     debugPrint('product id when selecting colors ${productDetails.id}');
     debugPrint('product color id when selecting colors ${color.id}');
 
+    // When only one color exists, no action - nothing to choose
+    final hasMultipleColors = productDetails.colorOptions.length > 1;
     return GestureDetector(
       behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
-      onTap: () async {
-        debugPrint('🎨 ColorSelectionWidget: Tapped color "${productDetails.id}" (ID: ${color.id})');
-        await HapticService.buttonClick();
+      onTap: hasMultipleColors
+          ? () async {
+              debugPrint('🎨 ColorSelectionWidget: Tapped color "${productDetails.id}" (ID: ${color.id})');
+              await HapticService.buttonClick();
 
-        // 1) Resolve the best matching VariantCombination for this color,
+              // 1) Resolve the best matching VariantCombination for this color,
         // taking into account current size/material selections when possible.
         String normalize(String s) => s.toLowerCase().trim();
         String? matchedVariantId;
@@ -254,7 +257,8 @@ class ColorSelectionWidget extends StatelessWidget {
         context.read<ProductDetailsBloc>().add(
           SelectVariantByIdEvent(matchedVariantId),
         );
-      },
+      }
+      : null,
       child: Container(
         margin: EdgeInsets.only(right: ResponsiveConstants.productDetailsColorThumbnailSpacing),
         decoration: BoxDecoration(

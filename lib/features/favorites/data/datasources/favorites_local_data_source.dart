@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../models/favorite_product_model.dart';
 
 abstract class FavoritesLocalDataSource {
@@ -12,13 +13,12 @@ abstract class FavoritesLocalDataSource {
 
 class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
   final SharedPreferences sharedPreferences;
-  static const String _favoritesKey = 'favorites';
 
   FavoritesLocalDataSourceImpl(this.sharedPreferences);
 
   @override
   Future<List<FavoriteProductModel>> getFavorites() async {
-    final favoritesJson = sharedPreferences.getStringList(_favoritesKey) ?? [];
+    final favoritesJson = sharedPreferences.getStringList(AppConstants.favoritesKey) ?? [];
     return favoritesJson
         .map((json) => FavoriteProductModel.fromJson(jsonDecode(json)))
         .toList();
@@ -50,13 +50,13 @@ class FavoritesLocalDataSourceImpl implements FavoritesLocalDataSource {
 
   @override
   Future<void> clearFavorites() async {
-    await sharedPreferences.remove(_favoritesKey);
+    await sharedPreferences.remove(AppConstants.favoritesKey);
   }
 
   Future<void> _saveFavorites(List<FavoriteProductModel> favorites) async {
     final favoritesJson = favorites
         .map((product) => jsonEncode(product.toJson()))
         .toList();
-    await sharedPreferences.setStringList(_favoritesKey, favoritesJson);
+    await sharedPreferences.setStringList(AppConstants.favoritesKey, favoritesJson);
   }
 }

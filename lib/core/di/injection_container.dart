@@ -347,6 +347,7 @@ Future<void> init() async {
       localDataSource: sl(),
       remoteDataSource: sl(),
       networkInfo: sl(),
+      authRepository: sl<AuthRepository>(),
     ),
   );
   sl.registerLazySingleton<ProfileRepository>(

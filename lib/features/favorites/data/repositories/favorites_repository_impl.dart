@@ -3,6 +3,7 @@ import '../../domain/entities/favorite_product.dart';
 import '../../domain/repositories/favorites_repository.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../datasources/favorites_local_data_source.dart';
 import '../datasources/favorites_remote_data_source.dart';
 import '../models/favorite_product_model.dart';
@@ -11,15 +12,27 @@ class FavoritesRepositoryImpl implements FavoritesRepository {
   final FavoritesLocalDataSource localDataSource;
   final FavoritesRemoteDataSource remoteDataSource;
   final NetworkInfo networkInfo;
+  final AuthRepository authRepository;
 
   FavoritesRepositoryImpl({
     required this.localDataSource,
     required this.remoteDataSource,
     required this.networkInfo,
+    required this.authRepository,
   });
 
   @override
   Future<Either<Failure, List<FavoriteProduct>>> getFavorites() async {
+    // Guests cannot have wishlist - backend may return data for guest token; return empty
+    final userResult = await authRepository.getCurrentUser();
+    final isGuest = userResult.fold(
+      (_) => false,
+      (user) => user?.isGuest ?? false,
+    );
+    if (isGuest) {
+      return const Right([]);
+    }
+
     if (await networkInfo.isConnected) {
       try {
         // Try to get from API first

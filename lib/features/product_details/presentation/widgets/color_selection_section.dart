@@ -112,7 +112,7 @@ class _ColorOptionCard extends StatelessWidget {
     
     // PRIMARY: Use ColorOption.name (guaranteed to be English per model parsing)
     // This is the most reliable source for English names
-    if (!containsArabic(colorOption.name) && colorOption.name.isNotEmpty) {
+    if (!containsArabic(colorOption.name) && colorOption.name.trim().isNotEmpty) {
       debugPrint('🎨 ColorSelection: Using ColorOption.name (English):'
           ' "${colorOption.name}" for color ID ${colorOption.id} '
           '(display: "${colorOption.displayNameOrName}")');
@@ -131,8 +131,8 @@ class _ColorOptionCard extends StatelessWidget {
           final matchedValue = opt.values.firstWhere(
             (v) => v.id == colorOption.id,
           );
-          // Check if it's actually English
-          if (!containsArabic(matchedValue.name)) {
+          // Check if it's actually English and non-empty (empty causes "x".contains("")=true in Arabic)
+          if (!containsArabic(matchedValue.name) && matchedValue.name.trim().isNotEmpty) {
             debugPrint('🎨 ColorSelection: Found English name from variantAttributeOptions: "${matchedValue.name}" for color ID ${colorOption.id} (display: "${colorOption.displayNameOrName}")');
             return matchedValue.name;
           } else {
@@ -331,7 +331,9 @@ class _ColorOptionCard extends StatelessWidget {
       
       // Try matching against English color names ONLY (never Arabic)
       for (final englishColorNameToTry in colorNamesToTry) {
+        if (englishColorNameToTry.isEmpty) continue; // Empty causes "x".contains("")=true (Arabic bug)
         final normalizedColorName = normalize(englishColorNameToTry);
+        if (normalizedColorName.isEmpty) continue;
         
         // Exact match
         if (normalizedVariantColor == normalizedColorName) {
@@ -462,17 +464,21 @@ class _ColorOptionCard extends StatelessWidget {
     
     debugPrint('🎨 ColorSelection Widget: "${colorOption.displayNameOrName}" - isAvailable from BLoC: $isAvailable');
 
+    // When only one color exists, no action - nothing to choose
+    final hasMultipleColors = productDetails.colorOptions.length > 1;
     return GestureDetector(
       behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
-      onTap: () {
-        debugPrint('🎨 ColorSelectionSection: Tapped color "${colorOption.displayNameOrName}" (ID: ${colorOption.id})');
-        context.read<ProductDetailsBloc>().add(
-              SelectColorEvent(
-                productId: productDetails.id,
-                colorId: colorOption.id,
-              ),
-            );
-      },
+      onTap: hasMultipleColors
+          ? () {
+              debugPrint('🎨 ColorSelectionSection: Tapped color "${colorOption.displayNameOrName}" (ID: ${colorOption.id})');
+              context.read<ProductDetailsBloc>().add(
+                    SelectColorEvent(
+                      productId: productDetails.id,
+                      colorId: colorOption.id,
+                    ),
+                  );
+            }
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,

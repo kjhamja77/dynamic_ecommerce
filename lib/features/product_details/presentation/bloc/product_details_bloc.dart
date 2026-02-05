@@ -776,12 +776,22 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     }
 
     // Step 4: compute selectedSize/selectedColor from recomputed options
+    // CRITICAL: When event is for HEIGHT/MATERIAL (non-size), preserve current size.
+    // Otherwise size can wrongly change (e.g. 39→40) due to attribute ordering or
+    // multiple attributes matching the size condition.
     String newSelectedSize = currentProduct.selectedSize;
     String newSelectedColor = currentProduct.selectedColor;
+    final isSizeChangeEvent = event.attributeName.toLowerCase() == 'size' ||
+        event.attributeName.toLowerCase() == currentProduct.primaryVariantLabel.toLowerCase() ||
+        event.attributeName.toLowerCase().contains('size');
+
     for (final opt in recomputedOptions) {
       if (opt.attributeName.toLowerCase() == currentProduct.primaryVariantLabel.toLowerCase() ||
           opt.attributeName.toLowerCase() == 'size') {
-        newSelectedSize = opt.selectedValue;
+        if (isSizeChangeEvent) {
+          newSelectedSize = opt.selectedValue;
+        }
+        // When changing height/material: keep currentProduct.selectedSize unchanged
       }
       if (['color','colour','اللون','color name'].contains(opt.attributeName.toLowerCase())) {
         newSelectedColor = opt.selectedValue;
@@ -1353,22 +1363,30 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               }
             }
           }
-          if (colorNameForMatching == null) {
+          if (colorNameForMatching == null || colorNameForMatching.isEmpty) {
             colorNameForMatching = color.name;
+          }
+          // Fallback for Arabic: use displayName when name is placeholder/empty
+          if ((colorNameForMatching == null || colorNameForMatching.isEmpty || colorNameForMatching.startsWith('COLOR_ID_')) &&
+              color.displayName != null && color.displayName!.isNotEmpty) {
+            colorNameForMatching = color.displayName;
           }
           
           // Check if this color has any in-stock variants
           bool hasInStockVariant = false;
-          final normalizedColorName = normalize(colorNameForMatching);
+          final normalizedColorName = normalize(colorNameForMatching ?? '');
+          // CRITICAL: Empty string causes "x".contains("") = true, incorrectly matching all variants (Arabic bug)
+          final hasValidColorName = normalizedColorName.isNotEmpty;
           
           for (final v in productDetails.variantCombinations) {
             final variantColorName = getVariantColorValue(v);
             if (variantColorName == null) continue;
             
             final normalizedVariant = normalize(variantColorName);
-            final colorMatch = normalizedVariant == normalizedColorName ||
-                             normalizedVariant.contains(normalizedColorName) ||
-                             normalizedColorName.contains(normalizedVariant);
+            final colorMatch = hasValidColorName && normalizedVariant.isNotEmpty &&
+                (normalizedVariant == normalizedColorName ||
+                 (normalizedColorName.isNotEmpty && normalizedVariant.contains(normalizedColorName)) ||
+                 (normalizedVariant.isNotEmpty && normalizedColorName.contains(normalizedVariant)));
             
             if (!colorMatch) continue;
             
@@ -1922,9 +1940,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
         }
-        if (colorNameForMatching == null) {
+        if (colorNameForMatching == null || colorNameForMatching.isEmpty) {
           colorNameForMatching = color.name;
         }
+        // Fallback for Arabic: use displayName when name is placeholder/empty
+        if ((colorNameForMatching == null || colorNameForMatching.isEmpty || colorNameForMatching.startsWith('COLOR_ID_')) &&
+            color.displayName != null && color.displayName!.isNotEmpty) {
+          colorNameForMatching = color.displayName;
+        }
+        
+        final normalizedColor = normalize(colorNameForMatching ?? '');
+        // CRITICAL: Empty string causes "x".contains("") = true, incorrectly matching all variants (Arabic bug)
+        final hasValidColorName = normalizedColor.isNotEmpty;
         
         // Check if this color is available for the currently selected size
         bool hasInStockVariant = false;
@@ -1940,11 +1967,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             if (variantColorName == null) continue;
             
             final normalizedVariant = normalize(variantColorName);
-            final normalizedColor = normalize(colorNameForMatching);
             
-            final bool colorMatch = normalizedVariant == normalizedColor ||
-                                  normalizedVariant.contains(normalizedColor) ||
-                                  normalizedColor.contains(normalizedVariant);
+            final bool colorMatch = hasValidColorName && normalizedVariant.isNotEmpty &&
+                (normalizedVariant == normalizedColor ||
+                 (normalizedColor.isNotEmpty && normalizedVariant.contains(normalizedColor)) ||
+                 (normalizedVariant.isNotEmpty && normalizedColor.contains(normalizedVariant)));
             
             if (colorMatch) {
               final isInStock = _isVariantInStock(v);
@@ -1961,11 +1988,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             if (variantColorName == null) continue;
             
             final normalizedVariant = normalize(variantColorName);
-            final normalizedColor = normalize(colorNameForMatching);
             
-            final bool colorMatch = normalizedVariant == normalizedColor ||
-                                  normalizedVariant.contains(normalizedColor) ||
-                                  normalizedColor.contains(normalizedVariant);
+            final bool colorMatch = hasValidColorName && normalizedVariant.isNotEmpty &&
+                (normalizedVariant == normalizedColor ||
+                 (normalizedColor.isNotEmpty && normalizedVariant.contains(normalizedColor)) ||
+                 (normalizedVariant.isNotEmpty && normalizedColor.contains(normalizedVariant)));
             
             if (colorMatch) {
               final isInStock = _isVariantInStock(v);
@@ -2048,11 +2075,30 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           bool isAvailable = false;
 
           // Check if this value is available in any variant combination
-          // CRITICAL FIX: Only require color matching for Size/Brand attributes
-          // Material and Height are product-level attributes - they should be available regardless of color
-          // This prevents Material/Height from being disabled when selecting a different color
+          // CRITICAL: Height availability must respect selected color+size - only enable
+          // a height option if there exists an in-stock variant for (color, size, height).
+          // This prevents incorrectly enabling e.g. "4.5" when selecting a color that has
+          // no in-stock variants for that height.
           for (final combo in currentProduct.variantCombinations) {
             bool matchesRequiredAttributes = true;
+
+            // For Height: require variant to match selected color + size AND be in stock
+            // Use flexible color matching (Black/BLACK, contains) to avoid false mismatches
+            final bool isHeightAttr = attrNameLower == 'height' || attrNameLower == 'heel height';
+            if (isHeightAttr && colorNameForMatching.isNotEmpty && currentProduct.selectedSize.isNotEmpty) {
+              final variantColor = getVariantColorValue(combo);
+              final variantSize = _getComboValueForAttribute(
+                currentProduct, combo, currentProduct.primaryVariantLabel,
+              ) ?? combo.getAttributeValue('SIZE') ?? combo.getAttributeValue('size');
+              final nvc = variantColor != null ? normalize(variantColor) : '';
+              final ncm = normalize(colorNameForMatching);
+              final colorMatch = variantColor != null && (nvc == ncm || nvc.contains(ncm) || ncm.contains(nvc));
+              final sizeMatch = variantSize != null &&
+                  normalize(variantSize) == normalize(currentProduct.selectedSize);
+              if (!colorMatch || !sizeMatch || !_isVariantInStock(combo)) {
+                continue; // Skip - variant doesn't match selection or is out of stock
+              }
+            }
 
             // CRITICAL FIX: Size availability should NOT be restricted by selected color.
             // Sizes should be available if they exist in ANY color variant (since stock exists for all colors).
@@ -2127,6 +2173,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 matchesRequiredAttributes = normalizedCombo == normalizedValue ||
                                           normalizedCombo.contains(normalizedValue) ||
                                           normalizedValue.contains(normalizedCombo);
+              } else if (isHeightAttr) {
+                // Height: "2 CM" and "2.0" must match - use numeric comparison to prevent
+                // height from being incorrectly marked unavailable and deselected on color change
+                final comboNum = double.tryParse(comboVal.replaceAll(RegExp(r'[^0-9.]'), ''));
+                final valueNum = double.tryParse(value.name.replaceAll(RegExp(r'[^0-9.]'), ''));
+                matchesRequiredAttributes = comboNum != null && valueNum != null && comboNum == valueNum;
               } else {
                 matchesRequiredAttributes = normalizedCombo == normalizedValue;
               }
@@ -2160,13 +2212,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
 
           // FALLBACK: For Material/Height, if not found in variants, check if it exists in original options
-          // Material/Height are product-level attributes and should always be available if they exist
+          // Skip fallback for Height when color+size are selected - availability must be based on
+          // actual in-stock variants for that combination (prevents incorrectly enabling e.g. 4.5)
           final bool isMaterialOrHeight = attrNameLower == 'material' ||
                                          attrNameLower == 'material name' ||
                                          attrNameLower == 'height' ||
                                          attrNameLower == 'heel height';
+          final bool isHeightWithSelection = (attrNameLower == 'height' || attrNameLower == 'heel height') &&
+              colorNameForMatching.isNotEmpty && currentProduct.selectedSize.isNotEmpty;
           
-          if (!isAvailable && isMaterialOrHeight) {
+          if (!isAvailable && isMaterialOrHeight && !isHeightWithSelection) {
             // Check if this value exists in the original attribute options
             final originalAttrOption = currentProduct.variantAttributeOptions.firstWhere(
               (opt) => opt.attributeName == attributeName,
@@ -2206,9 +2261,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                         currentProduct.selectedMaterial != null &&
                         normalize(value.name) == normalize(currentProduct.selectedMaterial!);
           } else if (attrNameLower == 'height') {
-            isSelected = isAvailable && 
-                        currentProduct.selectedHeelHeightCm != null &&
-                        normalize(value.name) == normalize(currentProduct.selectedHeelHeightCm!.toStringAsFixed(1));
+            final currHeight = currentProduct.selectedHeelHeightCm;
+            final valueNum = double.tryParse(value.name.replaceAll(RegExp(r'[^0-9.]'), ''));
+            isSelected = isAvailable && currHeight != null && valueNum != null &&
+                (valueNum - currHeight).abs() < 0.01;
           } else {
             // For other attributes, check selectedByAttribute
             isSelected = isAvailable && 
@@ -2302,9 +2358,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         } else if (attrNameLower == 'material' || attrNameLower == 'material name') {
           optionSelectedValue = currentProduct.selectedMaterial ?? '';
         } else if (attrNameLower == 'height') {
-          optionSelectedValue = currentProduct.selectedHeelHeightCm != null 
-              ? currentProduct.selectedHeelHeightCm!.toStringAsFixed(1) 
-              : '';
+          if (currentProduct.selectedHeelHeightCm != null) {
+            final currH = currentProduct.selectedHeelHeightCm!;
+            final matching = newValues.where((v) {
+              final vNum = double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), ''));
+              return vNum != null && (vNum - currH).abs() < 0.01;
+            });
+            optionSelectedValue = matching.isNotEmpty ? matching.first.name : currH.toStringAsFixed(1);
+          } else {
+            optionSelectedValue = '';
+          }
         } else {
           optionSelectedValue = selectedByAttribute[attributeName] ?? '';
         }
@@ -2452,19 +2515,23 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           if (nextSelectedHeelHeight != null) {
             final currentHeight = nextSelectedHeelHeight;
             final heightStr = currentHeight.toStringAsFixed(1);
-            // Check if current selection is still available
+            // Check if current selection is still available (use numeric match: "2 CM" == 2.0)
             final heightAttrValue = opt.values.firstWhere(
-              (v) => normalize(v.name) == normalize(heightStr),
+              (v) {
+                final vNum = double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), ''));
+                return vNum != null && (vNum - currentHeight).abs() < 0.01;
+              },
               orElse: () => opt.values.first,
             );
             if (heightAttrValue.isAvailable) {
               // Current selection is still available - keep it
-              // Update selectedValue in the option to match
-              if (opt.selectedValue != heightStr) {
+              // Use value's name (e.g. "2 CM") for selectedValue so UI displays correctly
+              final valueNameToUse = heightAttrValue.name;
+              if (opt.selectedValue != valueNameToUse) {
                 recomputedOptions[i] = VariantAttributeOption(
                   attributeName: opt.attributeName,
                   values: opt.values,
-                  selectedValue: heightStr,
+                  selectedValue: valueNameToUse,
                 );
               }
             } else {
@@ -2486,7 +2553,25 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   nextSelectedHeelHeight = null;
                 }
               } else {
-                nextSelectedHeelHeight = null;
+                // PRESERVE: No height marked available - keep current selection (heightAttrValue
+                // was found via numeric match). Prevents deselecting when availability logic
+                // has edge cases (e.g. color/format mismatch).
+                final preservedValues = opt.values.map((v) {
+                  final matches = double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), '')) != null &&
+                      (double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), ''))! - currentHeight).abs() < 0.01;
+                  return VariantAttributeValue(
+                    id: v.id,
+                    name: v.name,
+                    isAvailable: v.isAvailable,
+                    isSelected: matches,
+                  );
+                }).toList();
+                recomputedOptions[i] = VariantAttributeOption(
+                  attributeName: opt.attributeName,
+                  values: preservedValues,
+                  selectedValue: heightAttrValue.name,
+                );
+                // nextSelectedHeelHeight stays as currentHeight (already set from currentProduct)
               }
             }
           } else if (opt.values.isNotEmpty) {
@@ -2965,12 +3050,21 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
         }
-        if (colorNameForMatching == null) {
+        if (colorNameForMatching == null || colorNameForMatching.isEmpty) {
           colorNameForMatching = color.name;
+        }
+        // Fallback for Arabic: use displayName when name is placeholder/empty
+        if ((colorNameForMatching == null || colorNameForMatching.isEmpty || colorNameForMatching.startsWith('COLOR_ID_')) &&
+            color.displayName != null && color.displayName!.isNotEmpty) {
+          colorNameForMatching = color.displayName;
         }
         
         // Check if this color is available for the newly selected size
         bool hasInStockVariant = false;
+        final normalizedColor = normalize(colorNameForMatching ?? '');
+        // CRITICAL: Empty string causes "x".contains("") = true, incorrectly matching all variants (Arabic bug)
+        final hasValidColorName = normalizedColor.isNotEmpty;
+        
         for (final v in currentProduct.variantCombinations) {
           // Match size
           bool sizeMatch = false;
@@ -2987,11 +3081,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           if (variantColorName == null) continue;
           
           final normalizedVariantColor = normalize(variantColorName);
-          final normalizedColor = normalize(colorNameForMatching);
           
-          final bool colorMatch = normalizedVariantColor == normalizedColor ||
-                                normalizedVariantColor.contains(normalizedColor) ||
-                                normalizedColor.contains(normalizedVariantColor);
+          final bool colorMatch = hasValidColorName && normalizedVariantColor.isNotEmpty &&
+              (normalizedVariantColor == normalizedColor ||
+               (normalizedColor.isNotEmpty && normalizedVariantColor.contains(normalizedColor)) ||
+               (normalizedVariantColor.isNotEmpty && normalizedColor.contains(normalizedVariantColor)));
           
           if (colorMatch) {
             final isInStock = _isVariantInStock(v);

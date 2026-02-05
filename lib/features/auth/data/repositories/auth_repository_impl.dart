@@ -98,10 +98,13 @@ class AuthRepositoryImpl implements AuthRepository {
       final userModel = await remoteDataSource.guestLogin(deviceId: deviceId, deviceToken: deviceToken);
       // Do not save token for guest users and avoid caching currency/token-sensitive data
       await storage.write(key: AppConstants.userKey, value: UserModel.fromEntity(userModel).toJson().toString());
-      
+
+      // Clear favorites cache - guests cannot have server-side wishlist; prevents stale data from previous user
+      await sharedPreferences.remove(AppConstants.favoritesKey);
+
       // Mark onboarding as completed when user logs in as guest
       await _markOnboardingCompleted();
-      
+
       return Right(userModel);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -128,6 +131,9 @@ class AuthRepositoryImpl implements AuthRepository {
       await storage.delete(key: AppConstants.currencyKey);
       await storage.delete(key: AppConstants.currencyIdKey);
       debugPrint('AuthRepositoryImpl.logout → deleted keys: ${AppConstants.tokenKey}, ${AppConstants.userKey}, ${AppConstants.currencyKey}, ${AppConstants.currencyIdKey}');
+
+      // Clear user-specific cached data (favorites belong to the logged-in user)
+      await sharedPreferences.remove(AppConstants.favoritesKey);
 
       await storage.deleteAll();
       debugPrint('AuthRepositoryImpl.logout → deleteAll complete');

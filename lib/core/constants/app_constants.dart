@@ -10,6 +10,7 @@ class AppConstants {
   static const String themeKey = 'app_theme';
   static const String currencyKey = 'user_currency';
   static const String currencyIdKey = 'user_currency_id';
+  static const String favoritesKey = 'favorites';
   
   // Animation Durations
   static const Duration shortAnimation = Duration(milliseconds: 200);

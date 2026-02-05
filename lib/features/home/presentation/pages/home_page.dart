@@ -14,6 +14,7 @@ import '../../../search/presentation/pages/search_page.dart';
 import '../../../search/presentation/bloc/search_bloc.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../profile/presentation/bloc/profile_bloc.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../../../favorites/presentation/bloc/favorites_state.dart';
 import '../../../favorites/presentation/bloc/favorites_event.dart';
@@ -139,44 +140,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
           // Special handling for favorites tab with badge
           if (index == 2) {
-            // Favorites tab
+            // Favorites tab - show 0 for guest users (they cannot access favorites)
             return Tab(
-              icon: BlocBuilder<FavoritesBloc, FavoritesState>(
-                builder: (context, state) {
-                  int itemCount = 0;
-                  if (state is FavoritesLoaded) {
-                    itemCount = state.favorites.length;
-                  }
+              icon: BlocBuilder<AuthBloc, AuthState>(
+                buildWhen: (prev, curr) => curr is Authenticated || prev is Authenticated,
+                builder: (context, authState) {
+                  final isGuest = authState is Authenticated && authState.user.isGuest;
+                  return BlocBuilder<FavoritesBloc, FavoritesState>(
+                    builder: (context, state) {
+                      int itemCount = 0;
+                      if (!isGuest && state is FavoritesLoaded) {
+                        itemCount = state.favorites.length;
+                      }
 
-                  return Stack(
-                    children: [
-                      _buildTabIcon(icon, index),
-                      if (itemCount > 0)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              itemCount > 99 ? '99+' : '$itemCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                      return Stack(
+                        children: [
+                          _buildTabIcon(icon, index),
+                          if (itemCount > 0)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  itemCount > 99 ? '99+' : '$itemCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ),
-                    ],
+                        ],
+                      );
+                    },
                   );
                 },
               ),

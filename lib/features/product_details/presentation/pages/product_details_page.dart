@@ -571,17 +571,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   bool _isProductInStock(ProductDetails productDetails) {
-    // If variant combinations exist, consider in stock only if any variant is in stock or has positive quantity
-    if (productDetails.variantCombinations.isNotEmpty) {
-      for (final v in productDetails.variantCombinations) {
-        if (v.inStock || (v.quantityAvailable != null && v.quantityAvailable! > 0)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    // Fallback: if no variant info, assume available (cannot determine otherwise)
-    return true;
+    // Use the bloc-computed inStock flag for the currently selected variant
+    // (size, color, material, etc.). This keeps the Add to Cart button in sync
+    // with the "Out of Stock" badge.
+    return productDetails.inStock;
   }
 
 
