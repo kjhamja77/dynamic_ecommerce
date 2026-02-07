@@ -28,10 +28,14 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
         return Stack(
           children: [
             // Main Product Image (reacts to color/variant changes)
+            // IMPORTANT: Always rely on the BLoC-computed images (`productDetails.images`)
+            // so that English and Arabic flows behave identically.
+            // We intentionally ignore `variantImageUrls` here to avoid conflicting sources
+            // of truth for the image gallery.
             ProductImageSectionWidget(
               productDetails: currentProduct,
               pageController: pageController,
-              overrideImages: variantImageUrls,
+              overrideImages: null,
             ),
 
             // Color Selection - Top left (kept in sync with state)
@@ -43,7 +47,7 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
             PageIndicatorWidget(
               productDetails: currentProduct,
               pageController: pageController,
-              overrideImages: variantImageUrls,
+              overrideImages: null,
             ),
           ],
         );

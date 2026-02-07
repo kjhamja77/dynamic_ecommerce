@@ -56,6 +56,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
 
   String _norm(String s) => s.toLowerCase().trim();
 
+  static bool _isColorAttributeKey(String key) {
+    final k = key.toLowerCase();
+    return k == 'color name' || k == 'color' || k == 'colour' || k == 'اللون' || k == 'لون';
+  }
+
+  /// Returns true when variant's color value matches the selected value (handles Arabic/English).
+  /// Variants from API typically have English; selectedValue may be Arabic when app is in Arabic.
+  bool _colorValuesMatch(ProductDetails pd, String? variantValue, String selectedValue) {
+    if (variantValue == null || variantValue.isEmpty) return false;
+    final nV = _norm(variantValue);
+    final nS = _norm(selectedValue);
+    if (nV == nS) return true;
+    for (final color in pd.colorOptions) {
+      final nameNorm = _norm(color.name);
+      final displayNorm = color.displayName != null ? _norm(color.displayName!) : '';
+      if (nameNorm.isEmpty) continue;
+      if (nameNorm != nV) continue;
+      if (nS == nameNorm || nS == displayNorm) return true;
+      if (displayNorm.isNotEmpty && (nS.contains(displayNorm) || displayNorm.contains(nS))) return true;
+    }
+    return false;
+  }
+
   /// Best-effort attribute value lookup from a variant combination.
   /// The API is not consistent with attribute names (e.g. SIZE vs Legs vs Arabic),
   /// so we try common aliases + a fuzzy fallback. This prevents "everything disabled"
@@ -342,6 +365,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
 
         updated = updated.copyWith(inStock: variantInStock);
+        if (updated.variantImagesMap.isNotEmpty) {
+          updated = updated.withImagesForVariant(selectedVariant.variantId);
+        }
       }
       
       emit(ProductDetailsLoaded(updated, quantity: nextQuantity, isAdding: false));
@@ -493,6 +519,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
 
         updated = updated.copyWith(inStock: variantInStock);
+        if (updated.variantImagesMap.isNotEmpty) {
+          updated = updated.withImagesForVariant(selectedVariant.variantId);
+        }
       }
       
       emit(ProductDetailsLoaded(updated, quantity: nextQuantity, isAdding: false));
@@ -1198,6 +1227,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       
       updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
+      if (updatedProduct.variantImagesMap.isNotEmpty) {
+        updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
+      }
     }
 
     emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
@@ -1521,6 +1553,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
           
           updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
+          if (updatedProduct.variantImagesMap.isNotEmpty) {
+            updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
+          }
         }
         
         emit(ProductDetailsLoaded(updatedProduct, quantity: initialQuantity, isAdding: false));
@@ -2632,11 +2667,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }).toList();
 
-      // Build optimized gallery for the selected color
-      List<String> nextImages = List<String>.from(selectedColorOption.images);
-      if (nextImages.isEmpty) {
-        nextImages = currentProduct.images;
-      }
+      // Don't set images from color option here – set from selected variant below so we never
+      // emit wrong/previous images and cause a glitch. Use current images as placeholder until then.
+      final placeholderImages = List<String>.from(currentProduct.images);
 
       var updatedProduct = ProductDetails(
         id: currentProduct.id,
@@ -2647,7 +2680,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         originalPrice: currentProduct.originalPrice,
         rating: currentProduct.rating,
         reviewCount: currentProduct.reviewCount,
-        images: nextImages,
+        images: placeholderImages,
         colorOptions: updatedColorOptions,
         sizeOptions: updatedSizeOptions,
         variantAttributeOptions: updatedVariantAttributeOptions, /// Zeinab Attributes
@@ -2837,6 +2870,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       
       updatedProduct = updatedProduct.copyWith(inStock: finalInStock);
+      if (selectedVariant != null && updatedProduct.variantImagesMap.isNotEmpty) {
+        updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
+      }
       
       emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
       
@@ -2845,9 +2881,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         colorId: event.colorId,
       ));
       
+      // Don't re-emit on success – we already emitted the correct state above. Re-emitting here
+      // overwrites the state that SelectVariantById may have set (which runs while we awaited),
+      // causing the "correct image then revert to previous" glitch within ~1 second.
       result.fold(
         (failure) => emit(ProductDetailsError(failure.message)),
-        (_) => emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false)),
+        (_) {
+          // Success: do nothing; UI already has correct state from first emit + SelectVariantById.
+        },
       );
     }
   }
@@ -3107,26 +3148,75 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }).toList();
 
-      final simpleUpdatedProduct = currentProduct.copyWith(
+      // Sync variantAttributeOptions so size attribute has selectedValue = selectedSizeName.
+      // This allows _findSelectedVariant to resolve the exact variant for images + stock.
+      final updatedVariantAttributeOptions = currentProduct.variantAttributeOptions.map((opt) {
+        final attrNameLower = opt.attributeName.toLowerCase();
+        if (attrNameLower == 'size' ||
+            attrNameLower == currentProduct.primaryVariantLabel.toLowerCase() ||
+            attrNameLower == 'القياس') {
+          return VariantAttributeOption(
+            attributeName: opt.attributeName,
+            values: opt.values,
+            selectedValue: selectedSizeName,
+          );
+        }
+        return opt;
+      }).toList();
+
+      var productToEmit = currentProduct.copyWith(
         selectedSize: selectedSizeName,
-        colorOptions: updatedColorOptions, // Update with recalculated availability
-        inStock: hasAvailableVariantForSelection,
+        colorOptions: updatedColorOptions,
+        variantAttributeOptions: updatedVariantAttributeOptions,
       );
+
+      final selectedVariant = _findSelectedVariant(productToEmit);
+      int nextQuantity = currentState.quantity;
+      bool inStock = hasAvailableVariantForSelection;
+
+      if (selectedVariant != null) {
+        inStock = _isVariantInStock(selectedVariant);
+        final double? quantityAvailable = selectedVariant.quantityAvailable;
+        if (quantityAvailable != null) {
+          int existingCart = 0;
+          if (cartBloc.state is CartLoaded) {
+            try {
+              final cartState = cartBloc.state as CartLoaded;
+              final variantIdStr = selectedVariant.variantId.toString();
+              final item = cartState.cartItems.firstWhere(
+                (i) => i.product.id.toString() == variantIdStr,
+              );
+              existingCart = item.quantity;
+            } catch (_) {}
+          }
+          final available = quantityAvailable.toInt() - existingCart;
+          if (available <= 0) {
+            inStock = false;
+            nextQuantity = 1;
+          } else {
+            if (nextQuantity > available) nextQuantity = available;
+            if (nextQuantity <= 0) nextQuantity = 1;
+          }
+        }
+        productToEmit = productToEmit.copyWith(inStock: inStock);
+        if (productToEmit.variantImagesMap.isNotEmpty) {
+          productToEmit = productToEmit.withImagesForVariant(selectedVariant.variantId);
+        }
+      } else {
+        productToEmit = productToEmit.copyWith(inStock: inStock);
+      }
 
       developer.log(
         '📦 _onSelectSize → size="$selectedSizeName", color="${selectedColorName ?? 'none'}", '
-        'hasAvailableVariant=$hasAvailableVariantForSelection → inStock=${hasAvailableVariantForSelection}',
+        'variantId=${selectedVariant?.variantId}, inStock=$inStock',
         name: 'ProductDetails/Stock',
       );
 
       emit(ProductDetailsLoaded(
-        simpleUpdatedProduct,
-        quantity: currentState.quantity,
+        productToEmit,
+        quantity: nextQuantity,
         isAdding: currentState.isAdding,
       ));
-
-      // Do not run the legacy complex variant/color logic below – we now explicitly
-      // recompute stock for the current size/color selection above.
       return;
     }
   }
@@ -3219,13 +3309,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         selectedByAttribute['height'] = heightStr;
       }
       
-      // Find matching variant - must match all selected attributes
+      // Find matching variant - must match all selected attributes.
+      // Use _getComboValueForAttribute so we match regardless of API attribute names.
+      // For color, use bilingual match (Arabic displayName <-> English variant value).
       final matching = pd.variantCombinations.where((combo) {
         for (final entry in selectedByAttribute.entries) {
-          final v = combo.getAttributeValue(entry.key);
-          if (v == null || normalize(v) != normalize(entry.value)) {
-            return false;
-          }
+          final v = _getComboValueForAttribute(pd, combo, entry.key);
+          final bool match = _isColorAttributeKey(entry.key)
+              ? _colorValuesMatch(pd, v, entry.value)
+              : (v != null && normalize(v) == normalize(entry.value));
+          if (!match) return false;
         }
         return true;
       }).toList();
@@ -3245,13 +3338,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       // If no exact match, try partial match (at least size and color)
       if (selectedSizeValue != null && selectedColorValue != null) {
-        // Capture values in local variables for the closure
         final sizeValue = selectedSizeValue;
         final colorValue = selectedColorValue;
         final partialMatch = pd.variantCombinations.where((combo) {
-          final sizeMatch = combo.hasAttributeValue('SIZE', sizeValue) ||
-                           combo.hasAttributeValue('size', sizeValue);
-          final colorMatch = combo.hasAttributeValue('COLOR NAME', colorValue);
+          final comboSize = _getComboValueForAttribute(pd, combo, 'SIZE');
+          final comboColor = _getComboValueForAttribute(pd, combo, 'COLOR NAME');
+          final sizeMatch = comboSize != null && normalize(comboSize) == normalize(sizeValue);
+          final colorMatch = _colorValuesMatch(pd, comboColor, colorValue);
           return sizeMatch && colorMatch;
         }).toList();
         

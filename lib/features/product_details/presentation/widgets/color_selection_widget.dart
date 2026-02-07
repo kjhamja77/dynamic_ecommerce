@@ -102,19 +102,22 @@ class ColorSelectionWidget extends StatelessWidget {
 
   /// Get a thumbnail image for a color using variantCombinations.variantId
   /// and the grouped variant images (variantImagesMap) from ProductDetails.
-  String _firstVariantImageForColor(String colorName) {
-    // Collect all variants for this color
+  /// Supports both English name and Arabic displayName for matching.
+  String _firstVariantImageForColor(ColorOption color) {
+    String normalize(String s) => s.toLowerCase().trim();
     final List<VariantCombination> colorVariants = [];
 
     for (final v in productDetails.variantCombinations) {
-      final bool colorMatch =
-          v.hasAttributeValue('color', colorName) ||
-          v.hasAttributeValue('colour', colorName) ||
-          v.hasAttributeValue('اللون', colorName) ||
-          v.hasAttributeValue('color name', colorName) ||
-          v.hasAttributeValue('COLOR NAME', colorName);
-
-      if (colorMatch && v.variantId.isNotEmpty) {
+      final variantColor = v.getAttributeValue('COLOR NAME') ??
+          v.getAttributeValue('color name') ??
+          v.getAttributeValue('اللون');
+      if (variantColor == null || variantColor.isEmpty || v.variantId.isEmpty) continue;
+      final nV = normalize(variantColor);
+      final matchName = nV == normalize(color.name);
+      final matchDisplay = color.displayName != null &&
+          color.displayName!.isNotEmpty &&
+          nV == normalize(color.displayName!);
+      if (matchName || matchDisplay) {
         colorVariants.add(v);
       }
     }
@@ -152,7 +155,7 @@ class ColorSelectionWidget extends StatelessWidget {
 
   Widget _buildColorThumbnail(BuildContext context, ColorOption color) {
     // Prefer a variant-based image (grouped by variantId), then color-level images, then product-level images.
-    String thumbUrl = _firstVariantImageForColor(color.name);
+    String thumbUrl = _firstVariantImageForColor(color);
     if (thumbUrl.isEmpty) {
       // Use images we already grouped per color in the model
       if (color.images.isNotEmpty) {
@@ -183,7 +186,7 @@ class ColorSelectionWidget extends StatelessWidget {
         String? matchedVariantId;
 
         for (final v in productDetails.variantCombinations) {
-          // Color must match
+          // Color must match (support both English name and Arabic displayName)
           final variantColor =
               v.getAttributeValue('COLOR NAME') ??
               v.getAttributeValue('color name') ??
@@ -192,10 +195,13 @@ class ColorSelectionWidget extends StatelessWidget {
               v.getAttributeValue('colour') ??
               v.getAttributeValue('اللون');
 
-          if (variantColor == null ||
-              normalize(variantColor) != normalize(color.name)) {
-            continue;
-          }
+          if (variantColor == null || variantColor.isEmpty) continue;
+          final nV = normalize(variantColor);
+          final matchesName = nV == normalize(color.name);
+          final matchesDisplay = color.displayName != null &&
+              color.displayName!.isNotEmpty &&
+              nV == normalize(color.displayName!);
+          if (!matchesName && !matchesDisplay) continue;
 
           // Optional: also match current selected size
           bool sizeOk = true;
@@ -229,31 +235,33 @@ class ColorSelectionWidget extends StatelessWidget {
           }
         }
 
-        // Fallback: if no strict match, pick the first variant that has this color
-        matchedVariantId ??= productDetails.variantCombinations.firstWhere(
-          (v) =>
-              v.hasAttributeValue('COLOR NAME', color.name) ||
-              v.hasAttributeValue('color name', color.name) ||
-              v.hasAttributeValue('COLOR', color.name) ||
-              v.hasAttributeValue('color', color.name) ||
-              v.hasAttributeValue('colour', color.name) ||
-              v.hasAttributeValue('اللون', color.name),
-          orElse: () => productDetails.variantCombinations.first,
-        ).variantId;
+        // Fallback: if no strict match, pick the first variant that has this color (name or displayName)
+        if (matchedVariantId == null) {
+          for (final v in productDetails.variantCombinations) {
+            final variantColor = v.getAttributeValue('COLOR NAME') ??
+                v.getAttributeValue('color name') ??
+                v.getAttributeValue('اللون');
+            if (variantColor == null) continue;
+            final nV = normalize(variantColor);
+            if (nV == normalize(color.name) ||
+                (color.displayName != null && color.displayName!.isNotEmpty && nV == normalize(color.displayName!))) {
+              matchedVariantId = v.variantId;
+              break;
+            }
+          }
+          matchedVariantId ??= productDetails.variantCombinations.first.variantId;
+        }
 
-        debugPrint('🎨 ColorSelectionWidget: resolved variantId=$matchedVariantId for color="${color.name}"');
+        debugPrint('🎨 ColorSelectionWidget: resolved variantId=$matchedVariantId for color="${color.displayName ?? color.name}"');
 
-        // 2) First, keep existing color selection behavior (for availability, etc.)
+        // 1) Update color selection (availability, selectedColor, colorOptions)
         context.read<ProductDetailsBloc>().add(
           SelectColorEvent(
             productId: productDetails.id,
             colorId: color.id,
           ),
         );
-
-        // 3) Then explicitly select this variant id so images are filtered correctly.
-        // Doing this *after* SelectColorEvent ensures any image changes inside the
-        // color handler are overridden by the variant-id-based image list.
+        // 2) Force images/stock to this variant so they update reliably (Arabic + English).
         context.read<ProductDetailsBloc>().add(
           SelectVariantByIdEvent(matchedVariantId),
         );

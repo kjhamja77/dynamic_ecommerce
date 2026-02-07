@@ -311,17 +311,17 @@ extension ProductDetailsImagesX on ProductDetails {
       'mappedCount=${variantImages.length}, mappedImages=$variantImages',
     );
 
-    if (variantImages.isNotEmpty) return variantImages;
+    if (variantImages.isNotEmpty) return List<String>.from(variantImages);
 
     // Fallback: keep current images (already set by API parsing)
-    return images;
+    return List<String>.from(images);
   }
 
   /// Convenience: return a new ProductDetails with images updated
   /// to match the given variant.
   ProductDetails withImagesForVariant(String variantId) {
     return copyWith(
-      images: imagesForVariant(variantId),
+      images: List<String>.from(imagesForVariant(variantId)),
     );
   }
 }

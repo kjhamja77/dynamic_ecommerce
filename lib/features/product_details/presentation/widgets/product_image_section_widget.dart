@@ -79,10 +79,14 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final displayImages = _displayImages;
     return Positioned.fill(
       child: PageView.builder(
+        key: ValueKey(displayImages.isEmpty
+            ? 'empty'
+            : '${displayImages.length}_${displayImages.first}'),
         controller: widget.pageController,
-        itemCount: _displayImages.length,
+        itemCount: displayImages.length,
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () async {
@@ -91,7 +95,7 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       FullscreenImageViewer(
-                    images: _displayImages,
+                    images: displayImages,
                     initialIndex: index,
                   ),
                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -112,7 +116,7 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
                 child: Hero(
                 tag: 'product_image_${widget.productDetails.id}',
                 child: FutureBuilder<Map<String, dynamic>>(
-                  future: ImageCacheUtils.getAuthenticatedImageData(_displayImages[index]),
+                  future: ImageCacheUtils.getAuthenticatedImageData(displayImages[index]),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return Center(
@@ -130,7 +134,7 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
                     // debugPrint('ProductImageSectionWidget → Headers: ${headers.keys.join(", ")}');
                     
                     // Test the URL first to see what response we get
-                    ImageCacheUtils.testImageUrl(_displayImages[index]).then((testResult) {
+                    ImageCacheUtils.testImageUrl(displayImages[index]).then((testResult) {
                       if (!testResult['success']) {
                         debugPrint('ProductImageSectionWidget → ⚠️ Image test failed: Status ${testResult['statusCode']}, Message: ${testResult['message']}');
                       }
