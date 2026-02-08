@@ -54,7 +54,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPhoneLogin = false;
   final _phoneFieldKey = GlobalKey<PhoneInputFieldState>();
   BiometricSettings? _lastBiometricSettings;
-  bool _hideGuestCta = false;
   List<CartItem>? _guestCartSnapshot;
   
   Future<String?> _getGoogleIdToken() async {
@@ -92,7 +91,6 @@ class _LoginPageState extends State<LoginPage> {
     // Check biometric availability when the page loads
     context.read<BiometricBloc>().add(CheckBiometricAvailability());
     context.read<BiometricBloc>().add(GetBiometricSettings());
-    _checkIfGuest();
     _snapshotGuestCart();
   }
 
@@ -101,19 +99,6 @@ class _LoginPageState extends State<LoginPage> {
       final cartState = context.read<CartBloc>().state;
       if (cartState is CartLoaded && cartState.cartItems.isNotEmpty) {
         _guestCartSnapshot = List<CartItem>.from(cartState.cartItems);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _checkIfGuest() async {
-    try {
-      final storage = di.sl<FlutterSecureStorage>();
-      final cached = await storage.read(key: AppConstants.userKey);
-      final isGuest = (cached ?? '').toLowerCase().contains('guest: true');
-      if (mounted) {
-        setState(() {
-          _hideGuestCta = isGuest;
-        });
       }
     } catch (_) {}
   }
@@ -491,9 +476,9 @@ class _LoginPageState extends State<LoginPage> {
                   
                   const SizedBox(height: 16),
                   
-                  // Continue as Guest
-                  if (!_hideGuestCta)
-                    OutlinedButton.icon(
+                  // Continue as Guest - always shown on auth screen so user can
+                  // proceed even if cached guest (e.g. after app restart)
+                  OutlinedButton.icon(
                       onPressed: () {
                         context.read<AuthBloc>().add(const GuestLoginRequested());
                       },
