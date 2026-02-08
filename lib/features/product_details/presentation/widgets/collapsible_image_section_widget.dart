@@ -21,6 +21,15 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+      buildWhen: (previous, current) {
+        if (current is! ProductDetailsLoaded) return false;
+        if (previous is! ProductDetailsLoaded) return true;
+        final prev = previous as ProductDetailsLoaded;
+        final curr = current as ProductDetailsLoaded;
+        // Rebuild when selection or images change so main gallery updates on color tap
+        return prev.productDetails.images != curr.productDetails.images ||
+            prev.productDetails.selectedColor != curr.productDetails.selectedColor;
+      },
       builder: (context, state) {
         // Always use the latest product details from the bloc when available
         final currentProduct =
@@ -28,11 +37,9 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
         return Stack(
           children: [
             // Main Product Image (reacts to color/variant changes)
-            // IMPORTANT: Always rely on the BLoC-computed images (`productDetails.images`)
-            // so that English and Arabic flows behave identically.
-            // We intentionally ignore `variantImageUrls` here to avoid conflicting sources
-            // of truth for the image gallery.
+            // Key forces rebuild when images or selection change so color thumbnail tap updates gallery
             ProductImageSectionWidget(
+              key: ValueKey('img_${currentProduct.selectedColor}_${currentProduct.images.length}_${currentProduct.images.isNotEmpty ? currentProduct.images.first : ""}'),
               productDetails: currentProduct,
               pageController: pageController,
               overrideImages: null,

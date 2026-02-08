@@ -910,97 +910,59 @@ class _StockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use computed inStock flag from ProductDetails (kept in sync by bloc)
-    // The BLoC already computes this correctly when color/size changes
+    // Use BLoC-computed inStock and selectedVariantQuantityAvailable (single source of truth)
     bool inStock = productDetails.inStock;
     bool low = false;
-    
-    // Only find variant for low stock indicator (quantity check)
-    if (productDetails.variantCombinations.isNotEmpty) {
-      // Try to find matching variant using flexible matching (same as BLoC)
-      VariantCombination? match;
+    if (productDetails.selectedVariantQuantityAvailable != null) {
+      final q = productDetails.selectedVariantQuantityAvailable!;
+      low = q > 0 && q <= 5;
+    } else if (productDetails.variantCombinations.isNotEmpty) {
+      // Fallback: resolve variant for low stock when bloc didn't set quantity
       String normalize(String s) => s.toLowerCase().trim();
-      
-      // Get selected size
       String? selectedSize;
       for (final opt in productDetails.variantAttributeOptions) {
         final attrNameLower = opt.attributeName.toLowerCase();
-        if ((attrNameLower == 'size' || attrNameLower == productDetails.primaryVariantLabel.toLowerCase()) && 
+        if ((attrNameLower == 'size' || attrNameLower == productDetails.primaryVariantLabel.toLowerCase()) &&
             opt.selectedValue.isNotEmpty) {
           selectedSize = opt.selectedValue;
           break;
         }
       }
-      if (selectedSize == null && productDetails.selectedSize.isNotEmpty) {
-        selectedSize = productDetails.selectedSize;
-      }
-      
-      // Get selected color
+      selectedSize ??= productDetails.selectedSize.isNotEmpty ? productDetails.selectedSize : null;
       String? selectedColor;
       for (final opt in productDetails.variantAttributeOptions) {
         final attrNameLower = opt.attributeName.toLowerCase();
-        if ((attrNameLower == 'color name' || 
-             attrNameLower == 'color' || 
-             attrNameLower == 'colour' ||
-             attrNameLower == 'اللون') && 
+        if ((attrNameLower == 'color name' || attrNameLower == 'color' || attrNameLower == 'colour' || attrNameLower == 'اللون') &&
             opt.selectedValue.isNotEmpty) {
           selectedColor = opt.selectedValue;
           break;
         }
       }
-      if (selectedColor == null && productDetails.selectedColor.isNotEmpty) {
-        selectedColor = productDetails.selectedColor;
-      }
-      
-      // Helper to get color value from variant
+      selectedColor ??= productDetails.selectedColor.isNotEmpty ? productDetails.selectedColor : null;
       String? getVariantColorValue(VariantCombination v) {
-        final colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
-        for (final attrName in colorAttrNames) {
+        for (final attrName in ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون']) {
           final value = v.getAttributeValue(attrName);
-          if (value != null && value.isNotEmpty) {
-            return value;
-          }
+          if (value != null && value.isNotEmpty) return value;
         }
         return null;
       }
-      
-      // Try flexible match (size + color only, like BLoC does)
       if (selectedSize != null && selectedColor != null) {
         final flexibleMatch = productDetails.variantCombinations.where((combo) {
-          // Must match size
-          bool sizeMatch = combo.hasAttributeValue('SIZE', selectedSize!) ||
-                          combo.hasAttributeValue('size', selectedSize) ||
-                          combo.hasAttributeValue(productDetails.primaryVariantLabel, selectedSize);
-          
-          // Must match color
+          final sizeMatch = combo.hasAttributeValue('SIZE', selectedSize!) ||
+              combo.hasAttributeValue('size', selectedSize) ||
+              combo.hasAttributeValue(productDetails.primaryVariantLabel, selectedSize);
           final variantColorName = getVariantColorValue(combo);
-          bool colorMatch = false;
-          if (variantColorName != null) {
-            final normalizedVariant = normalize(variantColorName);
-            final normalizedSelected = normalize(selectedColor!);
-            colorMatch = normalizedVariant == normalizedSelected ||
-                        normalizedVariant.contains(normalizedSelected) ||
-                        normalizedSelected.contains(normalizedVariant);
-          }
-          
+          if (variantColorName == null) return false;
+          final nv = normalize(variantColorName);
+          final ns = normalize(selectedColor!);
+          final colorMatch = nv == ns || nv.contains(ns) || ns.contains(nv);
           return sizeMatch && colorMatch;
         }).toList();
-        
         if (flexibleMatch.isNotEmpty) {
-          // Sort by highest stock (same as BLoC)
-          flexibleMatch.sort((a, b) {
-            final qtyA = a.quantityAvailable ?? 0;
-            final qtyB = b.quantityAvailable ?? 0;
-            return qtyB.compareTo(qtyA);
-          });
-          match = flexibleMatch.first;
+          flexibleMatch.sort((a, b) => (b.quantityAvailable ?? 0).compareTo(a.quantityAvailable ?? 0));
+          final qa = flexibleMatch.first.quantityAvailable;
+          low = qa != null && qa > 0 && qa <= 5;
         }
-      }
-      
-      // Use variant quantity for low stock indicator
-      if (match != null) {
-        final qa = match.quantityAvailable;
-        low = qa != null && qa > 0 && qa <= 5;
       }
     }
 

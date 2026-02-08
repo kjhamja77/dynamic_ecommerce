@@ -40,6 +40,7 @@ class ProductDetailsModel extends ProductDetails {
     super.variantCombinations = const [],
     super.primaryVariantLabel = 'Size',
     super.inStock = true,
+    super.selectedVariantQuantityAvailable,
     super.tags = const [],
     super.variantImagesMap = const {},
   });
@@ -1012,6 +1013,7 @@ class ProductDetailsModel extends ProductDetails {
       }).toList(),
       primaryVariantLabel: primaryVariantLabel.isNotEmpty ? primaryVariantLabel : 'Size',
       inStock: (json['in_stock'] ?? true) == true,
+      selectedVariantQuantityAvailable: null, // Set by BLoC when variant is resolved
       // Parse product tags
       tags: (json['product_tag_ids'] as List<dynamic>? ?? const []).map((tag) {
         final tagMap = tag as Map<String, dynamic>;

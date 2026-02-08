@@ -100,23 +100,37 @@ class ColorSelectionWidget extends StatelessWidget {
     );
   }
 
+  /// Same attribute names as bloc's _getVariantColorValue so English API (e.g. "Color") is supported.
+  static const _colorAttrNames = [
+    'COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR',
+    'colour', 'Colour', 'اللون', 'لون',
+  ];
+
+  String? _getVariantColorValue(VariantCombination v) {
+    for (final attrName in _colorAttrNames) {
+      final value = v.getAttributeValue(attrName);
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
   /// Get a thumbnail image for a color using variantCombinations.variantId
   /// and the grouped variant images (variantImagesMap) from ProductDetails.
-  /// Supports both English name and Arabic displayName for matching.
+  /// Supports both English name and Arabic displayName; uses same color attribute names as bloc.
   String _firstVariantImageForColor(ColorOption color) {
     String normalize(String s) => s.toLowerCase().trim();
     final List<VariantCombination> colorVariants = [];
 
     for (final v in productDetails.variantCombinations) {
-      final variantColor = v.getAttributeValue('COLOR NAME') ??
-          v.getAttributeValue('color name') ??
-          v.getAttributeValue('اللون');
+      final variantColor = _getVariantColorValue(v);
       if (variantColor == null || variantColor.isEmpty || v.variantId.isEmpty) continue;
       final nV = normalize(variantColor);
-      final matchName = nV == normalize(color.name);
-      final matchDisplay = color.displayName != null &&
-          color.displayName!.isNotEmpty &&
-          nV == normalize(color.displayName!);
+      final nName = normalize(color.name);
+      final nDisplay = color.displayName != null && color.displayName!.isNotEmpty
+          ? normalize(color.displayName!)
+          : '';
+      final matchName = nV == nName || nV.contains(nName) || nName.contains(nV);
+      final matchDisplay = nDisplay.isNotEmpty && (nV == nDisplay || nV.contains(nDisplay) || nDisplay.contains(nV));
       if (matchName || matchDisplay) {
         colorVariants.add(v);
       }
@@ -179,93 +193,14 @@ class ColorSelectionWidget extends StatelessWidget {
           ? () async {
               debugPrint('🎨 ColorSelectionWidget: Tapped color "${productDetails.id}" (ID: ${color.id})');
               await HapticService.buttonClick();
-
-              // 1) Resolve the best matching VariantCombination for this color,
-        // taking into account current size/material selections when possible.
-        String normalize(String s) => s.toLowerCase().trim();
-        String? matchedVariantId;
-
-        for (final v in productDetails.variantCombinations) {
-          // Color must match (support both English name and Arabic displayName)
-          final variantColor =
-              v.getAttributeValue('COLOR NAME') ??
-              v.getAttributeValue('color name') ??
-              v.getAttributeValue('COLOR') ??
-              v.getAttributeValue('color') ??
-              v.getAttributeValue('colour') ??
-              v.getAttributeValue('اللون');
-
-          if (variantColor == null || variantColor.isEmpty) continue;
-          final nV = normalize(variantColor);
-          final matchesName = nV == normalize(color.name);
-          final matchesDisplay = color.displayName != null &&
-              color.displayName!.isNotEmpty &&
-              nV == normalize(color.displayName!);
-          if (!matchesName && !matchesDisplay) continue;
-
-          // Optional: also match current selected size
-          bool sizeOk = true;
-          if (productDetails.selectedSize.isNotEmpty) {
-            final variantSize =
-                v.getAttributeValue(productDetails.primaryVariantLabel) ??
-                v.getAttributeValue('SIZE') ??
-                v.getAttributeValue('size');
-            sizeOk = variantSize != null &&
-                     normalize(variantSize) ==
-                         normalize(productDetails.selectedSize);
-          }
-
-          // Optional: also match current selected material
-          bool materialOk = true;
-          if (productDetails.selectedMaterial != null &&
-              productDetails.selectedMaterial!.isNotEmpty) {
-            final variantMaterial =
-                v.getAttributeValue('MATERIAL NAME') ??
-                v.getAttributeValue('material name') ??
-                v.getAttributeValue('MATERIAL') ??
-                v.getAttributeValue('material');
-            materialOk = variantMaterial != null &&
-                         normalize(variantMaterial) ==
-                             normalize(productDetails.selectedMaterial!);
-          }
-
-          if (sizeOk && materialOk) {
-            matchedVariantId = v.variantId;
-            break;
-          }
-        }
-
-        // Fallback: if no strict match, pick the first variant that has this color (name or displayName)
-        if (matchedVariantId == null) {
-          for (final v in productDetails.variantCombinations) {
-            final variantColor = v.getAttributeValue('COLOR NAME') ??
-                v.getAttributeValue('color name') ??
-                v.getAttributeValue('اللون');
-            if (variantColor == null) continue;
-            final nV = normalize(variantColor);
-            if (nV == normalize(color.name) ||
-                (color.displayName != null && color.displayName!.isNotEmpty && nV == normalize(color.displayName!))) {
-              matchedVariantId = v.variantId;
-              break;
+              // SelectColor alone updates selection + main images; no SelectVariantById to avoid overwriting.
+              context.read<ProductDetailsBloc>().add(
+                SelectColorEvent(
+                  productId: productDetails.id,
+                  colorId: color.id,
+                ),
+              );
             }
-          }
-          matchedVariantId ??= productDetails.variantCombinations.first.variantId;
-        }
-
-        debugPrint('🎨 ColorSelectionWidget: resolved variantId=$matchedVariantId for color="${color.displayName ?? color.name}"');
-
-        // 1) Update color selection (availability, selectedColor, colorOptions)
-        context.read<ProductDetailsBloc>().add(
-          SelectColorEvent(
-            productId: productDetails.id,
-            colorId: color.id,
-          ),
-        );
-        // 2) Force images/stock to this variant so they update reliably (Arabic + English).
-        context.read<ProductDetailsBloc>().add(
-          SelectVariantByIdEvent(matchedVariantId),
-        );
-      }
       : null,
       child: Container(
         margin: EdgeInsets.only(right: ResponsiveConstants.productDetailsColorThumbnailSpacing),

@@ -420,36 +420,52 @@ class _ColorOptionCard extends StatelessWidget {
     return hasInStockVariant;
   }
 
-  /// Get the first variant image for this color
+  /// Same attribute names as bloc so English API (e.g. "Color") is supported.
+  static const _colorAttrNames = [
+    'COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR',
+    'colour', 'Colour', 'اللون', 'لون',
+  ];
+
+  String? _getVariantColorValue(VariantCombination v) {
+    for (final attrName in _colorAttrNames) {
+      final value = v.getAttributeValue(attrName);
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  /// Get the first variant image for this color (English: use same color attr names + flexible match).
   String _getColorImageUrl() {
     final englishColorName = _getEnglishColorName();
     if (englishColorName == null) {
-      return colorOption.images.isNotEmpty 
-          ? ImageCacheUtils.normalizeImageUrl(colorOption.images.first) 
+      return colorOption.images.isNotEmpty
+          ? ImageCacheUtils.normalizeImageUrl(colorOption.images.first)
           : '';
     }
 
     String normalize(String s) => s.toLowerCase().trim();
-    
-    // Try to find a variant image that matches this color
+    final nEnglish = normalize(englishColorName);
+
     for (final v in productDetails.variantCombinations) {
-      final String? variantColorName = v.getAttributeValue('COLOR NAME');
-      final bool colorMatch = variantColorName != null && 
-                            normalize(variantColorName) == normalize(englishColorName);
-      if (colorMatch && v.variantId.isNotEmpty) {
+      final variantColorName = _getVariantColorValue(v);
+      if (variantColorName == null || variantColorName.isEmpty || v.variantId.isEmpty) continue;
+      final nV = normalize(variantColorName);
+      final colorMatch = nV == nEnglish || nV.contains(nEnglish) || nEnglish.contains(nV);
+      if (colorMatch) {
+        final list = productDetails.variantImagesMap[v.variantId];
+        if (list != null && list.isNotEmpty) {
+          return ImageCacheUtils.normalizeImageUrl(list.first);
+        }
         final path = '/web/image/product.product/${v.variantId}/image_1920';
         return ImageCacheUtils.normalizeImageUrl(path);
       }
     }
-    
-    // Fallback to color option images (normalize to fix double slashes)
+
     if (colorOption.images.isNotEmpty) {
       return ImageCacheUtils.normalizeImageUrl(colorOption.images.first);
     }
-    
-    // Last resort: use product images (normalize to fix double slashes)
-    return productDetails.images.isNotEmpty 
-        ? ImageCacheUtils.normalizeImageUrl(productDetails.images.first) 
+    return productDetails.images.isNotEmpty
+        ? ImageCacheUtils.normalizeImageUrl(productDetails.images.first)
         : '';
   }
 

@@ -40,6 +40,8 @@ class ProductDetails extends Equatable {
   final String primaryVariantLabel; // e.g., Legs, Size, Material (non-color attribute shown as choices)
   // Overall stock flag for the currently selected variant (computed)
   final bool inStock;
+  /// Quantity available for the currently selected variant (from BLoC); used for badge (low stock when 1–5).
+  final int? selectedVariantQuantityAvailable;
   final List<ProductTag> tags; // Product tags/categories
   // Map of variant_id -> list of image URLs for that variant
   final Map<String, List<String>> variantImagesMap;
@@ -81,6 +83,7 @@ class ProductDetails extends Equatable {
     this.variantCombinations = const [],
     this.primaryVariantLabel = 'Size',
     this.inStock = true,
+    this.selectedVariantQuantityAvailable,
     this.tags = const [],
     this.variantImagesMap = const {},
   });
@@ -123,6 +126,7 @@ class ProductDetails extends Equatable {
       variantCombinations,
       primaryVariantLabel,
       inStock,
+      selectedVariantQuantityAvailable,
       tags,
       variantImagesMap,
       ];
@@ -227,6 +231,7 @@ class ProductDetails extends Equatable {
     String? primaryVariantLabel,
     List<VariantAttributeOption>? variantAttributeOptions,
     bool? inStock,
+    int? selectedVariantQuantityAvailable,
     List<ProductTag>? tags,
     Map<String, List<String>>? variantImagesMap,
   }) {
@@ -267,6 +272,7 @@ class ProductDetails extends Equatable {
       primaryVariantLabel: primaryVariantLabel ?? this.primaryVariantLabel,
       variantAttributeOptions: variantAttributeOptions ?? this.variantAttributeOptions,
       inStock: inStock ?? this.inStock,
+      selectedVariantQuantityAvailable: selectedVariantQuantityAvailable ?? this.selectedVariantQuantityAvailable,
       tags: tags ?? this.tags,
       variantImagesMap: variantImagesMap ?? this.variantImagesMap,
     );

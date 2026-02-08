@@ -61,6 +61,19 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     return k == 'color name' || k == 'color' || k == 'colour' || k == 'اللون' || k == 'لون';
   }
 
+  /// Get color value from a variant (tries common attribute names).
+  String? _getVariantColorValue(VariantCombination v) {
+    const colorAttrNames = [
+      'COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR',
+      'colour', 'Colour', 'اللون', 'لون',
+    ];
+    for (final attrName in colorAttrNames) {
+      final value = v.getAttributeValue(attrName);
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
   /// Returns true when variant's color value matches the selected value (handles Arabic/English).
   /// Variants from API typically have English; selectedValue may be Arabic when app is in Arabic.
   bool _colorValuesMatch(ProductDetails pd, String? variantValue, String selectedValue) {
@@ -364,7 +377,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           developer.log('🧵 Material selected: ${event.material}, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
         }
 
-        updated = updated.copyWith(inStock: variantInStock);
+        updated = updated.copyWith(
+          inStock: variantInStock,
+          selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
+        );
         if (updated.variantImagesMap.isNotEmpty) {
           updated = updated.withImagesForVariant(selectedVariant.variantId);
         }
@@ -518,7 +534,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           developer.log('👠 Heel height selected: ${event.heelHeightCm}cm, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
         }
 
-        updated = updated.copyWith(inStock: variantInStock);
+        updated = updated.copyWith(
+          inStock: variantInStock,
+          selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
+        );
         if (updated.variantImagesMap.isNotEmpty) {
           updated = updated.withImagesForVariant(selectedVariant.variantId);
         }
@@ -1226,10 +1245,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         developer.log('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
       }
       
-      updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
+      updatedProduct = updatedProduct.copyWith(
+        inStock: variantInStock,
+        selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
+      );
       if (updatedProduct.variantImagesMap.isNotEmpty) {
         updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
       }
+    } else {
+      updatedProduct = updatedProduct.copyWith(selectedVariantQuantityAvailable: null);
     }
 
     emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
@@ -1552,7 +1576,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             initialQuantity = 1;
           }
           
-          updatedProduct = updatedProduct.copyWith(inStock: variantInStock);
+          updatedProduct = updatedProduct.copyWith(
+            inStock: variantInStock,
+            selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
+          );
           if (updatedProduct.variantImagesMap.isNotEmpty) {
             updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
           }
@@ -1638,124 +1665,129 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         orElse: () => currentProduct.colorOptions.first,
       );
       
-      // CRITICAL: Always use English names for matching, never Arabic
-      // ColorOption.name might be a placeholder like "COLOR_ID_XXX" or actual English name
-      // variantAttributeOptions may have Arabic names when app is in Arabic mode
-      // Variant combinations from API always have English color names
+      // CRITICAL: Always use English names for matching (same logic for Arabic & English).
+      // Root cause of English-only bugs: ColorOption.name can be "COLOR_ID_XXX" when API
+      // doesn't fill it for English; id comparison can fail (string vs number). Fix: build
+      // colorId→EnglishName from variantAttributeOptions once with robust id keys and use it first.
       String? actualColorName;
-      
-      // Helper to check if a string contains Arabic characters
+
       bool containsArabic(String text) {
         if (text.isEmpty) return false;
         final arabicRegex = RegExp(r'[\u0600-\u06FF]');
         return arabicRegex.hasMatch(text);
       }
-      
-      // Helper to get color value from variant
+
       String? getVariantColorValue(VariantCombination v) {
-        final colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
+        const colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
         for (final attrName in colorAttrNames) {
           final value = v.getAttributeValue(attrName);
-          if (value != null && value.isNotEmpty) {
-            return value;
-          }
+          if (value != null && value.isNotEmpty) return value;
         }
         return null;
       }
-      
-      // PRIMARY: Use ColorOption.name first (most reliable, always English when not placeholder)
-      // In English mode, ColorOption.name has real names like "BEIGE", "BLACK 01"
-      // In Arabic mode, ColorOption.name might be "COLOR_ID_XXX" placeholder
-      if (selectedColorOption.name.isNotEmpty && !containsArabic(selectedColorOption.name)) {
-        // If ColorOption.name is not a placeholder, use it directly
-        if (!selectedColorOption.name.startsWith('COLOR_ID_')) {
-          actualColorName = selectedColorOption.name;
-          developer.log('✅ Using ColorOption.name (English): "$actualColorName" for color ID ${event.colorId} (display: "${selectedColorOption.displayNameOrName}")');
+
+      // ZERO (permanent fix): Build colorId→English name from variantAttributeOptions with robust id keys.
+      // Works for both languages; avoids wrong "first" color when English API sends placeholder names.
+      final Map<String, String> colorIdToEnglishName = {};
+      for (final opt in currentProduct.variantAttributeOptions) {
+        final attrNameLower = opt.attributeName.toLowerCase();
+        if (attrNameLower != 'color name' && attrNameLower != 'color' && attrNameLower != 'colour' && attrNameLower != 'اللون') continue;
+        for (final val in opt.values) {
+          final idStr = val.id.toString().trim();
+          if (idStr.isEmpty) continue;
+          if (!containsArabic(val.name) && val.name.trim().isNotEmpty) {
+            colorIdToEnglishName[idStr] = val.name.trim();
+          }
         }
+        break;
       }
-      
-      // SECONDARY: If ColorOption.name is placeholder or not available, try variantAttributeOptions
-      if (actualColorName == null || actualColorName.isEmpty || selectedColorOption.name.startsWith('COLOR_ID_')) {
+      actualColorName = colorIdToEnglishName[event.colorId] ?? colorIdToEnglishName[event.colorId.toString().trim()];
+      if (actualColorName != null && actualColorName.isNotEmpty) {
+        developer.log('✅ Using colorId→name from variantAttributeOptions (locale-agnostic): "$actualColorName" for colorId=${event.colorId}');
+      }
+
+      // PRIMARY: ColorOption.name when not placeholder (e.g. English API sometimes fills it)
+      if ((actualColorName == null || actualColorName.isEmpty) && selectedColorOption.name.isNotEmpty && !containsArabic(selectedColorOption.name) && !selectedColorOption.name.startsWith('COLOR_ID_')) {
+        actualColorName = selectedColorOption.name;
+        developer.log('✅ Using ColorOption.name: "$actualColorName" for color ID ${event.colorId}');
+      }
+
+      // SECONDARY: Single-value lookup from variantAttributeOptions (keep for compatibility)
+      if (actualColorName == null || actualColorName.isEmpty) {
         VariantAttributeOption? colorAttrOption;
         for (final opt in currentProduct.variantAttributeOptions) {
           final attrNameLower = opt.attributeName.toLowerCase();
-          if (attrNameLower == 'color name' || 
-              attrNameLower == 'color' || 
-              attrNameLower == 'colour' ||
-              attrNameLower == 'اللون') {
+          if (attrNameLower == 'color name' || attrNameLower == 'color' || attrNameLower == 'colour' || attrNameLower == 'اللون') {
             colorAttrOption = opt;
             break;
           }
         }
-        
         if (colorAttrOption != null) {
           try {
-            // Find the value with matching ID
             final matchedValue = colorAttrOption.values.firstWhere(
-              (v) => v.id == event.colorId,
+              (v) => v.id.toString().trim() == event.colorId.toString().trim(),
             );
-            
-            // If variantAttributeOptions has English name, use it
             if (!containsArabic(matchedValue.name) && matchedValue.name.isNotEmpty) {
               actualColorName = matchedValue.name;
-              developer.log('✅ Using English name from variantAttributeOptions: "$actualColorName" for color ID ${event.colorId}');
-            } else {
-              // variantAttributeOptions has Arabic name, will try variants next
-              developer.log('⚠️ variantAttributeOptions has Arabic name "${matchedValue.name}" for color ID ${event.colorId}, will try variants...');
+              developer.log('✅ Using variantAttributeOptions (secondary): "$actualColorName" for color ID ${event.colorId}');
             }
-          } catch (e) {
-            developer.log('❌ Could not find color with ID ${event.colorId} in variantAttributeOptions: $e');
-          }
+          } catch (_) {}
         }
       }
-      
-      // TERTIARY: If still no English name, get from variant combinations
-      // This is the most reliable fallback since variants always have English names from API
+
+      // TERTIARY: From variant combinations – match display name to variant color, or use colorId map (no .first)
       if (actualColorName == null || actualColorName.isEmpty || containsArabic(actualColorName)) {
-        // Collect all unique English color names from variants
-        Set<String> uniqueEnglishColorNames = {};
+        final Set<String> uniqueEnglishColorNames = {};
         for (final v in currentProduct.variantCombinations) {
           final String? variantColorName = getVariantColorValue(v);
           if (variantColorName != null && variantColorName.isNotEmpty && !containsArabic(variantColorName)) {
             uniqueEnglishColorNames.add(variantColorName);
           }
         }
-        
         if (uniqueEnglishColorNames.isNotEmpty) {
-          // Since we can't directly match variant by color ID, we need a better strategy
-          // Try to find the color name that matches the selected color option's display name
-          // by checking if any variant has attributes that might help us identify it
-          // For now, if there's only one English color, use it; otherwise use first as fallback
           String? matchedEnglishName;
-          
-          if (uniqueEnglishColorNames.length == 1) {
-            matchedEnglishName = uniqueEnglishColorNames.first;
-          } else {
-            // Multiple colors - try to match by finding variants that might correspond to this color ID
-            // We can't directly match, but we can use the first one as a reasonable fallback
-            // In practice, the API should have consistent color names across variants
-            matchedEnglishName = uniqueEnglishColorNames.first;
-            developer.log('⚠️ Multiple English color names found: $uniqueEnglishColorNames, using first: "$matchedEnglishName"');
+          final displayNorm = selectedColorOption.displayNameOrName.toLowerCase().trim();
+          final isPlaceholder = selectedColorOption.name.startsWith('COLOR_ID_') || displayNorm.isEmpty;
+          if (!isPlaceholder) {
+            for (final v in currentProduct.variantCombinations) {
+              final String? variantColorName = getVariantColorValue(v);
+              if (variantColorName == null || variantColorName.isEmpty) continue;
+              final vNorm = variantColorName.toLowerCase().trim();
+              if (vNorm == displayNorm || vNorm.contains(displayNorm) || displayNorm.contains(vNorm)) {
+                matchedEnglishName = variantColorName;
+                developer.log('✅ Matched display to variant color: "$matchedEnglishName"');
+                break;
+              }
+            }
           }
-          
+          // When display is placeholder or no match, use colorId map (same source as ZERO) – never .first
+          if (matchedEnglishName == null) {
+            matchedEnglishName = colorIdToEnglishName[event.colorId] ?? colorIdToEnglishName[event.colorId.toString().trim()];
+          }
+          if (matchedEnglishName == null && uniqueEnglishColorNames.length == 1) {
+            matchedEnglishName = uniqueEnglishColorNames.first;
+          } else if (matchedEnglishName == null) {
+            matchedEnglishName = uniqueEnglishColorNames.first;
+            developer.log('⚠️ Fallback to first English color (no id match): "$matchedEnglishName"');
+          }
           actualColorName = matchedEnglishName;
-          developer.log('✅ Using English name from variant combinations: "$actualColorName" for color ID ${event.colorId} (display: "${selectedColorOption.displayNameOrName}")');
         }
       }
       
-      // Ensure we have some non-empty name for the color.
-      // If we still couldn't determine a clean English name, fall back to the option's own name/display name
-      // so that selection + images still work, even if matching/stock checks are less precise.
-      if (actualColorName == null || actualColorName.isEmpty) {
-        final fallback = selectedColorOption.name.isNotEmpty
+      // Ensure we have a real English name for variant/image matching (never leave as placeholder).
+      if (actualColorName == null || actualColorName.isEmpty || actualColorName.startsWith('COLOR_ID_')) {
+        final fromMap = colorIdToEnglishName[event.colorId] ?? colorIdToEnglishName[event.colorId.toString().trim()];
+        final fallback = selectedColorOption.name.isNotEmpty && !selectedColorOption.name.startsWith('COLOR_ID_')
             ? selectedColorOption.name
             : selectedColorOption.displayNameOrName;
-        actualColorName = fallback;
-        developer.log(
-          '⚠️ Could not determine English color name for color ID ${event.colorId}. '
-          'Falling back to option name/display: "$actualColorName".',
-        );
-      } else if (containsArabic(actualColorName)) {
+        actualColorName = fromMap ?? fallback;
+        if (fromMap != null) {
+          developer.log('✅ Using colorId map for final name (no placeholder): "$actualColorName"');
+        } else {
+          developer.log('⚠️ Fallback name for color ID ${event.colorId}: "$actualColorName"');
+        }
+      }
+      if (actualColorName != null && containsArabic(actualColorName)) {
         // If still Arabic, keep it but log a warning – we still allow selection for UX.
         developer.log(
           '⚠️ actualColorName appears to be Arabic: "$actualColorName". '
@@ -2847,14 +2879,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
 
         // CRITICAL: If size is selected, prefer hasInStockVariant check over variant match
         // This ensures we correctly reflect stock for the exact color+size combination
-        if (actualSize != null && actualSize.isNotEmpty) {
-          // Use the hasInStockVariant check we did earlier (more accurate for color+size combo)
-          finalInStock = hasInStockVariant;
-          developer.log('📦 Size selected: Using hasInStockVariant=$hasInStockVariant (variant check: $variantInStock) for color="$colorNameForMatching" with size="$actualSize"');
-        } else {
-          // No size selected - use variant check result
-          finalInStock = variantInStock;
-        }
+        // Use matched variant as single source of truth (same variant used for images)
+        finalInStock = variantInStock;
+        developer.log(
+          '📦 _onSelectColor → variantId=${selectedVariant.variantId}, inStock=$variantInStock, qty=${selectedVariant.quantityAvailable}',
+          name: 'ProductDetails/Stock',
+        );
       } else {
         // No variant found - use hasInStockVariant check result
         if (actualSize != null && actualSize.isNotEmpty) {
@@ -2869,11 +2899,55 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
-      updatedProduct = updatedProduct.copyWith(inStock: finalInStock);
-      if (selectedVariant != null && updatedProduct.variantImagesMap.isNotEmpty) {
-        updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
+      final int? qtyForBadge = selectedVariant?.quantityAvailable != null
+          ? selectedVariant!.quantityAvailable!.toInt()
+          : null;
+      updatedProduct = updatedProduct.copyWith(
+        inStock: finalInStock,
+        selectedVariantQuantityAvailable: qtyForBadge,
+      );
+
+      // Update main product images when color changes so the gallery shows the selected color.
+      // Use colorNameForMatching (never placeholder) to find variant; fallback to option name/display.
+      VariantCombination? variantForImage;
+      final namesToTry = <String>[
+        if (colorNameForMatching.isNotEmpty && !colorNameForMatching.startsWith('COLOR_ID_')) colorNameForMatching,
+        if (selectedColorOption.name.isNotEmpty && !selectedColorOption.name.startsWith('COLOR_ID_')) selectedColorOption.name,
+        selectedColorOption.displayNameOrName,
+      ].where((s) => s.isNotEmpty).toSet().toList();
+
+      for (final candidateName in namesToTry) {
+        final normalizedColor = _norm(candidateName);
+        if (normalizedColor.isEmpty) continue;
+        for (final v in updatedProduct.variantCombinations) {
+          final variantColor = _getVariantColorValue(v);
+          if (variantColor == null || v.variantId.isEmpty) continue;
+          final nv = _norm(variantColor);
+          if (nv == normalizedColor || nv.contains(normalizedColor) || normalizedColor.contains(nv)) {
+            variantForImage = v;
+            break;
+          }
+        }
+        if (variantForImage != null) break;
       }
-      
+
+      if (selectedColorOption.images.isNotEmpty) {
+        updatedProduct = updatedProduct.copyWith(images: List<String>.from(selectedColorOption.images));
+        developer.log('🎨 Using ColorOption.images: ${selectedColorOption.images.length} (${selectedColorOption.displayNameOrName})');
+      } else if (variantForImage != null) {
+        final vid = variantForImage.variantId;
+        final variantImages = updatedProduct.variantImagesMap[vid];
+        if (variantImages != null && variantImages.isNotEmpty) {
+          updatedProduct = updatedProduct.copyWith(images: List<String>.from(variantImages));
+        } else {
+          final path = '/web/image/product.product/$vid/image_1920';
+          final fullUrl = '${AppConstants.baseUrl}${path.startsWith('/') ? path.substring(1) : path}';
+          updatedProduct = updatedProduct.copyWith(images: [fullUrl]);
+        }
+        developer.log('🎨 Using variant image for selected color: variantId=$vid');
+      }
+      // If still no update (no option images, no matching variant), keep current images to avoid blank.
+
       emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
       
       final result = await selectColor(SelectColorParams(
@@ -2948,13 +3022,43 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
 
-      final selectedSizeOption = effectiveSizeOptions.firstWhere(
-        (size) => size.id == event.sizeId,
-        orElse: () => effectiveSizeOptions.first,
-      );
-      
-      // Update selectedSize and recompute stock for the exact size+color+attributes combination
-      final selectedSizeName = selectedSizeOption.name;
+      // Resolve sizeId → size NAME from the same source as the UI (variantAttributeOptions).
+      // Size buttons send sizeId: value.id; we must use the corresponding value.name for variant
+      // matching so the correct variant (and image) is found. Using only SizeOption by id can
+      // pick the wrong size when backend sizeOptions use different ids.
+      String selectedSizeName;
+      VariantAttributeOption? sizeAttrForResolve;
+      for (final opt in currentProduct.variantAttributeOptions) {
+        final n = opt.attributeName.toLowerCase().trim();
+        if (n == 'size' ||
+            n == currentProduct.primaryVariantLabel.toLowerCase().trim() ||
+            n == 'القياس') {
+          sizeAttrForResolve = opt;
+          break;
+        }
+      }
+      if (sizeAttrForResolve != null) {
+        try {
+          final matchedValue = sizeAttrForResolve.values.firstWhere(
+            (v) => v.id == event.sizeId,
+          );
+          selectedSizeName = matchedValue.name;
+          developer.log('📏 _onSelectSize: resolved sizeId=${event.sizeId} → name="$selectedSizeName" from variantAttributeOptions (same source as size buttons)');
+        } catch (_) {
+          final selectedSizeOption = effectiveSizeOptions.firstWhere(
+            (size) => size.id == event.sizeId,
+            orElse: () => effectiveSizeOptions.first,
+          );
+          selectedSizeName = selectedSizeOption.name;
+          developer.log('📏 _onSelectSize: sizeId not in variantAttributeOptions, using SizeOption: name="$selectedSizeName"');
+        }
+      } else {
+        final selectedSizeOption = effectiveSizeOptions.firstWhere(
+          (size) => size.id == event.sizeId,
+          orElse: () => effectiveSizeOptions.first,
+        );
+        selectedSizeName = selectedSizeOption.name;
+      }
 
       // Recompute stock for the currently selected combination (size + color + other attrs).
       // If there is no in-stock variant for the current selection, we must mark inStock=false
@@ -3198,17 +3302,58 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             if (nextQuantity <= 0) nextQuantity = 1;
           }
         }
-        productToEmit = productToEmit.copyWith(inStock: inStock);
-        if (productToEmit.variantImagesMap.isNotEmpty) {
-          productToEmit = productToEmit.withImagesForVariant(selectedVariant.variantId);
+        final int? qtyForBadge = selectedVariant.quantityAvailable != null
+            ? selectedVariant.quantityAvailable!.toInt()
+            : null;
+        productToEmit = productToEmit.copyWith(
+          inStock: inStock,
+          selectedVariantQuantityAvailable: qtyForBadge,
+        );
+        // Update images from the variant that matches selected COLOR + SIZE (by name), same as SelectColor.
+        // Do not rely on selectedVariant for images; find the variant by color+size so the main image
+        // stays on the selected color when only size changes.
+        final effectiveColorName = selectedColorName ?? currentProduct.selectedColor;
+        if (effectiveColorName.isNotEmpty && selectedSizeName.isNotEmpty) {
+          final normalizedColor = _norm(effectiveColorName);
+          final normalizedSize = _norm(selectedSizeName);
+          VariantCombination? variantForImage;
+          for (final v in productToEmit.variantCombinations) {
+            final variantColor = _getVariantColorValue(v);
+            final sizeVal = v.getAttributeValue('SIZE') ?? v.getAttributeValue('size') ?? v.getAttributeValue(productToEmit.primaryVariantLabel);
+            if (variantColor == null || sizeVal == null) continue;
+            final nvc = _norm(variantColor);
+            final nvs = _norm(sizeVal);
+            final colorMatch = nvc == normalizedColor || nvc.contains(normalizedColor) || normalizedColor.contains(nvc);
+            final sizeMatch = nvs == normalizedSize;
+            if (colorMatch && sizeMatch && v.variantId.isNotEmpty) {
+              variantForImage = v;
+              break;
+            }
+          }
+          if (variantForImage != null) {
+            productToEmit = productToEmit.withImagesForVariant(variantForImage.variantId);
+            final variantHasImages = productToEmit.variantImagesMap[variantForImage.variantId]?.isNotEmpty ?? false;
+            if (!variantHasImages) {
+              final path = '/web/image/product.product/${variantForImage.variantId}/image_1920';
+              final fullUrl = '${AppConstants.baseUrl}${path.startsWith('/') ? path.substring(1) : path}';
+              productToEmit = productToEmit.copyWith(images: [fullUrl]);
+            }
+          } else {
+            productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
+          }
+        } else {
+          productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
         }
       } else {
-        productToEmit = productToEmit.copyWith(inStock: inStock);
+        productToEmit = productToEmit.copyWith(
+          inStock: inStock,
+          selectedVariantQuantityAvailable: null,
+        );
       }
 
       developer.log(
         '📦 _onSelectSize → size="$selectedSizeName", color="${selectedColorName ?? 'none'}", '
-        'variantId=${selectedVariant?.variantId}, inStock=$inStock',
+        'variantId=${selectedVariant?.variantId}, inStock=$inStock, qty=${selectedVariant?.quantityAvailable}',
         name: 'ProductDetails/Stock',
       );
 
