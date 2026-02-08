@@ -1264,6 +1264,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get applyFilters => 'تطبيق الفلتر';
 
   @override
+  String get currentCategory => 'الفئة الحالية';
+
+  @override
   String get errorLoadingCountriesStates => 'خطأ في تحميل البلدان/الولايات';
 
   @override

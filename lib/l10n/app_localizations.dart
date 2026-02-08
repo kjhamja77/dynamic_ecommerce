@@ -2414,6 +2414,12 @@ abstract class AppLocalizations {
   /// **'تطبيق الفلتر'**
   String get applyFilters;
 
+  /// Label for the currently selected category in filters
+  ///
+  /// In ar, this message translates to:
+  /// **'الفئة الحالية'**
+  String get currentCategory;
+
   /// Countries/states loading error message
   ///
   /// In ar, this message translates to:

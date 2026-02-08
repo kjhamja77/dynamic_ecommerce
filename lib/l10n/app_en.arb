@@ -2096,6 +2096,10 @@
   "@applyFilters": {
     "description": "Apply filters button text"
   },
+  "currentCategory": "Current Category",
+  "@currentCategory": {
+    "description": "Label for the currently selected category in filters"
+  },
   
   "errorLoadingCountriesStates": "Error loading countries/states",
   "@errorLoadingCountriesStates": {

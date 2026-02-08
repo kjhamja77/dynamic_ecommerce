@@ -1251,6 +1251,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get applyFilters => 'Apply Filters';
 
   @override
+  String get currentCategory => 'Current Category';
+
+  @override
   String get errorLoadingCountriesStates => 'Error loading countries/states';
 
   @override

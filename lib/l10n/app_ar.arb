@@ -2081,6 +2081,10 @@
   "@applyFilters": {
     "description": "Apply filters button text"
   },
+  "currentCategory": "الفئة الحالية",
+  "@currentCategory": {
+    "description": "Label for the currently selected category in filters"
+  },
   
   "errorLoadingCountriesStates": "خطأ في تحميل البلدان/الولايات",
   "@errorLoadingCountriesStates": {
