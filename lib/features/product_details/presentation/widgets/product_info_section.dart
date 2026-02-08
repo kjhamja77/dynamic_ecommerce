@@ -515,6 +515,7 @@ class ProductInfoSection extends StatelessWidget {
               builder: (context, state) {
                 if (state is HomeLoaded) {
                   final products = state.featuredProducts;
+                  debugPrint('recommended products in product details page ${products.length}');
                   if (products.isEmpty) {
                     return const SizedBox.shrink();
                   }

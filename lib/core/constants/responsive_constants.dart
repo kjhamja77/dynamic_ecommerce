@@ -412,9 +412,29 @@ class ResponsiveConstants {
     return 12.w; // Mobile: less spacing
   }
 
+  /// Compact card image aspect ratio (must match ProductCard compact ratio).
+  static double _getProductDetailsCompactImageAspectRatio() {
+    if (1.sw >= _desktopBreakpoint) return 1.45;
+    if (1.sw >= _tabletBreakpoint) return 1.5;
+    return 1.55;
+  }
+
+  /// Compact card info section height (must match ProductCard _getCardInfoHeight for compact).
+  /// Sized for brand + 2-line title + price + padding; extra headroom to avoid bottom overflow.
+  static double _getProductDetailsCompactInfoHeight() {
+    if (1.sw >= _desktopBreakpoint) return 106.h;
+    if (1.sw >= _tabletBreakpoint) return 102.h;
+    return 98.h;
+  }
+
+  /// Total height for the compact product card (image + info). Use this for the list container.
+  static double get productDetailsCompactCardHeight {
+    final width = productDetailsCardWidth;
+    final imageHeight = width / _getProductDetailsCompactImageAspectRatio();
+    return imageHeight + _getProductDetailsCompactInfoHeight();
+  }
+
   static double _getProductDetailsCompactListHeight() {
-    if (1.sw >= _desktopBreakpoint) return 280.h; // Desktop
-    if (1.sw >= _tabletBreakpoint) return 260.h; // Tablet
-    return 240.h; // Mobile
+    return productDetailsCompactCardHeight;
   }
 }

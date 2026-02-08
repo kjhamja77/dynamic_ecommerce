@@ -194,28 +194,26 @@ class _ProfileHeaderState extends State<ProfileHeader> {
                 ),
                 if (displayProfile.phoneNumber != null || displayProfile.countryCode != null) ...[
                   SizedBox(height: ResponsiveConstants.xsSpacing),
-                  Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: Builder(
-                      builder: (context) {
-                        final displayPhone = _displayPhone(displayProfile);
-                        if (displayPhone == null || displayPhone.isEmpty) return const SizedBox.shrink();
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                displayPhone,
-                                style: AppFonts.getTextStyle(
-                                  fontSize: ResponsiveConstants.smFontSize,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                ),
-                                textAlign: TextAlign.left,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Builder(
+                          builder: (context) {
+                            final displayPhone = _displayPhone(displayProfile);
+                            if (displayPhone == null || displayPhone.isEmpty) return const SizedBox.shrink();
+                            return Text(
+                              displayPhone,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.smFontSize,
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],

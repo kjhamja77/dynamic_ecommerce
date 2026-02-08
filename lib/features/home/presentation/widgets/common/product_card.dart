@@ -26,12 +26,12 @@ class ProductCard extends StatelessWidget {
     this.showFavoriteBadge = true,
   });
 
-  // Responsive helper method for card info height
+  // Responsive helper method for card info height (compact values must match ResponsiveConstants.productDetailsCompactCardHeight formula).
   double _getCardInfoHeight() {
     if (isCompact) {
-      if (1.sw >= 900) return 80.h; // Tablet and desktop (compact)
-      if (1.sw >= 600) return 75.h; // Large phones (compact)
-      return 70.h;                  // Small phones (compact)
+      if (1.sw >= 900) return 106.h; // Tablet and desktop (compact) – brand + 2-line title + price + headroom
+      if (1.sw >= 600) return 102.h; // Large phones (compact)
+      return 98.h;                   // Small phones (compact)
     }
     // Slightly reduced heights to avoid vertical overflow inside grid tiles,
     // especially on smaller screens with larger text scales.
@@ -41,12 +41,12 @@ class ProductCard extends StatelessWidget {
   }
 
 
-  // Responsive helper method for aspect ratio
+  // Responsive helper method for aspect ratio (compact values must match ResponsiveConstants.productDetailsCompactCardHeight formula).
   double _getImageAspectRatio() {
     if (isCompact) {
-      if (1.sw >= 900) return 1.25; // Shorter image in compact
-      if (1.sw >= 600) return 1.3;
-      return 1.35;
+      if (1.sw >= 900) return 1.45;
+      if (1.sw >= 600) return 1.5;
+      return 1.55;
     }
     if (1.sw >= 900) return 1.1; // Tablet and desktop
     if (1.sw >= 600) return 1.15; // Large phones
@@ -312,33 +312,60 @@ class ProductCard extends StatelessWidget {
               ),
             ),
 
-            // Info section - Responsive height container
-            Builder(
-              builder: (context) {
-                final isRtl = Directionality.of(context) == TextDirection.rtl;
-                final isBrandArabic = _containsArabic(product.brand);
-                final isNameArabic = _containsArabic(product.name);
-                final brandTextDirection = isBrandArabic
-                    ? TextDirection.rtl
-                    : (isRtl ? TextDirection.rtl : TextDirection.ltr);
-                final nameTextDirection = isNameArabic
-                    ? TextDirection.rtl
-                    : (isRtl ? TextDirection.rtl : TextDirection.ltr);
-                final useRtl = isBrandArabic || isNameArabic || isRtl;
+            // Info section - in compact mode wrap in Flexible so it only takes remaining height (avoids bottom overflow in fixed-height lists)
+            if (isCompact)
+              Flexible(
+                child: _buildCardInfoSection(
+                  context,
+                  currencyProvider,
+                  useRtl: null, // computed inside
+                ),
+              )
+            else
+              Builder(
+                builder: (context) => _buildCardInfoSection(
+                  context,
+                  currencyProvider,
+                  useRtl: null,
+                ),
+              ),
+          ],
+        ),
+      );
+        },
+      ),
+    );
+  }
 
-                return Container(
-                  // Let height be dictated by content to avoid
-                  // RenderFlex overflow inside tight grid tiles.
-                  padding: EdgeInsets.all(ResponsiveConstants.smPadding),
-                  child: Column(
-                    crossAxisAlignment: useRtl ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    mainAxisSize: MainAxisSize.min,
+  Widget _buildCardInfoSection(
+    BuildContext context,
+    CurrencyProvider currencyProvider, {
+    bool? useRtl,
+  }) {
+    final isRtl = useRtl ?? (Directionality.of(context) == TextDirection.rtl);
+    final isBrandArabic = _containsArabic(product.brand);
+    final isNameArabic = _containsArabic(product.name);
+    final brandTextDirection = isBrandArabic
+        ? TextDirection.rtl
+        : (isRtl ? TextDirection.rtl : TextDirection.ltr);
+    final nameTextDirection = isNameArabic
+        ? TextDirection.rtl
+        : (isRtl ? TextDirection.rtl : TextDirection.ltr);
+    final useRtlValue = isBrandArabic || isNameArabic || isRtl;
+
+    return Container(
+      padding: EdgeInsets.all(
+        isCompact ? ResponsiveConstants.xsPadding : ResponsiveConstants.smPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
                     children: [
                       // Top section - Brand and Product name
                       Flexible(
                         child: Column(
-                          crossAxisAlignment: useRtl ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                          crossAxisAlignment: useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                           // Brand name
@@ -359,7 +386,7 @@ class ProductCard extends StatelessWidget {
 
                           SizedBox(height: _getResponsiveSpacing()),
 
-                          // Product name (clean name without variant details)
+                          // Product name (clean name without variant details); 1 line in compact to reduce height
                           Directionality(
                             textDirection: nameTextDirection,
                             child: Text(
@@ -410,7 +437,7 @@ class ProductCard extends StatelessWidget {
                               discountPercent: product.hasDiscount
                                   ? product.discountPercentage.toInt()
                                   : null,
-                              isRtl: useRtl,
+                              isRtl: useRtlValue,
                             );
                           },
                         ),
@@ -418,14 +445,6 @@ class ProductCard extends StatelessWidget {
                     ],
                   ),
                 );
-              },
-            ),
-          ],
-        ),
-      );
-        },
-      ),
-    );
   }
 }
 

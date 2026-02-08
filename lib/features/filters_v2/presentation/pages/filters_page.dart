@@ -1209,7 +1209,12 @@ class _FiltersPageState extends State<FiltersPage> {
     final showAll = _attributeShowAll[attributeName] ?? false;
     final onShowAllChanged = (bool value) => setState(() => _attributeShowAll[attributeName] = value);
 
-    final isColorVisual = attributeType == 'color' || lowerName.contains('color');
+    // Treat as color section when: type is 'color', name contains 'color', or name matches localized "Color" (e.g. "اللون" in Arabic)
+    final localizedColorLabel = AppLocalizations.of(context)!.color.trim();
+    final isColorVisual = attributeType == 'color' ||
+        lowerName.contains('color') ||
+        (attributeName.trim() == localizedColorLabel ||
+            attributeName.trim().toLowerCase() == localizedColorLabel.toLowerCase());
     final isSingleSelection = attributeType.contains('radio') || attributeType == 'select';
 
     if (isColorVisual) {
@@ -1426,38 +1431,41 @@ class _FiltersPageState extends State<FiltersPage> {
           width: selected ? 2 : 1,
         ),
       ),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: chipColor,
-              shape: BoxShape.circle,
-              border: Border.all(
-                // Radio button circle gets orange border when selected
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.outline.withValues(alpha: 0.4),
-                width: selected ? 2 : 1,
+      label: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: chipColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  // Radio button circle gets orange border when selected
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.outline.withValues(alpha: 0.4),
+                  width: selected ? 2 : 1,
+                ),
               ),
             ),
-          ),
-          SizedBox(width: ResponsiveConstants.xsSpacing),
-          Flexible(
-            child: Text(
-              color,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppFonts.getTextStyle(
-                // Always use readable text color, regardless of selection
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
+            SizedBox(width: ResponsiveConstants.xsSpacing),
+            Flexible(
+              child: Text(
+                color,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppFonts.getTextStyle(
+                  // Always use readable text color, regardless of selection
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       selected: selected,
       onSelected: onSelected,
@@ -1713,7 +1721,7 @@ class _FiltersPageState extends State<FiltersPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Current Category',
+                      AppLocalizations.of(context)!.currentCategory,
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.xsFontSize,
                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
