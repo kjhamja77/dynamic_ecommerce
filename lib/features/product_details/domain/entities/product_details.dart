@@ -451,15 +451,19 @@ class VariantAttributeOption extends Equatable {
   final String attributeName;
   final List<VariantAttributeValue> values;
   final String selectedValue;
+  /// API attribute name as returned in variant_combinations (e.g. MATERIALS, HEIGHT).
+  /// Used for combo lookup so any attribute works without hardcoding names.
+  final String? apiAttributeName;
 
   const VariantAttributeOption({
     required this.attributeName,
     required this.values,
     required this.selectedValue,
+    this.apiAttributeName,
   });
 
   @override
-  List<Object?> get props => [attributeName, values, selectedValue];
+  List<Object?> get props => [attributeName, values, selectedValue, apiAttributeName];
 }
 
 class VariantAttributeValue extends Equatable {

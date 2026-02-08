@@ -316,6 +316,7 @@ class ProductDetailsModel extends ProductDetails {
               attributeName: 'COLOR NAME', // Use standard English name
               values: colorValues,
               selectedValue: selectedColorValue,
+              apiAttributeName: attrName, // API name for combo lookup (dynamic)
             ));
             
             continue; // Skip to next attribute
@@ -472,6 +473,7 @@ class ProductDetailsModel extends ProductDetails {
             attributeName: englishAttrName, // Use English attribute name for consistency
             values: values,
             selectedValue: selectedValue,
+            apiAttributeName: attrName, // API name as in variant_combinations (dynamic)
           ));
           
           // Set the first non-color attribute as primary for backward compatibility
@@ -482,18 +484,27 @@ class ProductDetailsModel extends ProductDetails {
       }
 
     // If API provides a selected_variant (type == variant), preselect ALL matching attributes by name
+    double? selectedHeelHeightFromVariant;
     if ((json['type']?.toString() ?? '') == 'variant') {
       final Map<String, dynamic>? selectedVariant = json['selected_variant'] as Map<String, dynamic>?;
       if (selectedVariant != null) {
         final List<dynamic> selAttrs = (selectedVariant['attributes'] as List<dynamic>?) ?? const [];
         if (selAttrs.isNotEmpty && variantAttributeOptions.isNotEmpty) {
-          // For each attribute coming from API, force-set selected in our options
           for (final sa in selAttrs) {
             if (sa is! Map) continue;
             final String attrName = (sa['attribute_name'] ?? '').toString();
             final String valueName = (sa['value_name'] ?? '').toString();
+            if (attrName.toLowerCase() == 'height' || attrName.toLowerCase() == 'heel height') {
+              final numeric = double.tryParse(
+                valueName.replaceAll(RegExp(r'[^0-9.]'), ''),
+              );
+              if (numeric != null) {
+                selectedHeelHeightFromVariant = numeric;
+              }
+            }
             final int optIdx = variantAttributeOptions.indexWhere(
-              (o) => o.attributeName.toLowerCase() == attrName.toLowerCase(),
+              (o) => o.attributeName.toLowerCase() == attrName.toLowerCase() ||
+                  (o.apiAttributeName?.toLowerCase() == attrName.toLowerCase()),
             );
             if (optIdx >= 0) {
               final opt = variantAttributeOptions[optIdx];
@@ -509,6 +520,7 @@ class ProductDetailsModel extends ProductDetails {
                 attributeName: opt.attributeName,
                 values: updatedValues,
                 selectedValue: valueName,
+                apiAttributeName: opt.apiAttributeName,
               );
             }
           }
@@ -972,7 +984,7 @@ class ProductDetailsModel extends ProductDetails {
       heelHeightCm: null,
       heelType: null,
       heelHeightOptions: const [],
-      selectedHeelHeightCm: null,
+      selectedHeelHeightCm: selectedHeelHeightFromVariant,
       isPlusMember: false,
       pointsEarned: 0,
       optionalProducts: _parseRelated(json['optional_product_ids'] as List<dynamic>?),
@@ -1401,6 +1413,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
     required super.attributeName,
     required super.values,
     required super.selectedValue,
+    super.apiAttributeName,
   });
 
   factory VariantAttributeOptionModel.fromJson(Map<String, dynamic> json) {
@@ -1410,6 +1423,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
           ?.map((e) => VariantAttributeValueModel.fromJson(e))
           .toList() ?? [],
       selectedValue: json['selectedValue'] ?? '',
+      apiAttributeName: json['apiAttributeName'] as String?,
     );
   }
 
@@ -1418,6 +1432,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
       'attributeName': attributeName,
       'values': values.map((e) => (e as VariantAttributeValueModel).toJson()).toList(),
       'selectedValue': selectedValue,
+      if (apiAttributeName != null) 'apiAttributeName': apiAttributeName,
     };
   }
 }

@@ -480,11 +480,14 @@ class _ColorOptionCard extends StatelessWidget {
     
     debugPrint('🎨 ColorSelection Widget: "${colorOption.displayNameOrName}" - isAvailable from BLoC: $isAvailable');
 
-    // When only one color exists, no action - nothing to choose
-    final hasMultipleColors = productDetails.colorOptions.length > 1;
+    // Unclickable when: only one color, or only one available (no meaningful choice)
+    final availableCount =
+        productDetails.colorOptions.where((c) => c.isAvailable).length;
+    final hasMultipleChoices =
+        productDetails.colorOptions.length > 1 && availableCount > 1;
     return GestureDetector(
-      behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
-      onTap: hasMultipleColors
+      behavior: HitTestBehavior.opaque,
+      onTap: hasMultipleChoices
           ? () {
               debugPrint('🎨 ColorSelectionSection: Tapped color "${colorOption.displayNameOrName}" (ID: ${colorOption.id})');
               context.read<ProductDetailsBloc>().add(

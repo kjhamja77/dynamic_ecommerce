@@ -295,78 +295,6 @@ class ProductInfoSection extends StatelessWidget {
               SizedBox(height: ResponsiveConstants.mdSpacing),
             ],
 
-            // Product Tags Card
-            if (productDetails.tags.isNotEmpty) ...[
-              Container(
-                margin: EdgeInsets.symmetric(
-                  horizontal: ResponsiveConstants.smPadding,
-                ),
-                padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveConstants.mdRadius,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.35 : 0.06,
-                      ),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context)!.tags,
-                      style: AppFonts.getTextStyle(
-                        fontSize: ResponsiveConstants.mdFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: ResponsiveConstants.smSpacing),
-                    Wrap(
-                      spacing: ResponsiveConstants.smSpacing,
-                      runSpacing: ResponsiveConstants.smSpacing,
-                      alignment: WrapAlignment.start,
-                      children: productDetails.tags.map((tag) {
-                        return Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveConstants.mdPadding,
-                            vertical: ResponsiveConstants.smPadding,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveConstants.smRadius,
-                            ),
-                            border: Border.all(
-                              color: colorScheme.outline.withValues(alpha: 0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            tag.name,
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.smFontSize,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface.withValues(alpha: 0.7),
-                              height: 1.2,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: ResponsiveConstants.mdSpacing),
-            ],
-
             // About Product Card
             if (productDetails.description.isNotEmpty) ...[
               Container(
@@ -764,10 +692,16 @@ Widget _buildFullWidthAttributeButtons({
 
   final attrNameLower = attributeName.toLowerCase();
   final colorScheme = Theme.of(context).colorScheme;
-  // If an attribute (Size, Material, Height, etc.) has ONLY one option,
-  // we want it to be pre-selected but not tappable, since there is no
-  // meaningful alternative for the user to choose.
+  // If an attribute has ONLY one option, or only ONE available option,
+  // make it unclickable (no meaningful alternative to choose).
   final bool isSingleOptionAttribute = values.length == 1;
+  final int availableCount = values
+      .where((v) => (v as VariantAttributeValue).isAvailable)
+      .length;
+  final bool onlyOneAvailableAttribute = availableCount == 1;
+  final bool shouldBeUnclickable =
+      isSingleOptionAttribute || onlyOneAvailableAttribute;
+
   // Auto-select visual state for single-option non-color attributes
   final bool shouldForceSelectedForSingleOption =
       isSingleOptionAttribute &&
@@ -783,6 +717,7 @@ Widget _buildFullWidthAttributeButtons({
       spacing: ResponsiveConstants.smSpacing,
       runSpacing: ResponsiveConstants.smSpacing,
       children: values.map((value) {
+        final val = value as VariantAttributeValue;
         // Detect if this attribute represents SIZE (primary variant)
         final bool isSizeAttribute =
             attrNameLower == 'size' ||
@@ -794,50 +729,44 @@ Widget _buildFullWidthAttributeButtons({
         // - For other attributes: use value.isSelected from BLoC
         final bool isSelected = isSizeAttribute
             ? (productDetails.selectedSize.isNotEmpty &&
-                value.name == productDetails.selectedSize)
-            : (value.isSelected || shouldForceSelectedForSingleOption);
+                val.name == productDetails.selectedSize)
+            : (val.isSelected || shouldForceSelectedForSingleOption);
 
         // Interaction rule:
-        // - If there's only ONE option for this attribute (size/material/height),
-        //   we disable tapping – it's already selected and cannot be changed.
-        // - Otherwise keep existing behaviour (size always tappable, others only
-        //   when available).
-        final bool isTapEnabled = !isSingleOptionAttribute &&
-            (isSizeAttribute || (!isSizeAttribute && value.isAvailable));
+        // - Unclickable when: already selected, only one option, only one available, or unavailable
+        // - Otherwise: size tappable (unless selected), others only when available
+        final bool isTapEnabled = !isSelected &&
+            !shouldBeUnclickable &&
+            (isSizeAttribute || (!isSizeAttribute && val.isAvailable));
 
-        final bool showDisabledVisual = isSingleOptionAttribute;
-        // Enabled visual state:
-        // - All SIZE options (since they are always tappable for preview)
-        // - Non-size options that are available and not the single-option case
+        // Grey disabled look for: single-option, only-one-available, or unavailable.
+        // When this value is selected, show selected style (orange) so user sees the choice
+        // even if the option is marked unavailable (e.g. 2.8 from API selected_variant).
+        final bool showDisabledVisual = !isSelected &&
+            (isSingleOptionAttribute ||
+                onlyOneAvailableAttribute ||
+                (!val.isAvailable && !isSizeAttribute));
         final bool isEnabledChoice = !showDisabledVisual &&
-            (isSizeAttribute || value.isAvailable == true);
+            (isSizeAttribute || val.isAvailable == true);
 
-        return Opacity(
-          // Grey out completely when visually disabled; otherwise keep old logic.
-          opacity: showDisabledVisual
-              ? 0.6
-              : (isSizeAttribute ? 1.0 : (value.isAvailable ? 1.0 : 0.5)),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque, // Ensure taps are captured
-            onTap: isTapEnabled
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: isTapEnabled
                 ? () {
                     if (isSizeAttribute) {
-                      // Size buttons are clickable only when there is more than one size option.
-                      debugPrint('🎯 Size button tapped: ${value.name} (id: ${value.id})');
-                      final bloc = context.read<ProductDetailsBloc>();
-                      bloc.add(
+                      debugPrint('🎯 Size button tapped: ${val.name} (id: ${val.id})');
+                      context.read<ProductDetailsBloc>().add(
                         SelectSizeEvent(
                           productId: productDetails.id,
-                          sizeId: value.id,
+                          sizeId: val.id,
                         ),
                       );
                     } else {
-                      // For material/height etc., keep using generic filter
                       context.read<ProductDetailsBloc>().add(
                         FilterVariantsByAttributeEvent(
                           productId: productDetails.id,
                           attributeName: attributeName,
-                          attributeValue: value.name,
+                          attributeValue: val.name,
                         ),
                       );
                     }
@@ -850,27 +779,26 @@ Widget _buildFullWidthAttributeButtons({
               ),
               decoration: BoxDecoration(
                 // Background:
-                // - single-option (disabled): softer grey
+                // - disabled/unavailable: grey (like PRINTED COVER)
                 // - selected: solid primary
                 // - other choices: neutral surface
                 color: showDisabledVisual
-                    ? colorScheme.surface.withValues(alpha: 0.3)
+                    ? colorScheme.surfaceContainerHighest
                     : (isSelected
                         ? primary
                         : colorScheme.surface.withValues(alpha: 0.5)),
                 // Border:
-                // - disabled: light outline
+                // - disabled/unavailable: grey outline
                 // - selected: primary
-                // - enabled (but not selected): primary border to indicate it's clickable
-                // - unavailable: faint outline
+                // - enabled (but not selected): primary border
                 border: Border.all(
                   color: showDisabledVisual
-                      ? colorScheme.outline.withValues(alpha: 0.3)
+                      ? colorScheme.outline.withValues(alpha: 0.4)
                       : (isSelected
                           ? primary
                           : (isEnabledChoice
                               ? primary
-                              : colorScheme.outline.withValues(alpha: 0.2))),
+                              : colorScheme.outline.withValues(alpha: 0.4))),
                   width: showDisabledVisual ? 1 : (isSelected ? 2 : 1),
                 ),
                 borderRadius: BorderRadius.circular(
@@ -878,7 +806,7 @@ Widget _buildFullWidthAttributeButtons({
                 ),
               ),
               child: Text(
-                value.name,
+                val.name,
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
                   fontWeight: FontWeight.w600,
@@ -888,16 +816,15 @@ Widget _buildFullWidthAttributeButtons({
                   // - enabled (not selected): primary text
                   // - unavailable: faint grey
                   color: showDisabledVisual
-                      ? colorScheme.onSurface.withValues(alpha: 0.4)
+                      ? colorScheme.onSurface.withValues(alpha: 0.5)
                       : (isSelected
                           ? colorScheme.onPrimary
                           : (isEnabledChoice
                               ? primary
-                              : colorScheme.onSurface.withValues(alpha: 0.4))),
+                              : colorScheme.onSurface.withValues(alpha: 0.5))),
                 ),
               ),
             ),
-          ),
         );
       }).toList(),
     ),

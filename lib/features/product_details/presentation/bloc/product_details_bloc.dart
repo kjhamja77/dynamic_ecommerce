@@ -92,10 +92,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     return false;
   }
 
-  /// Best-effort attribute value lookup from a variant combination.
-  /// The API is not consistent with attribute names (e.g. SIZE vs Legs vs Arabic),
-  /// so we try common aliases + a fuzzy fallback. This prevents "everything disabled"
-  /// when names don't match exactly.
+  /// Attribute value lookup from a variant combination.
+  /// Uses the product's variant attribute options to resolve the API attribute name
+  /// (e.g. MATERIAL NAME → MATERIALS), so any attribute (material, height, size, etc.)
+  /// works without hardcoding names.
   String? _getComboValueForAttribute(
     ProductDetails product,
     VariantCombination combo,
@@ -103,94 +103,31 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
   ) {
     final lower = _norm(attributeName);
 
-    final List<String> keys = <String>[attributeName];
+    // 1) Resolve API name from product options (dynamic: whatever the API uses).
+    final matching = product.variantAttributeOptions.where((o) => _norm(o.attributeName) == lower).toList();
+    final option = matching.isEmpty ? null : matching.first;
+    final String? apiName = option?.apiAttributeName;
+    final List<String> keysToTry = [
+      if (apiName != null && apiName.isNotEmpty) apiName,
+      attributeName,
+    ];
 
-    bool isSizeKey() {
-      final p = _norm(product.primaryVariantLabel);
-      return lower == 'size' ||
-          lower == 'القياس' ||
-          lower == 'المقاس' ||
-          (p.isNotEmpty && lower == p) ||
-          lower.contains('size') ||
-          lower.contains('قياس') ||
-          lower.contains('مقاس');
-    }
-
-    bool isColorKey() {
-      return lower == 'color' ||
-          lower == 'colour' ||
-          lower == 'color name' ||
-          lower == 'اللون' ||
-          lower.contains('color') ||
-          lower.contains('colour') ||
-          lower.contains('لون');
-    }
-
-    bool isMaterialKey() {
-      return lower == 'material' ||
-          lower == 'material name' ||
-          lower.contains('material') ||
-          lower.contains('مادة') ||
-          lower.contains('المادة');
-    }
-
-    bool isHeightKey() {
-      return lower == 'height' ||
-          lower == 'heel height' ||
-          lower.contains('height') ||
-          lower.contains('heel') ||
-          lower.contains('ارتفاع');
-    }
-
-    if (isSizeKey()) {
-      if (product.primaryVariantLabel.isNotEmpty) keys.add(product.primaryVariantLabel);
-      keys.addAll(const ['SIZE', 'size', 'Size', 'القياس', 'المقاس']);
-    } else if (isColorKey()) {
-      keys.addAll(const [
-        'COLOR NAME',
-        'color name',
-        'Color Name',
-        'COLOR',
-        'color',
-        'Color',
-        'COLOUR',
-        'colour',
-        'Colour',
-        'اللون',
-        'لون',
-      ]);
-    } else if (isMaterialKey()) {
-      keys.addAll(const [
-        'MATERIAL NAME',
-        'material name',
-        'Material Name',
-        'MATERIAL',
-        'material',
-        'Material',
-        'المادة',
-      ]);
-    } else if (isHeightKey()) {
-      keys.addAll(const [
-        'HEIGHT',
-        'height',
-        'Height',
-        'HEEL HEIGHT',
-        'heel height',
-        'Heel Height',
-        'ارتفاع',
-      ]);
-    }
-
-    // Exact(ish) lookup (case-insensitive is handled by getAttributeValue).
-    for (final k in keys) {
+    for (final k in keysToTry) {
       final v = combo.getAttributeValue(k);
       if (v != null && v.isNotEmpty) return v;
     }
 
-    // Fuzzy fallback: try "contains" matching on attribute name.
+    // 2) Fuzzy fallback: match by normalized name or by shared word (e.g. "material name" ↔ "materials").
     for (final attr in combo.attributes) {
       final a = _norm(attr.attributeName);
       if (a == lower || a.contains(lower) || lower.contains(a)) {
+        final v = attr.valueName;
+        if (v.isNotEmpty) return v;
+      }
+      // Match by significant word (length > 2) so any attribute name works
+      final lowerWords = lower.split(RegExp(r'\s+')).where((w) => w.length > 2);
+      final aWords = a.split(RegExp(r'\s+')).where((w) => w.length > 2);
+      if (lowerWords.any((w) => a.contains(w)) || aWords.any((w) => lower.contains(w))) {
         final v = attr.valueName;
         if (v.isNotEmpty) return v;
       }
@@ -271,12 +208,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
           
           String normalize(String s) => s.toLowerCase().trim();
-          final String? variantColorName = v.getAttributeValue('COLOR NAME');
+          final String? variantColorName = _getComboValueForAttribute(p, v, 'COLOR NAME');
           final bool colorMatch = actualColorName != null && 
                                 variantColorName != null &&
                                 normalize(variantColorName) == normalize(actualColorName);
-          final bool materialMatch = v.hasAttributeValue('MATERIAL NAME', event.material) ||
-                                   v.hasAttributeValue('material name', event.material);
+          final bool materialMatch = _getComboValueForAttribute(p, v, 'MATERIAL NAME')?.toLowerCase() == event.material.toLowerCase();
           
           if (sizeMatch && colorMatch && materialMatch) {
             final isInStock = v.inStock && (v.quantityAvailable == null || v.quantityAvailable! > 0);
@@ -422,18 +358,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       if (p.selectedSize.isNotEmpty && actualColorName != null && actualColorName.isNotEmpty) {
         String normalize(String s) => s.toLowerCase().trim();
         for (final v in p.variantCombinations) {
-          final bool sizeMatch = v.hasAttributeValue(p.primaryVariantLabel, p.selectedSize) ||
-                               v.hasAttributeValue('size', p.selectedSize) ||
-                               v.hasAttributeValue('SIZE', p.selectedSize);
-          final String? variantColorName = v.getAttributeValue('COLOR NAME');
+          final String? variantSize = _getComboValueForAttribute(p, v, p.primaryVariantLabel) ?? _getComboValueForAttribute(p, v, 'SIZE');
+          final bool sizeMatch = variantSize != null && normalize(variantSize) == normalize(p.selectedSize);
+          final String? variantColorName = _getComboValueForAttribute(p, v, 'COLOR NAME');
           final bool colorMatch = variantColorName != null && 
                                 normalize(variantColorName) == normalize(actualColorName);
           final bool materialMatch = p.selectedMaterial == null || 
                                    p.selectedMaterial!.isEmpty ||
-                                   v.hasAttributeValue('MATERIAL NAME', p.selectedMaterial!) ||
-                                   v.hasAttributeValue('material name', p.selectedMaterial!);
-          final bool heightMatch = v.hasAttributeValue('HEIGHT', heightStr) ||
-                                 v.hasAttributeValue('height', heightStr);
+                                   _getComboValueForAttribute(p, v, 'MATERIAL NAME')?.toLowerCase() == p.selectedMaterial!.toLowerCase();
+          final String? variantHeight = _getComboValueForAttribute(p, v, 'HEIGHT');
+          final bool heightMatch = variantHeight != null && normalize(variantHeight) == normalize(heightStr);
           
           if (sizeMatch && colorMatch && materialMatch && heightMatch) {
             final isInStock = v.inStock && (v.quantityAvailable == null || v.quantityAvailable! > 0);
@@ -556,6 +490,23 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
 
     final currentProduct = blocState.productDetails;
 
+    // No-op when user taps the already selected value (e.g. PRINTED COVER twice).
+    // Re-running recompute when selection did not change can leave all options
+    // greyed/hidden due to matching edge cases; keep state unchanged.
+    for (final opt in currentProduct.variantAttributeOptions) {
+      if (opt.attributeName.toLowerCase() == event.attributeName.toLowerCase()) {
+        if (opt.selectedValue.isNotEmpty &&
+            opt.selectedValue.toLowerCase().trim() == event.attributeValue.toLowerCase().trim()) {
+          developer.log(
+            '🧩 FilterVariantsByAttributeEvent: same value already selected, skipping',
+            name: 'ProductDetails/VariantFilter',
+          );
+          return;
+        }
+        break;
+      }
+    }
+
     developer.log(
       '🧩 FilterVariantsByAttributeEvent: ${event.attributeName}="${event.attributeValue}"',
       name: 'ProductDetails/VariantFilter',
@@ -575,6 +526,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       selectedByAttribute[opt.attributeName] = opt.selectedValue;
     }
     selectedByAttribute[event.attributeName] = event.attributeValue;
+    // Ensure the option's key (e.g. "MATERIAL NAME") gets the new value even if event used API name (e.g. "MATERIALS")
+    for (final opt in currentProduct.variantAttributeOptions) {
+      if (_norm(opt.attributeName) == _norm(event.attributeName) ||
+          (opt.apiAttributeName != null && opt.apiAttributeName!.isNotEmpty && _norm(opt.apiAttributeName!) == _norm(event.attributeName))) {
+        selectedByAttribute[opt.attributeName] = event.attributeValue;
+        break;
+      }
+    }
     developer.log(
       '   selectedByAttribute(after)=$selectedByAttribute',
       name: 'ProductDetails/VariantFilter',
@@ -585,8 +544,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     //  - matches ALL currently selected attribute values (excluding the attribute we are evaluating if it differs)
     //  - and has this candidate value for the attribute being evaluated
     final List<VariantAttributeOption> recomputedOptions = [];
+    final bool eventIsForHeight = event.attributeName.toLowerCase().trim() == 'height' ||
+        event.attributeName.toLowerCase().trim() == 'heel height';
     for (final attrOption in currentProduct.variantAttributeOptions) {
       final String attributeName = attrOption.attributeName;
+      final bool isHeightAttr = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
+
+      // When user changed MATERIAL (or anything other than HEIGHT), don't recompute HEIGHT at all:
+      // keep the existing HEIGHT option so height selection and availability are not removed/changed.
+      if (isHeightAttr && !eventIsForHeight) {
+        recomputedOptions.add(attrOption);
+        continue;
+      }
 
       // Debug: Log when checking Material availability
       final bool isMaterialAttr = attributeName.toLowerCase().contains('material');
@@ -703,6 +672,35 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
 
+        // For material: only preserve availability when the value was ALREADY available before
+        // (so we don't enable e.g. Synthetic Leather when it's not available for this combination).
+        if (!isAvailable && isMaterialAttr) {
+          final originalValues = attrOption.values.where(
+            (v) => v.name.toLowerCase().trim() == value.name.toLowerCase().trim(),
+          ).toList();
+          if (originalValues.isNotEmpty && originalValues.first.isAvailable) {
+            isAvailable = true;
+            if (matchesTried < 2) {
+              developer.log(
+                '   ✅ Material value "${value.name}" kept available (was already available)',
+                name: 'ProductDetails/MaterialCheck',
+              );
+            }
+          }
+        }
+
+        // Preserve HEIGHT availability so changing height never hides other height options:
+        // if this height value was available before, keep it available after recompute.
+        final bool isHeightAttr = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
+        if (!isAvailable && isHeightAttr) {
+          final originalHeightValues = attrOption.values.where(
+            (v) => v.name.toLowerCase().trim() == value.name.toLowerCase().trim(),
+          ).toList();
+          if (originalHeightValues.isNotEmpty && originalHeightValues.first.isAvailable) {
+            isAvailable = true;
+          }
+        }
+
         if (!isAvailable) {
           // Very useful signal when everything becomes disabled:
           // it tells us whether it's selection mismatch or stock mismatch.
@@ -720,10 +718,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
 
-        // CRITICAL: Only mark as selected if it's available AND matches the selected value
-        // Unavailable values should NEVER be selected
-        final bool isSelected = isAvailable && 
-                               selectedByAttribute[attributeName]?.toLowerCase() == value.name.toLowerCase();
+        // Selection: show as selected if (a) available and matches selection, or
+        // (b) user just tapped this value (event for this attribute) so UI always reflects the tap.
+        // Without (b), when availability is wrongly computed (e.g. all false), all chips stay grey.
+        final bool selectedMatch = selectedByAttribute[attributeName]?.toLowerCase().trim() == value.name.toLowerCase().trim();
+        final bool isJustTappedValue = event.attributeName.toLowerCase().trim() == attributeName.toLowerCase().trim() &&
+            event.attributeValue.toLowerCase().trim() == value.name.toLowerCase().trim();
+        final bool isSelected = (isAvailable && selectedMatch) || isJustTappedValue;
         return VariantAttributeValue(
           id: value.id,
           name: value.name,
@@ -732,32 +733,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }).toList();
 
-      // SAFETY NET: if all options for this attribute ended up disabled, relax the rule.
-      // This prevents UX where tapping any option makes *everything* greyed out due to
-      // minor data inconsistencies in the variant combinations (e.g. naming mismatch).
-      final disabledCount = newValues.where((v) => !v.isAvailable).length;
-      if (disabledCount == newValues.length) {
-        developer.log(
-          '⚠️ All values disabled for attribute "$attributeName" – relaxing availability (enabling all).',
-          name: 'ProductDetails/VariantFilter',
-        );
-        final selectedValueForAttr =
-            selectedByAttribute[attributeName]?.toLowerCase();
-        for (var i = 0; i < newValues.length; i++) {
-          final v = newValues[i];
-          newValues[i] = VariantAttributeValue(
-            id: v.id,
-            name: v.name,
-            isAvailable: true,
-            // If user has a selected value for this attribute, reflect it visually.
-            // Otherwise keep previous selection flag.
-            isSelected: selectedValueForAttr != null &&
-                    v.name.toLowerCase() == selectedValueForAttr
-                ? true
-                : v.isSelected,
-          );
-        }
-      }
+      // Do NOT re-enable options that were correctly computed as unavailable.
+      // Previously a "safety net" enabled all when all were disabled; that caused
+      // unavailable options (e.g. Synthetic Leather) to appear enabled after
+      // changing selection (e.g. to translucent leather). Unavailable stays unavailable.
 
       // CRITICAL: For Material/Height/Brand, if only one option exists, ensure it's available and selected
       final attrNameLower = attributeName.toLowerCase();
@@ -787,6 +766,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         attributeName: attributeName,
         values: newValues,
         selectedValue: selectedByAttribute[attributeName] ?? '',
+        apiAttributeName: attrOption.apiAttributeName,
       ));
 
       final disabledCountAfter = newValues.where((v) => !v.isAvailable).length;
@@ -1191,7 +1171,37 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
     }
-    
+
+    // CRITICAL: Sync selectedHeelHeightCm and selectedMaterial from recomputedOptions.
+    // When user taps HEIGHT (e.g. 2.8 cm), FilterVariantsByAttributeEvent updates
+    // variantAttributeOptions but previously did NOT update selectedHeelHeightCm.
+    // _findSelectedVariant then overwrote HEIGHT with old selectedHeelHeightCm (e.g. 4.0),
+    // matching the wrong variant and showing wrong stock. Same for material.
+    double? newSelectedHeelHeightCm = currentProduct.selectedHeelHeightCm;
+    String? newSelectedMaterial = currentProduct.selectedMaterial;
+    for (final opt in recomputedOptions) {
+      final attrLower = opt.attributeName.toLowerCase();
+      if ((attrLower == 'height' || attrLower == 'heel height') &&
+          opt.selectedValue.isNotEmpty) {
+        final parsed = double.tryParse(
+          opt.selectedValue.replaceAll(RegExp(r'[^0-9.]'), ''),
+        );
+        if (parsed != null) {
+          newSelectedHeelHeightCm = parsed;
+          developer.log(
+            '👠 FilterVariantsByAttribute: synced selectedHeelHeightCm=$parsed from HEIGHT option',
+            name: 'ProductDetails/VariantFilter',
+          );
+          break;
+        }
+      }
+      if ((attrLower == 'material' || attrLower == 'material name') &&
+          opt.selectedValue.isNotEmpty) {
+        newSelectedMaterial = opt.selectedValue;
+        break;
+      }
+    }
+
     // Step 7: build updated product with new selections
     var updatedProduct = currentProduct.copyWith(
       variantAttributeOptions: recomputedOptions,
@@ -1199,6 +1209,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       images: filteredImages,
       selectedSize: newSelectedSize,
       selectedColor: newSelectedColor,
+      selectedHeelHeightCm: newSelectedHeelHeightCm,
+      selectedMaterial: newSelectedMaterial,
       inStock: newInStock,
     );
     
@@ -1366,6 +1378,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               attributeName: opt.attributeName,
               values: newValues,
               selectedValue: initialSelectedSize,
+              apiAttributeName: opt.apiAttributeName,
             );
           }
 
@@ -1390,6 +1403,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               attributeName: opt.attributeName,
               values: [singleSelected],
               selectedValue: v.name,
+              apiAttributeName: opt.apiAttributeName,
             );
           }
 
@@ -1517,18 +1531,30 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             initialSelectedMaterial = opt.values.first.name;
           }
 
-          // HEIGHT / HEEL HEIGHT (value is usually like "7cm")
+          // HEIGHT / HEEL HEIGHT: set from option's selectedValue (e.g. from API selected_variant)
+          // so that 2.8 from selected_variant shows as selected even when there are multiple options.
           final bool isHeightAttribute =
               attrNameLower == 'height' || attrNameLower == 'heel height';
-          if (isHeightAttribute &&
-              opt.values.length == 1 &&
-              initialSelectedHeelHeight == null) {
-            final raw = opt.values.first.name;
-            final numeric = double.tryParse(
-              raw.replaceAll(RegExp('[^0-9\\.]'), ''),
-            );
-            if (numeric != null) {
-              initialSelectedHeelHeight = numeric;
+          if (isHeightAttribute && initialSelectedHeelHeight == null) {
+            if (opt.selectedValue.isNotEmpty) {
+              final numeric = double.tryParse(
+                opt.selectedValue.replaceAll(RegExp(r'[^0-9.]'), ''),
+              );
+              if (numeric != null) {
+                initialSelectedHeelHeight = numeric;
+                developer.log(
+                  '👠 Initial HEIGHT from variantAttributeOptions.selectedValue: $numeric',
+                  name: 'ProductDetails/InitialSelections',
+                );
+              }
+            } else if (opt.values.length == 1) {
+              final raw = opt.values.first.name;
+              final numeric = double.tryParse(
+                raw.replaceAll(RegExp(r'[^0-9.]'), ''),
+              );
+              if (numeric != null) {
+                initialSelectedHeelHeight = numeric;
+              }
             }
           }
         }
@@ -2156,7 +2182,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               final variantColor = getVariantColorValue(combo);
               final variantSize = _getComboValueForAttribute(
                 currentProduct, combo, currentProduct.primaryVariantLabel,
-              ) ?? combo.getAttributeValue('SIZE') ?? combo.getAttributeValue('size');
+              ) ?? _getComboValueForAttribute(currentProduct, combo, 'SIZE');
               final nvc = variantColor != null ? normalize(variantColor) : '';
               final ncm = normalize(colorNameForMatching);
               final colorMatch = variantColor != null && (nvc == ncm || nvc.contains(ncm) || ncm.contains(nvc));
@@ -2192,38 +2218,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 attrNameLower == 'اللون') {
               comboVal = getVariantColorValue(combo);
             } else {
-              // Try exact attribute name first
-              comboVal = combo.getAttributeValue(attributeName);
-              // Try uppercase version
-              if (comboVal == null && attributeName.toUpperCase() != attributeName) {
-                comboVal = combo.getAttributeValue(attributeName.toUpperCase());
-              }
-              // Try lowercase version
-              if (comboVal == null && attributeName.toLowerCase() != attributeName) {
-                comboVal = combo.getAttributeValue(attributeName.toLowerCase());
-              }
-              // Try common variations for size
-              if (comboVal == null && (attrNameLower == 'size' || attrNameLower == currentProduct.primaryVariantLabel.toLowerCase())) {
-                comboVal = combo.getAttributeValue('SIZE') ?? combo.getAttributeValue('size');
-              }
-              // Try common variations for material
-              final bool isMaterialOrHeight = attrNameLower == 'material' ||
-                                             attrNameLower == 'material name' ||
-                                             attrNameLower == 'height' ||
-                                             attrNameLower == 'heel height';
-              if (comboVal == null && isMaterialOrHeight) {
-                if (attrNameLower.contains('material')) {
-                  comboVal = combo.getAttributeValue('MATERIAL NAME') ?? 
-                            combo.getAttributeValue('material name') ??
-                            combo.getAttributeValue('MATERIAL') ??
-                            combo.getAttributeValue('material');
-                } else if (attrNameLower.contains('height')) {
-                  comboVal = combo.getAttributeValue('HEIGHT') ?? 
-                            combo.getAttributeValue('height') ??
-                            combo.getAttributeValue('HEEL HEIGHT') ??
-                            combo.getAttributeValue('heel height');
-                }
-              }
+              // Use dynamic lookup (resolves API attribute name from product options)
+              comboVal = _getComboValueForAttribute(currentProduct, combo, attributeName);
             }
             
             if (comboVal == null) {
@@ -2292,7 +2288,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             // Check if this value exists in the original attribute options
             final originalAttrOption = currentProduct.variantAttributeOptions.firstWhere(
               (opt) => opt.attributeName == attributeName,
-              orElse: () => VariantAttributeOption(attributeName: '', values: [], selectedValue: ''),
+              orElse: () => const VariantAttributeOption(attributeName: '', values: [], selectedValue: ''),
             );
             if (originalAttrOption.attributeName.isNotEmpty) {
               // Check if this value exists in the original values
@@ -2443,6 +2439,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           attributeName: attributeName,
           values: newValues,
           selectedValue: optionSelectedValue,
+          apiAttributeName: attrOption.apiAttributeName,
         ));
       }
       
@@ -2480,9 +2477,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             
               recomputedOptions[i] = VariantAttributeOption(
                 attributeName: opt.attributeName,
-              values: updatedValues,
-              selectedValue: opt.selectedValue, // Keep the preserved size
-            );
+                values: updatedValues,
+                selectedValue: opt.selectedValue, // Keep the preserved size
+                apiAttributeName: opt.apiAttributeName,
+              );
             nextSelectedPrimary = opt.selectedValue; // Update to match
             developer.log('✅ Size preserved: "$nextSelectedPrimary" (from opt.selectedValue)');
           } else if (opt.selectedValue.isNotEmpty) {
@@ -2503,6 +2501,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               attributeName: opt.attributeName,
               values: updatedValues,
               selectedValue: opt.selectedValue,
+              apiAttributeName: opt.apiAttributeName,
             );
             developer.log('✅ Size preserved: "$nextSelectedPrimary" (using opt.selectedValue)');
           } else if (opt.values.isNotEmpty) {
@@ -2517,6 +2516,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 attributeName: opt.attributeName,
                 values: opt.values,
                 selectedValue: nextSelectedPrimary,
+                apiAttributeName: opt.apiAttributeName,
               );
               developer.log('⚠️ Size changed from "${currentProduct.selectedSize}" to "$nextSelectedPrimary" (current size not in list)');
             }
@@ -2540,9 +2540,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   attributeName: opt.attributeName,
                   values: opt.values,
                   selectedValue: currentMaterial,
+                  apiAttributeName: opt.apiAttributeName,
                 );
               }
-            } else {
+        } else {
               // Current selection is not available - find first available
               final firstAvailable = opt.values.firstWhere(
                 (v) => v.isAvailable,
@@ -2555,6 +2556,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   attributeName: opt.attributeName,
                   values: opt.values,
                   selectedValue: firstAvailable.name,
+                  apiAttributeName: opt.apiAttributeName,
                 );
               } else {
                 nextSelectedMaterial = null;
@@ -2572,6 +2574,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 attributeName: opt.attributeName,
                 values: opt.values,
                 selectedValue: firstAvailable.name,
+                apiAttributeName: opt.apiAttributeName,
               );
             }
           }
@@ -2599,6 +2602,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   attributeName: opt.attributeName,
                   values: opt.values,
                   selectedValue: valueNameToUse,
+                  apiAttributeName: opt.apiAttributeName,
                 );
               }
             } else {
@@ -2615,6 +2619,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                     attributeName: opt.attributeName,
                     values: opt.values,
                     selectedValue: firstAvailable.name,
+                    apiAttributeName: opt.apiAttributeName,
                   );
                 } else {
                   nextSelectedHeelHeight = null;
@@ -2637,6 +2642,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   attributeName: opt.attributeName,
                   values: preservedValues,
                   selectedValue: heightAttrValue.name,
+                  apiAttributeName: opt.apiAttributeName,
                 );
                 // nextSelectedHeelHeight stays as currentHeight (already set from currentProduct)
               }
@@ -2655,6 +2661,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   attributeName: opt.attributeName,
                   values: opt.values,
                   selectedValue: firstAvailable.name,
+                  apiAttributeName: opt.apiAttributeName,
                 );
               }
             }
@@ -3135,11 +3142,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       bool hasAvailableVariantForSelection = false;
 
       for (final v in currentProduct.variantCombinations) {
-        // Match size
+        // Match size (dynamic: uses product's attribute options for API name)
         bool sizeMatch = false;
-        final sizeVal = v.getAttributeValue('SIZE') ??
-            v.getAttributeValue('size') ??
-            v.getAttributeValue(currentProduct.primaryVariantLabel);
+        final sizeVal = _getComboValueForAttribute(currentProduct, v, currentProduct.primaryVariantLabel) ??
+            _getComboValueForAttribute(currentProduct, v, 'SIZE');
         if (sizeVal != null && sizeVal.isNotEmpty) {
           sizeMatch = normalize(sizeVal) == normalizedSelectedSize;
         }
@@ -3211,11 +3217,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         final hasValidColorName = normalizedColor.isNotEmpty;
         
         for (final v in currentProduct.variantCombinations) {
-          // Match size
+          // Match size (dynamic: uses product's attribute options for API name)
           bool sizeMatch = false;
-          final sizeVal = v.getAttributeValue('SIZE') ??
-              v.getAttributeValue('size') ??
-              v.getAttributeValue(currentProduct.primaryVariantLabel);
+          final sizeVal = _getComboValueForAttribute(currentProduct, v, currentProduct.primaryVariantLabel) ??
+              _getComboValueForAttribute(currentProduct, v, 'SIZE');
           if (sizeVal != null && sizeVal.isNotEmpty) {
             sizeMatch = normalize(sizeVal) == normalizedSelectedSize;
           }
@@ -3263,6 +3268,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             attributeName: opt.attributeName,
             values: opt.values,
             selectedValue: selectedSizeName,
+            apiAttributeName: opt.apiAttributeName,
           );
         }
         return opt;
@@ -3319,7 +3325,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           VariantCombination? variantForImage;
           for (final v in productToEmit.variantCombinations) {
             final variantColor = _getVariantColorValue(v);
-            final sizeVal = v.getAttributeValue('SIZE') ?? v.getAttributeValue('size') ?? v.getAttributeValue(productToEmit.primaryVariantLabel);
+            final sizeVal = _getComboValueForAttribute(productToEmit, v, productToEmit.primaryVariantLabel) ??
+                _getComboValueForAttribute(productToEmit, v, 'SIZE');
             if (variantColor == null || sizeVal == null) continue;
             final nvc = _norm(variantColor);
             final nvs = _norm(sizeVal);

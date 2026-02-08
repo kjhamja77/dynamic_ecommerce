@@ -28,13 +28,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       debugPrint('AuthWrapper:postFrame → start fast token gate');
       await _checkTokenFastGate();
-      if (_hasToken) {
+      final token = await di.sl<FlutterSecureStorage>().read(key: AppConstants.tokenKey);
+      final hasToken = token != null && token.isNotEmpty;
+      // Only dispatch CheckAuthStatus when we have a token.
+      // Guest users have no token; isAuthenticated would return false and emit
+      // Unauthenticated, causing wrong redirect to login. For guest we already
+      // treat as authenticated via cached user in _checkTokenFastGate.
+      if (_hasToken && hasToken) {
         debugPrint('AuthWrapper:postFrame → token exists → dispatch CheckAuthStatus');
         context.read<AuthBloc>().add(CheckAuthStatus());
       } else {
-        debugPrint('AuthWrapper:postFrame → no token → skip CheckAuthStatus');
+        debugPrint('AuthWrapper:postFrame → no token or guest-only → skip CheckAuthStatus');
       }
-      
+
       // Start periodic token checking to detect token expiration
       _startTokenCheckTimer();
     });
@@ -64,17 +70,27 @@ class _AuthWrapperState extends State<AuthWrapper> {
     try {
       final storage = di.sl<FlutterSecureStorage>();
       final token = await storage.read(key: AppConstants.tokenKey);
-      
+      final userCached = await storage.read(key: AppConstants.userKey);
+      final hasCachedGuest =
+          (userCached ?? '').toLowerCase().contains('guest: true');
+
       // Enhanced debug prints to show token details
       debugPrint('🔐 AuthWrapper:_checkTokenFastGate');
       debugPrint('   📱 Token Key: ${AppConstants.tokenKey}');
       debugPrint('   🔑 Token Value: ${token ?? 'NULL'}');
       debugPrint('   📏 Token Length: ${token?.length ?? 0}');
       debugPrint('   ✅ Token Valid: ${token != null && token.isNotEmpty}');
-      
+      debugPrint('   👤 Cached Guest: $hasCachedGuest');
+
+      // Treat as authenticated if: has token OR has cached guest user.
+      // Guest users have no token but user is persisted; on app restart we must
+      // show HomePage so user is not stuck on auth screen with guest button hidden.
+      final hasAuth =
+          (token != null && token.isNotEmpty) || hasCachedGuest;
+
       if (!mounted) return;
       setState(() {
-        _hasToken = token != null && token.isNotEmpty;
+        _hasToken = hasAuth;
         _decided = true;
       });
       debugPrint('   🎯 Final Decision: decided=$_decided, hasToken=$_hasToken');
@@ -114,15 +130,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _recheckTokenOnUnauthenticated(String reason) async {
     final storage = di.sl<FlutterSecureStorage>();
     final token = await storage.read(key: AppConstants.tokenKey);
-    debugPrint('AuthWrapper:_recheckTokenOnUnauthenticated($reason) → token = ${token != null && token.isNotEmpty ? token : 'NULL/EMPTY'}');
+    final userCached = await storage.read(key: AppConstants.userKey);
+    final hasCachedGuest =
+        (userCached ?? '').toLowerCase().contains('guest: true');
+    debugPrint(
+        'AuthWrapper:_recheckTokenOnUnauthenticated($reason) → token=${token != null && token.isNotEmpty}, guest=$hasCachedGuest');
     if (!mounted) return;
-    if (token == null || token.isEmpty) {
-      setState(() => _hasToken = false);
-      debugPrint('AuthWrapper:_recheckTokenOnUnauthenticated → set hasToken=false');
-    } else {
-      setState(() => _hasToken = true);
-      debugPrint('AuthWrapper:_recheckTokenOnUnauthenticated → set hasToken=true (keeping Home)');
-    }
+    // Keep _hasToken true if we have token OR cached guest.
+    // Otherwise Unauthenticated would wrongly redirect guest users.
+    final hasAuth = (token != null && token.isNotEmpty) || hasCachedGuest;
+    setState(() => _hasToken = hasAuth);
+    debugPrint(
+        'AuthWrapper:_recheckTokenOnUnauthenticated → set hasToken=$hasAuth');
   }
 
   /// Start a timer to periodically check if token still exists
@@ -135,10 +154,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
       
       try {
         final token = await _storage.read(key: AppConstants.tokenKey);
+        final userCached = await _storage.read(key: AppConstants.userKey);
         final hasTokenNow = token != null && token.isNotEmpty;
-        
-        // If we had a token but now we don't, navigate to login
-        if (_hasToken && !hasTokenNow) {
+        final hasCachedGuest =
+            (userCached ?? '').toLowerCase().contains('guest: true');
+
+        // If we had a token but now we don't, navigate to login.
+        // Exception: guest users have no token; keep them authenticated while
+        // cached guest exists.
+        if (_hasToken && !hasTokenNow && !hasCachedGuest) {
           debugPrint('AuthWrapper:_startTokenCheckTimer → Token was removed, navigating to login');
           if (mounted) {
             setState(() {
