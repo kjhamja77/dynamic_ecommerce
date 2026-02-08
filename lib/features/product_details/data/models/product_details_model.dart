@@ -312,11 +312,13 @@ class ProductDetailsModel extends ProductDetails {
               }
             }
             
+            final attrId = (attr['id'] ?? '').toString();
             variantAttributeOptions.add(VariantAttributeOptionModel(
               attributeName: 'COLOR NAME', // Use standard English name
               values: colorValues,
               selectedValue: selectedColorValue,
               apiAttributeName: attrName, // API name for combo lookup (dynamic)
+              attributeId: attrId.isEmpty ? null : attrId,
             ));
             
             continue; // Skip to next attribute
@@ -469,11 +471,13 @@ class ProductDetailsModel extends ProductDetails {
           }
           // Keep original if it's already in English or we can't determine
           
+          final attrId = (attr['id'] ?? '').toString();
           variantAttributeOptions.add(VariantAttributeOptionModel(
             attributeName: englishAttrName, // Use English attribute name for consistency
             values: values,
             selectedValue: selectedValue,
             apiAttributeName: attrName, // API name as in variant_combinations (dynamic)
+            attributeId: attrId.isEmpty ? null : attrId,
           ));
           
           // Set the first non-color attribute as primary for backward compatibility
@@ -521,6 +525,7 @@ class ProductDetailsModel extends ProductDetails {
                 values: updatedValues,
                 selectedValue: valueName,
                 apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
               );
             }
           }
@@ -1414,6 +1419,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
     required super.values,
     required super.selectedValue,
     super.apiAttributeName,
+    super.attributeId,
   });
 
   factory VariantAttributeOptionModel.fromJson(Map<String, dynamic> json) {
@@ -1424,6 +1430,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
           .toList() ?? [],
       selectedValue: json['selectedValue'] ?? '',
       apiAttributeName: json['apiAttributeName'] as String?,
+      attributeId: json['attributeId'] as String?,
     );
   }
 
@@ -1433,6 +1440,7 @@ class VariantAttributeOptionModel extends VariantAttributeOption {
       'values': values.map((e) => (e as VariantAttributeValueModel).toJson()).toList(),
       'selectedValue': selectedValue,
       if (apiAttributeName != null) 'apiAttributeName': apiAttributeName,
+      if (attributeId != null) 'attributeId': attributeId,
     };
   }
 }

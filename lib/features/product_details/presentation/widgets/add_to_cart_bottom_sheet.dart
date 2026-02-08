@@ -1055,15 +1055,24 @@ class AddToCartBottomSheet extends StatelessWidget {
     );
   }
 
-  /// Helper method to find the currently selected variant
+  /// Helper method to find the currently selected variant.
+  /// Uses value_name matching (color, size, material, height) so inStock and quantity_available
+  /// match the stock badge and BLoC state.
   VariantCombination? _findSelectedVariant(ProductDetails pd) {
     try {
       developer.log('🔍 Finding selected variant for:');
       developer.log('  - selectedSize: ${pd.selectedSize}');
       developer.log('  - selectedColor: ${pd.selectedColor}');
       developer.log('  - primaryVariantLabel: ${pd.primaryVariantLabel}');
-      
-      // Build selected pairs using attribute names (try multiple variations)
+
+      // 1) Match by value_name (same as BLoC): all 4 attributes -> one variant -> inStock & quantity_available
+      final byValueName = pd.findVariantMatchingSelectionByValueName();
+      if (byValueName != null) {
+        developer.log('🔍 Found variant by value_name: variantId=${byValueName.variantId}, quantityAvailable=${byValueName.quantityAvailable}');
+        return byValueName;
+      }
+
+      // 2) Fallback: build selected pairs using attribute names (try multiple variations)
       final Map<String, String> selectedByAttribute = {};
       
       // Add selected size/primary variant

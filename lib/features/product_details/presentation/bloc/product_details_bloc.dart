@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/product_details.dart';
 import '../../domain/usecases/get_product_details.dart';
@@ -31,7 +31,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     required this.addToCart,
     required this.cartBloc,
   }) : super(ProductDetailsInitial()) {
-    developer.log('🏗️ ProductDetailsBloc constructed with CartBloc: ${cartBloc.runtimeType}');
+    debugPrint('🏗️ ProductDetailsBloc constructed with CartBloc: ${cartBloc.runtimeType}');
     on<LoadProductDetails>(_onLoadProductDetails);
     on<ToggleFavoriteEvent>(_onToggleFavorite);
     on<SelectColorEvent>(_onSelectColor);
@@ -90,6 +90,36 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       if (displayNorm.isNotEmpty && (nS.contains(displayNorm) || displayNorm.contains(nS))) return true;
     }
     return false;
+  }
+
+  /// Maps UI/option attribute name to API attribute_name (COLOR, SIZE, MATERIALS, HEIGHT).
+  static String? _optionAttributeNameToApiName(String attributeName, String primaryVariantLabel) {
+    final l = attributeName.toLowerCase().trim();
+    if (l.contains('color') || l == 'colour' || l == 'اللون' || l == 'لون') return 'COLOR';
+    if (l == 'size' || (primaryVariantLabel.isNotEmpty && l == primaryVariantLabel.toLowerCase())) return 'SIZE';
+    if (l.contains('material')) return 'MATERIALS';
+    if (l == 'height' || l.contains('heel')) return 'HEIGHT';
+    return null;
+  }
+
+  /// Builds map of API attribute_name -> value_id from current selection.
+  /// Used to filter the exact variant combination by attributes (for inStock/quantity_available).
+  Map<String, String> _buildSelectedAttributesByValueId(ProductDetails pd) {
+    final Map<String, String> out = {};
+    for (final opt in pd.variantAttributeOptions) {
+      if (opt.selectedValue.isEmpty) continue;
+      final selectedVal = opt.values.where((v) => v.name == opt.selectedValue || v.isSelected).toList();
+      if (selectedVal.isEmpty) continue;
+      final valueId = selectedVal.first.id.trim();
+      if (valueId.isEmpty) continue;
+      final apiName = _optionAttributeNameToApiName(opt.attributeName, pd.primaryVariantLabel);
+      if (apiName != null) out[apiName] = valueId;
+    }
+    if (out['SIZE'] == null && pd.selectedSize.isNotEmpty) {
+      final sel = pd.sizeOptions.where((s) => s.name.trim() == pd.selectedSize.trim() || s.isSelected).toList();
+      if (sel.isNotEmpty && sel.first.id.trim().isNotEmpty) out['SIZE'] = sel.first.id.trim();
+    }
+    return out;
   }
 
   /// Attribute value lookup from a variant combination.
@@ -225,7 +255,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         // If no in-stock variant exists for this material combination, don't allow selection
         if (!hasInStockVariant) {
-          developer.log('⚠️ Cannot select material ${event.material}: no in-stock variants for size ${p.selectedSize} and color ${p.selectedColor}');
+          debugPrint('⚠️ Cannot select material ${event.material}: no in-stock variants for size ${p.selectedSize} and color ${p.selectedColor}');
           return;
         }
       }
@@ -310,16 +340,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
           
-          developer.log('🧵 Material selected: ${event.material}, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
+          debugPrint('🧵 Material selected: ${event.material}, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
         }
 
         updated = updated.copyWith(
           inStock: variantInStock,
           selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
         );
-        if (updated.variantImagesMap.isNotEmpty) {
-          updated = updated.withImagesForVariant(selectedVariant.variantId);
-        }
+        // Images update only on color change; do not change images when material is selected.
       }
       
       emit(ProductDetailsLoaded(updated, quantity: nextQuantity, isAdding: false));
@@ -380,7 +408,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         // If no in-stock variant exists for this heel height combination, don't allow selection
         if (!hasInStockVariant) {
-          developer.log('⚠️ Cannot select heel height ${heightStr}cm: no in-stock variants for current selections');
+          debugPrint('⚠️ Cannot select heel height ${heightStr}cm: no in-stock variants for current selections');
           return;
         }
       }
@@ -465,16 +493,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
           
-          developer.log('👠 Heel height selected: ${event.heelHeightCm}cm, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
+          debugPrint('👠 Heel height selected: ${event.heelHeightCm}cm, variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
         }
 
         updated = updated.copyWith(
           inStock: variantInStock,
           selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
         );
-        if (updated.variantImagesMap.isNotEmpty) {
-          updated = updated.withImagesForVariant(selectedVariant.variantId);
-        }
+        // Images update only on color change; do not change images when heel height is selected.
       }
       
       emit(ProductDetailsLoaded(updated, quantity: nextQuantity, isAdding: false));
@@ -497,9 +523,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       if (opt.attributeName.toLowerCase() == event.attributeName.toLowerCase()) {
         if (opt.selectedValue.isNotEmpty &&
             opt.selectedValue.toLowerCase().trim() == event.attributeValue.toLowerCase().trim()) {
-          developer.log(
+          debugPrint(
             '🧩 FilterVariantsByAttributeEvent: same value already selected, skipping',
-            name: 'ProductDetails/VariantFilter',
           );
           return;
         }
@@ -507,18 +532,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
     }
 
-    developer.log(
+    debugPrint(
       '🧩 FilterVariantsByAttributeEvent: ${event.attributeName}="${event.attributeValue}"',
-      name: 'ProductDetails/VariantFilter',
     );
-    developer.log(
+    debugPrint(
       '   Current selections: size="${currentProduct.selectedSize}", color="${currentProduct.selectedColor}", '
       'material="${currentProduct.selectedMaterial ?? ''}", height="${currentProduct.selectedHeelHeightCm?.toStringAsFixed(1) ?? ''}"',
-      name: 'ProductDetails/VariantFilter',
     );
-    developer.log(
+    debugPrint(
       '   Variants: count=${currentProduct.variantCombinations.length}',
-      name: 'ProductDetails/VariantFilter',
     );
     // Step 1: capture current selections and apply the new selection
     final Map<String, String> selectedByAttribute = {};
@@ -534,9 +556,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         break;
       }
     }
-    developer.log(
+    debugPrint(
       '   selectedByAttribute(after)=$selectedByAttribute',
-      name: 'ProductDetails/VariantFilter',
     );
 
     // Step 2: compute availability per attribute value using variant_combinations
@@ -560,10 +581,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       // Debug: Log when checking Material availability
       final bool isMaterialAttr = attributeName.toLowerCase().contains('material');
       if (isMaterialAttr) {
-        developer.log(
+        debugPrint(
           '🔍 Checking Material availability for size="${selectedByAttribute[currentProduct.primaryVariantLabel] ?? selectedByAttribute['SIZE'] ?? 'none'}", '
           'color="${selectedByAttribute['COLOR NAME'] ?? selectedByAttribute['color'] ?? 'none'}"',
-          name: 'ProductDetails/MaterialCheck',
         );
       }
 
@@ -572,6 +592,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         int matchesTried = 0;
         int matchesStock = 0;
 
+        // HEIGHT: for now do not disable height options - keep all height buttons enabled
+        final bool isHeightAttrForAvailability = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
+        if (isHeightAttrForAvailability) {
+          isAvailable = true; // Force height button to always be enabled (disabling logic commented out below)
+        } else {
         for (final combo in currentProduct.variantCombinations) {
           bool matchesSelections = true;
 
@@ -601,9 +626,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               comboValForThisAttr.toLowerCase() != value.name.toLowerCase()) {
             matchesSelections = false;
             if (isMaterialAttr && matchesTried < 3) {
-              developer.log(
+              debugPrint(
                 '   Material value "${value.name}": combo has "${comboValForThisAttr ?? 'null'}" for attr "$attributeName" → no match',
-                name: 'ProductDetails/MaterialCheck',
               );
             }
           }
@@ -657,20 +681,19 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               matchesStock += 1;
               isAvailable = true;
               if (isMaterialAttr) {
-                developer.log(
+                debugPrint(
                   '   ✅ Material value "${value.name}" is AVAILABLE (variantId=${combo.variantId}, matched=$matchesTried)',
-                  name: 'ProductDetails/MaterialCheck',
                 );
               }
               break;
             } else if (isMaterialAttr && matchesTried <= 2) {
-              developer.log(
+              debugPrint(
                 '   ⚠️ Material value "${value.name}": variant matches but OUT OF STOCK (variantId=${combo.variantId})',
-                name: 'ProductDetails/MaterialCheck',
               );
             }
           }
         }
+        } // end else: skip variant-combo availability loop for height
 
         // For material: only preserve availability when the value was ALREADY available before
         // (so we don't enable e.g. Synthetic Leather when it's not available for this combination).
@@ -681,39 +704,37 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           if (originalValues.isNotEmpty && originalValues.first.isAvailable) {
             isAvailable = true;
             if (matchesTried < 2) {
-              developer.log(
+              debugPrint(
                 '   ✅ Material value "${value.name}" kept available (was already available)',
-                name: 'ProductDetails/MaterialCheck',
               );
             }
           }
         }
 
+        // [HEIGHT DISABLING - commented out so height button stays enabled]
         // Preserve HEIGHT availability so changing height never hides other height options:
         // if this height value was available before, keep it available after recompute.
-        final bool isHeightAttr = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
-        if (!isAvailable && isHeightAttr) {
-          final originalHeightValues = attrOption.values.where(
-            (v) => v.name.toLowerCase().trim() == value.name.toLowerCase().trim(),
-          ).toList();
-          if (originalHeightValues.isNotEmpty && originalHeightValues.first.isAvailable) {
-            isAvailable = true;
-          }
-        }
+        // final bool isHeightAttr = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
+        // if (!isAvailable && isHeightAttr) {
+        //   final originalHeightValues = attrOption.values.where(
+        //     (v) => v.name.toLowerCase().trim() == value.name.toLowerCase().trim(),
+        //   ).toList();
+        //   if (originalHeightValues.isNotEmpty && originalHeightValues.first.isAvailable) {
+        //     isAvailable = true;
+        //   }
+        // }
 
         if (!isAvailable) {
           // Very useful signal when everything becomes disabled:
           // it tells us whether it's selection mismatch or stock mismatch.
           if (isMaterialAttr) {
-            developer.log(
+            debugPrint(
               '   🔻 Material value "${value.name}" DISABLED: matched=$matchesTried variants, inStockMatched=$matchesStock',
-              name: 'ProductDetails/MaterialCheck',
             );
           } else {
-            developer.log(
+            debugPrint(
               '   🔻 Disabled value: attr="$attributeName" value="${value.name}" '
               '(matched=$matchesTried, inStockMatched=$matchesStock)',
-              name: 'ProductDetails/VariantFilter',
             );
           }
         }
@@ -756,7 +777,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             isAvailable: true, // Force available for single option
             isSelected: true, // Auto-select single option
           );
-          developer.log('✅ Single option for ${attributeName}: "${singleValue.name}" - marked as available and selected');
+          debugPrint('✅ Single option for ${attributeName}: "${singleValue.name}" - marked as available and selected');
         }
         // Update selectedValue to match the single option
         selectedByAttribute[attributeName] = singleValue.name;
@@ -767,27 +788,24 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         values: newValues,
         selectedValue: selectedByAttribute[attributeName] ?? '',
         apiAttributeName: attrOption.apiAttributeName,
+        attributeId: attrOption.attributeId,
       ));
 
       final disabledCountAfter = newValues.where((v) => !v.isAvailable).length;
       if (isMaterialAttr) {
-        developer.log(
+        debugPrint(
           '📊 Material summary: total=${newValues.length} enabled=${newValues.length - disabledCountAfter} disabled=$disabledCountAfter '
           'selected="${selectedByAttribute[attributeName] ?? ''}"',
-          name: 'ProductDetails/MaterialCheck',
         );
       } else {
-        developer.log(
+        debugPrint(
           '   Attr "$attributeName": total=${newValues.length} enabled=${newValues.length - disabledCountAfter} disabled=$disabledCountAfter '
           'selected="${selectedByAttribute[attributeName] ?? ''}"',
-          name: 'ProductDetails/VariantFilter',
         );
       }
     }
 
-    // Step 3: update images if selection narrows to a specific variant (optional heuristic)
-    List<String> filteredImages = currentProduct.images;
-    // Try to find a unique matching, in-stock variant for the current selections
+    // Step 3: matching variants for stock/availability (images update only on color change; do not set images here)
     final matching = currentProduct.variantCombinations.where((combo) {
       for (final entry in selectedByAttribute.entries) {
         final v = _getComboValueForAttribute(currentProduct, combo, entry.key);
@@ -795,13 +813,6 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       return true;
     }).toList();
-
-    if (matching.length == 1) {
-      // Prefer the exact variant image when a unique variant is matched
-      final only = matching.first;
-      final variantImgPath = '/web/image/product.product/${only.variantId}/image_1920';
-      filteredImages = ['${AppConstants.baseUrl}${variantImgPath.startsWith('/') ? variantImgPath.substring(1) : variantImgPath}'];
-    }
 
     // Step 4: compute selectedSize/selectedColor from recomputed options
     // CRITICAL: When event is for HEIGHT/MATERIAL (non-size), preserve current size.
@@ -833,21 +844,19 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     if (matching.isEmpty) {
       // No variant matches the current selection → this combination is out of stock.
       newInStock = false;
-      developer.log(
+      debugPrint(
         '📦 No matching variants for current selection (size="$newSelectedSize", color="$newSelectedColor"). '
         'Marking inStock = false for this combination.',
-        name: 'ProductDetails/Stock',
       );
     } else {
       // At least one matching variant exists; consider it in stock only if any matching
       // variant is actually available according to _isVariantInStock (inStock flag + qty).
       final hasAvailable = matching.any(_isVariantInStock);
       newInStock = hasAvailable;
-      developer.log(
+      debugPrint(
         '📦 Found ${matching.length} matching variants for current selection '
         '(size="$newSelectedSize", color="$newSelectedColor"), '
         'availableMatches=$hasAvailable → inStock=$newInStock',
-        name: 'ProductDetails/Stock',
       );
     }
     
@@ -859,8 +868,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                            event.attributeName.toLowerCase().contains('size');
     
     if (isSizeAttribute && newSelectedSize.isNotEmpty) {
-      developer.log('🔍 ========== UPDATING COLOR AVAILABILITY FOR SIZE ==========');
-      developer.log('🔍 Selected size: "$newSelectedSize"');
+      debugPrint('🔍 ========== UPDATING COLOR AVAILABILITY FOR SIZE ==========');
+      debugPrint('🔍 Selected size: "$newSelectedSize"');
       
       // Helper functions
       bool _containsArabic(String text) {
@@ -897,7 +906,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         if (isSizeAttribute && opt.selectedValue.isNotEmpty) {
           selectedSizeEnglishName = opt.selectedValue; // Should be English from model
-          developer.log('📏 Found size name from variantAttributeOptions: attribute="$attrNameLower", value="$selectedSizeEnglishName"');
+          debugPrint('📏 Found size name from variantAttributeOptions: attribute="$attrNameLower", value="$selectedSizeEnglishName"');
           break;
         }
       }
@@ -907,15 +916,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // The event.attributeValue should be the size name
         if (event.attributeValue.isNotEmpty && !_containsArabic(event.attributeValue)) {
           selectedSizeEnglishName = event.attributeValue;
-          developer.log('📏 Using event.attributeValue as size: "$selectedSizeEnglishName"');
+          debugPrint('📏 Using event.attributeValue as size: "$selectedSizeEnglishName"');
         } else {
           selectedSizeEnglishName = newSelectedSize;
-          developer.log('📏 Fallback: Using newSelectedSize: "$selectedSizeEnglishName"');
+          debugPrint('📏 Fallback: Using newSelectedSize: "$selectedSizeEnglishName"');
         }
       }
       
       final String selectedSizeForMatching = selectedSizeEnglishName;
-      developer.log('📏 Using size for matching: "$selectedSizeForMatching"');
+      debugPrint('📏 Using size for matching: "$selectedSizeForMatching"');
       
       // Build color availability map for this size
       final Map<String, bool> colorAvailabilityMap = {};
@@ -996,7 +1005,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 } else if (isInStock) {
                   colorAvailabilityMap[colorIdKey] = true;
                 }
-                developer.log('🔍 Mapped variant color "$variantColorValueName" (variant_value_id=$variantColorValueId) to ColorOption ID ${colorOpt.id}');
+                debugPrint('🔍 Mapped variant color "$variantColorValueName" (variant_value_id=$variantColorValueId) to ColorOption ID ${colorOpt.id}');
                 break;
               }
             }
@@ -1014,7 +1023,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
-      developer.log('🔍 Color availability map for size "$selectedSizeForMatching": ${colorAvailabilityMap.entries.map((e) => '${e.key}:${e.value}').toList()}');
+      debugPrint('🔍 Color availability map for size "$selectedSizeForMatching": ${colorAvailabilityMap.entries.map((e) => '${e.key}:${e.value}').toList()}');
       
         // Update color options with availability
         updatedColorOptions = currentProduct.colorOptions.map((color) {
@@ -1045,14 +1054,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // Strategy 1: Direct name match (normalized)
         isAvailable = colorAvailabilityMap[normalizedColorName] ?? false;
         if (isAvailable) {
-          developer.log('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via direct name match "$normalizedColorName"');
+          debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via direct name match "$normalizedColorName"');
         }
         
         // Strategy 2: ID-based matching for COLOR_ID_X (CRITICAL for Arabic)
         if (!isAvailable && color.name.startsWith('COLOR_ID_')) {
           isAvailable = colorAvailabilityMap[color.name] ?? false;
           if (isAvailable) {
-            developer.log('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via ID key "${color.name}"');
+            debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via ID key "${color.name}"');
           }
         }
         
@@ -1061,7 +1070,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           final normalizedDisplayName = normalize(color.displayName!);
           isAvailable = colorAvailabilityMap[normalizedDisplayName] ?? false;
           if (isAvailable) {
-            developer.log('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName match "$normalizedDisplayName"');
+            debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName match "$normalizedDisplayName"');
           }
         }
         
@@ -1077,7 +1086,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 normalizedMapColor.contains(normalizedColorName)) {
               isAvailable = entry.value;
               if (isAvailable) {
-                developer.log('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via flexible matching "$normalizedColorName" ~= "$normalizedMapColor"');
+                debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via flexible matching "$normalizedColorName" ~= "$normalizedMapColor"');
                 break;
               }
             }
@@ -1095,7 +1104,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 normalizedMapColor.contains(normalizedDisplayName)) {
               isAvailable = entry.value;
               if (isAvailable) {
-                developer.log('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName flexible matching "$normalizedDisplayName" ~= "$normalizedMapColor"');
+                debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName flexible matching "$normalizedDisplayName" ~= "$normalizedMapColor"');
                 break;
               }
             }
@@ -1119,7 +1128,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }).toList();
       
-      developer.log('🔍 Updated ${updatedColorOptions.length} color options for size "$selectedSizeForMatching"');
+      debugPrint('🔍 Updated ${updatedColorOptions.length} color options for size "$selectedSizeForMatching"');
       
       // If current selected color is unavailable, find first available color
       if (newSelectedColor.isNotEmpty) {
@@ -1134,7 +1143,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
         
         if (!currentColorIsAvailable) {
-          developer.log('⚠️ Current color "$newSelectedColor" is not available for size "$selectedSizeForMatching", finding first available color...');
+          debugPrint('⚠️ Current color "$newSelectedColor" is not available for size "$selectedSizeForMatching", finding first available color...');
           final firstAvailable = updatedColorOptions.firstWhere(
             (c) => c.isAvailable,
             orElse: () => updatedColorOptions.first,
@@ -1159,14 +1168,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
             if (firstAvailableColorName != null && firstAvailableColorName.isNotEmpty) {
               newSelectedColor = firstAvailableColorName;
-              developer.log('✅ Switched to first available color: "$newSelectedColor"');
+              debugPrint('✅ Switched to first available color: "$newSelectedColor"');
             } else {
               newSelectedColor = '';
-              developer.log('⚠️ Could not determine color name for first available color');
+              debugPrint('⚠️ Could not determine color name for first available color');
             }
           } else {
             newSelectedColor = ''; // No available colors
-            developer.log('⚠️ No available colors found for size "$selectedSizeForMatching"');
+            debugPrint('⚠️ No available colors found for size "$selectedSizeForMatching"');
           }
         }
       }
@@ -1188,9 +1197,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
         if (parsed != null) {
           newSelectedHeelHeightCm = parsed;
-          developer.log(
+          debugPrint(
             '👠 FilterVariantsByAttribute: synced selectedHeelHeightCm=$parsed from HEIGHT option',
-            name: 'ProductDetails/VariantFilter',
           );
           break;
         }
@@ -1202,11 +1210,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
     }
 
-    // Step 7: build updated product with new selections
+    // Step 7: build updated product with new selections (keep current images; they change only on color)
     var updatedProduct = currentProduct.copyWith(
       variantAttributeOptions: recomputedOptions,
       colorOptions: updatedColorOptions,
-      images: filteredImages,
+      images: List<String>.from(currentProduct.images),
       selectedSize: newSelectedSize,
       selectedColor: newSelectedColor,
       selectedHeelHeightCm: newSelectedHeelHeightCm,
@@ -1254,16 +1262,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
         
-        developer.log('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
+        debugPrint('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
       }
       
       updatedProduct = updatedProduct.copyWith(
         inStock: variantInStock,
         selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
       );
-      if (updatedProduct.variantImagesMap.isNotEmpty) {
-        updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
-      }
+      // Images update only on color change; do not change images in FilterVariantsByAttribute.
     } else {
       updatedProduct = updatedProduct.copyWith(selectedVariantQuantityAvailable: null);
     }
@@ -1277,18 +1283,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
   ) async {
     emit(ProductDetailsLoading());
     
-    developer.log('🔄 ProductDetailsBloc: Loading product details');
-    developer.log('  - Product ID: ${event.productId}');
-    developer.log('  - Product Type: ${event.productType}');
-    developer.log('  - Product ID Type: ${event.productId.runtimeType}');
-    developer.log('  - Product Type Type: ${event.productType.runtimeType}');
+    debugPrint('🔄 ProductDetailsBloc: Loading product details');
+    debugPrint('  - Product ID: ${event.productId}');
+    debugPrint('  - Product Type: ${event.productType}');
+    debugPrint('  - Product ID Type: ${event.productId.runtimeType}');
+    debugPrint('  - Product Type Type: ${event.productType.runtimeType}');
     
     final result = await getProductDetails(event.productId, productType: event.productType);
     
     result.fold(
       (failure) => emit(ProductDetailsError(failure.message)),
       (productDetails) {
-        developer.log('🔢 Setting initial quantity to 1 for product: ${productDetails.name}');
+        debugPrint('🔢 Setting initial quantity to 1 for product: ${productDetails.name}');
         
         // Helper to get color value from variant trying multiple attribute names
         String? getVariantColorValue(VariantCombination v) {
@@ -1331,13 +1337,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           );
         }).toList();
         
-        // Get initially selected size (if any)
+        // Stored selection: at initial load use first value of each attribute when empty.
+        // These variables are used to filter and get the variant (inStock, quantity_available).
+        // On any attribute click we update only the clicked attribute and keep the rest.
         String? initialSelectedSize = productDetails.selectedSize;
         if (initialSelectedSize.isEmpty) {
-          // Try to get from variantAttributeOptions
           for (final opt in productDetails.variantAttributeOptions) {
             final attrNameLower = opt.attributeName.toLowerCase();
-            if ((attrNameLower == 'size' || 
+            if ((attrNameLower == 'size' ||
                  attrNameLower == productDetails.primaryVariantLabel.toLowerCase()) &&
                 opt.selectedValue.isNotEmpty) {
               initialSelectedSize = opt.selectedValue;
@@ -1345,9 +1352,46 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
         }
-        // Debug: log initial SIZE when entering product details screen
-        developer.log('########### "${initialSelectedSize ?? ''}"',
-            name: 'ProductDetails/InitialSize');
+        if ((initialSelectedSize ?? '').isEmpty && productDetails.sizeOptions.isNotEmpty) {
+          initialSelectedSize = productDetails.sizeOptions.first.name;
+        }
+        if ((initialSelectedSize ?? '').isEmpty) {
+          for (final opt in productDetails.variantAttributeOptions) {
+            final attrNameLower = opt.attributeName.toLowerCase();
+            if ((attrNameLower == 'size' ||
+                 attrNameLower == productDetails.primaryVariantLabel.toLowerCase()) &&
+                opt.values.isNotEmpty) {
+              initialSelectedSize = opt.values.first.name;
+              break;
+            }
+          }
+        }
+
+        String initialSelectedColor = productDetails.selectedColor;
+        if (initialSelectedColor.isEmpty && productDetails.colorOptions.isNotEmpty) {
+          initialSelectedColor = productDetails.colorOptions.first.name;
+        }
+        if (initialSelectedColor.isEmpty) {
+          for (final opt in productDetails.variantAttributeOptions) {
+            final attrNameLower = opt.attributeName.toLowerCase();
+            if ((attrNameLower == 'color name' || attrNameLower == 'color' ||
+                 attrNameLower == 'colour' || attrNameLower == 'اللون') &&
+                opt.values.isNotEmpty) {
+              initialSelectedColor = opt.values.first.name;
+              break;
+            }
+          }
+        }
+
+        // Declare material/height early so we can log them; they are updated in the loop below.
+        String? initialSelectedMaterial = productDetails.selectedMaterial;
+        double? initialSelectedHeelHeight = productDetails.selectedHeelHeightCm;
+
+        debugPrint(
+          '📌 Initial stored selection (first value of each attribute): '
+          'color="$initialSelectedColor", size="${initialSelectedSize ?? ''}", '
+          'material="${initialSelectedMaterial ?? ''}", height=${initialSelectedHeelHeight?.toStringAsFixed(1) ?? "null"}',
+        );
         
         // Align variantAttributeOptions (SIZE attribute) with the initial selected size
         final List<VariantAttributeOption> updatedVariantAttributeOptions =
@@ -1357,6 +1401,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               attrNameLower == 'size' ||
               attrNameLower == 'القياس' ||
               attrNameLower == productDetails.primaryVariantLabel.toLowerCase();
+          final bool isColorAttribute =
+              attrNameLower == 'color name' ||
+              attrNameLower == 'color' ||
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون';
 
           // 1) For SIZE: align selection with initialSelectedSize from model
           if (isSizeAttribute &&
@@ -1379,17 +1428,36 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               values: newValues,
               selectedValue: initialSelectedSize,
               apiAttributeName: opt.apiAttributeName,
+              attributeId: opt.attributeId,
+            );
+          }
+
+          // 1b) For COLOR: align selection with initialSelectedColor (stored selection)
+          if (isColorAttribute &&
+              initialSelectedColor.isNotEmpty &&
+              opt.values.isNotEmpty) {
+            final normalizedTarget = initialSelectedColor.toLowerCase().trim();
+            final newValues = opt.values.map((v) {
+              final isSelected =
+                  v.name.toLowerCase().trim() == normalizedTarget;
+              return VariantAttributeValue(
+                id: v.id,
+                name: v.name,
+                isAvailable: v.isAvailable,
+                isSelected: isSelected,
+              );
+            }).toList();
+            return VariantAttributeOption(
+              attributeName: opt.attributeName,
+              values: newValues,
+              selectedValue: initialSelectedColor,
+              apiAttributeName: opt.apiAttributeName,
+              attributeId: opt.attributeId,
             );
           }
 
           // 2) For non-color attributes with ONLY ONE option (e.g. MATERIAL, HEIGHT, BRAND):
           //    auto-select that single option by default.
-          final bool isColorAttribute =
-              attrNameLower == 'color' ||
-              attrNameLower == 'colour' ||
-              attrNameLower == 'color name' ||
-              attrNameLower == 'اللون';
-
           if (!isColorAttribute && opt.values.length == 1) {
             final v = opt.values.first;
             final singleSelected = VariantAttributeValue(
@@ -1404,6 +1472,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               values: [singleSelected],
               selectedValue: v.name,
               apiAttributeName: opt.apiAttributeName,
+              attributeId: opt.attributeId,
             );
           }
 
@@ -1477,7 +1546,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
           
-          developer.log('🎨 Initial load: Color "${color.displayNameOrName}" (${colorNameForMatching}) - Available: $hasInStockVariant${initialSelectedSize != null && initialSelectedSize.isNotEmpty ? " (for size $initialSelectedSize)" : ""}');
+          debugPrint('🎨 Initial load: Color "${color.displayNameOrName}" (${colorNameForMatching}) - Available: $hasInStockVariant${initialSelectedSize != null && initialSelectedSize.isNotEmpty ? " (for size $initialSelectedSize)" : ""}');
           
           return ColorOption(
             id: color.id,
@@ -1507,74 +1576,76 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               isAvailable: true,
             ),
           ];
-          developer.log(
+          debugPrint(
             '🎨 Single color detected on initial load → forcing available & selected: "${only.displayNameOrName}"',
-            name: 'ProductDetails/ColorOptions',
           );
         }
         
-        // Derive defaults for Material and Height when there is only ONE option
-        String? initialSelectedMaterial = productDetails.selectedMaterial;
-        double? initialSelectedHeelHeight = productDetails.selectedHeelHeightCm;
-
+        // Derive defaults for Material and Height: use first value when empty (stored selection).
         for (final opt in updatedVariantAttributeOptions) {
           final attrNameLower = opt.attributeName.toLowerCase();
 
-          // MATERIAL NAME / MATERIAL
+          // MATERIAL: first value when empty
           final bool isMaterialAttribute =
               attrNameLower == 'material' ||
               attrNameLower == 'material name';
-          if (isMaterialAttribute &&
-              opt.values.length == 1 &&
-              (initialSelectedMaterial == null ||
-                  initialSelectedMaterial.isEmpty)) {
-            initialSelectedMaterial = opt.values.first.name;
+          if (isMaterialAttribute && opt.values.isNotEmpty) {
+            if (initialSelectedMaterial == null || initialSelectedMaterial.isEmpty) {
+              initialSelectedMaterial = opt.values.first.name;
+            }
           }
 
-          // HEIGHT / HEEL HEIGHT: set from option's selectedValue (e.g. from API selected_variant)
-          // so that 2.8 from selected_variant shows as selected even when there are multiple options.
+          // HEIGHT: first value when empty, or from option's selectedValue
           final bool isHeightAttribute =
               attrNameLower == 'height' || attrNameLower == 'heel height';
-          if (isHeightAttribute && initialSelectedHeelHeight == null) {
-            if (opt.selectedValue.isNotEmpty) {
-              final numeric = double.tryParse(
-                opt.selectedValue.replaceAll(RegExp(r'[^0-9.]'), ''),
-              );
-              if (numeric != null) {
-                initialSelectedHeelHeight = numeric;
-                developer.log(
-                  '👠 Initial HEIGHT from variantAttributeOptions.selectedValue: $numeric',
-                  name: 'ProductDetails/InitialSelections',
+          if (isHeightAttribute) {
+            if (initialSelectedHeelHeight == null) {
+              if (opt.selectedValue.isNotEmpty) {
+                final numeric = double.tryParse(
+                  opt.selectedValue.replaceAll(RegExp(r'[^0-9.]'), ''),
                 );
+                if (numeric != null) {
+                  initialSelectedHeelHeight = numeric;
+                  debugPrint(
+                    '👠 Initial HEIGHT from variantAttributeOptions.selectedValue: $numeric',
+                  );
+                }
               }
-            } else if (opt.values.length == 1) {
-              final raw = opt.values.first.name;
-              final numeric = double.tryParse(
-                raw.replaceAll(RegExp(r'[^0-9.]'), ''),
-              );
-              if (numeric != null) {
-                initialSelectedHeelHeight = numeric;
+              if (initialSelectedHeelHeight == null && opt.values.isNotEmpty) {
+                final raw = opt.values.first.name;
+                final numeric = double.tryParse(
+                  raw.replaceAll(RegExp(r'[^0-9.]'), ''),
+                );
+                if (numeric != null) {
+                  initialSelectedHeelHeight = numeric;
+                }
               }
             }
           }
         }
-        
-        // Sync stock & quantity with the initially selected variant combination
+
+        // Stored selection: use these four for variant filter (findVariantMatchingSelectionByValueName).
+        // On attribute click we update only the clicked attribute and keep the rest.
         var updatedProduct = productDetails.copyWith(
           sizeOptions: updatedSizeOptions,
           colorOptions: updatedColorOptions,
           variantAttributeOptions: updatedVariantAttributeOptions,
+          selectedColor: initialSelectedColor,
           selectedSize: initialSelectedSize ?? productDetails.selectedSize,
           selectedMaterial:
               initialSelectedMaterial ?? productDetails.selectedMaterial,
           selectedHeelHeightCm:
               initialSelectedHeelHeight ?? productDetails.selectedHeelHeightCm,
         );
-        // Debug: ensure initial model size and BLoC selected size/material/height are aligned
-        developer.log(
-          '########### "${initialSelectedSize ?? ''}", initial selected size :"${updatedProduct.selectedSize}", '
-          'material :"${updatedProduct.selectedMaterial}", heelHeight :"${updatedProduct.selectedHeelHeightCm}"',
-          name: 'ProductDetails/InitialSelections',
+        // Debug: values we send to the filter at initial (first value of all attributes)
+        final initialFilterInput = updatedProduct.getSelectedAttributesByValueName();
+        debugPrint(
+          '🔍 [Initial] Calling filter (findVariantMatchingSelectionByValueName) with: $initialFilterInput '
+          '(at initial we use first value of all attributes: color, size, material, height)',
+        );
+        debugPrint(
+          '########### initial selected size:"${updatedProduct.selectedSize}", '
+          'material:"${updatedProduct.selectedMaterial}", heelHeight:${updatedProduct.selectedHeelHeightCm?.toStringAsFixed(1) ?? "null"}',
         );
         int initialQuantity = 1;
         
@@ -1583,7 +1654,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           final double? quantityAvailable = selectedVariant.quantityAvailable;
           bool variantInStock = selectedVariant.inStock;
           
-          developer.log('📦 Initial variant: variantId=${selectedVariant.variantId}, inStock=$variantInStock, quantityAvailable=$quantityAvailable');
+          debugPrint('📦 Initial variant: variantId=${selectedVariant.variantId}, inStock=$variantInStock, quantityAvailable=$quantityAvailable');
           
           // Check stock: if quantity is known, require > 0. If unknown (null), rely on inStock flag.
           final qty = quantityAvailable;
@@ -1606,8 +1677,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             inStock: variantInStock,
             selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
           );
+          // Set initial images by color only (variant_id from first variant matching selected color)
           if (updatedProduct.variantImagesMap.isNotEmpty) {
-            updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
+            final vid = updatedProduct.variantIdForImagesByColor;
+            if (vid != null && vid.isNotEmpty) {
+              updatedProduct = updatedProduct.withImagesForVariant(vid);
+            }
           }
         }
         
@@ -1729,13 +1804,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       actualColorName = colorIdToEnglishName[event.colorId] ?? colorIdToEnglishName[event.colorId.toString().trim()];
       if (actualColorName != null && actualColorName.isNotEmpty) {
-        developer.log('✅ Using colorId→name from variantAttributeOptions (locale-agnostic): "$actualColorName" for colorId=${event.colorId}');
+        debugPrint('✅ Using colorId→name from variantAttributeOptions (locale-agnostic): "$actualColorName" for colorId=${event.colorId}');
       }
 
       // PRIMARY: ColorOption.name when not placeholder (e.g. English API sometimes fills it)
       if ((actualColorName == null || actualColorName.isEmpty) && selectedColorOption.name.isNotEmpty && !containsArabic(selectedColorOption.name) && !selectedColorOption.name.startsWith('COLOR_ID_')) {
         actualColorName = selectedColorOption.name;
-        developer.log('✅ Using ColorOption.name: "$actualColorName" for color ID ${event.colorId}');
+        debugPrint('✅ Using ColorOption.name: "$actualColorName" for color ID ${event.colorId}');
       }
 
       // SECONDARY: Single-value lookup from variantAttributeOptions (keep for compatibility)
@@ -1755,7 +1830,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             );
             if (!containsArabic(matchedValue.name) && matchedValue.name.isNotEmpty) {
               actualColorName = matchedValue.name;
-              developer.log('✅ Using variantAttributeOptions (secondary): "$actualColorName" for color ID ${event.colorId}');
+              debugPrint('✅ Using variantAttributeOptions (secondary): "$actualColorName" for color ID ${event.colorId}');
             }
           } catch (_) {}
         }
@@ -1781,7 +1856,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               final vNorm = variantColorName.toLowerCase().trim();
               if (vNorm == displayNorm || vNorm.contains(displayNorm) || displayNorm.contains(vNorm)) {
                 matchedEnglishName = variantColorName;
-                developer.log('✅ Matched display to variant color: "$matchedEnglishName"');
+                debugPrint('✅ Matched display to variant color: "$matchedEnglishName"');
                 break;
               }
             }
@@ -1794,7 +1869,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             matchedEnglishName = uniqueEnglishColorNames.first;
           } else if (matchedEnglishName == null) {
             matchedEnglishName = uniqueEnglishColorNames.first;
-            developer.log('⚠️ Fallback to first English color (no id match): "$matchedEnglishName"');
+            debugPrint('⚠️ Fallback to first English color (no id match): "$matchedEnglishName"');
           }
           actualColorName = matchedEnglishName;
         }
@@ -1808,20 +1883,20 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             : selectedColorOption.displayNameOrName;
         actualColorName = fromMap ?? fallback;
         if (fromMap != null) {
-          developer.log('✅ Using colorId map for final name (no placeholder): "$actualColorName"');
+          debugPrint('✅ Using colorId map for final name (no placeholder): "$actualColorName"');
         } else {
-          developer.log('⚠️ Fallback name for color ID ${event.colorId}: "$actualColorName"');
+          debugPrint('⚠️ Fallback name for color ID ${event.colorId}: "$actualColorName"');
         }
       }
       if (actualColorName != null && containsArabic(actualColorName)) {
         // If still Arabic, keep it but log a warning – we still allow selection for UX.
-        developer.log(
+        debugPrint(
           '⚠️ actualColorName appears to be Arabic: "$actualColorName". '
           'Proceeding anyway so selection works; matching may be approximate.',
         );
       }
       
-      developer.log(
+      debugPrint(
         '✅ Final color name for matching/selection: "$actualColorName" '
         '(ID: ${event.colorId}, Display: "${selectedColorOption.displayNameOrName}")',
       );
@@ -1908,7 +1983,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               
               if (isSizeAttribute && normalize(attrValue) == normalize(actualSize)) {
                 sizeMatch = true;
-                developer.log('🔍 Size match found via flexible matching: attribute="$attrName", value="$attrValue" == "$actualSize"');
+                debugPrint('🔍 Size match found via flexible matching: attribute="$attrName", value="$attrValue" == "$actualSize"');
                 break;
               }
             }
@@ -1930,7 +2005,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
           
           if (colorMatch && !sizeMatch) {
-            developer.log('🔍 Color matches but size does not: variantColorName="$variantColorName", actualSize="$actualSize"');
+            debugPrint('🔍 Color matches but size does not: variantColorName="$variantColorName", actualSize="$actualSize"');
             // Log variant attributes for debugging
             final sizeAttrs = v.attributes.where((attr) {
               final attrName = attr.attributeName.toLowerCase();
@@ -1939,20 +2014,20 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                      attrName == 'brand' ||
                      attrName == 'القياس';
             }).map((attr) => '${attr.attributeName}: ${attr.valueName}').toList();
-            developer.log('   Variant size attributes: $sizeAttrs');
+            debugPrint('   Variant size attributes: $sizeAttrs');
           }
           
           if (sizeMatch && colorMatch) {
             // Check stock (treat null quantity as available when inStock=true)
             final qty = v.quantityAvailable;
             final isInStock = _isVariantInStock(v);
-            developer.log('🔍 Checking variant: sizeMatch=$sizeMatch, colorMatch=$colorMatch, inStock=${v.inStock}, qty=$qty, available=$isInStock');
+            debugPrint('🔍 Checking variant: sizeMatch=$sizeMatch, colorMatch=$colorMatch, inStock=${v.inStock}, qty=$qty, available=$isInStock');
             if (isInStock) {
               hasInStockVariant = true;
-              developer.log('✅ Found in-stock variant for color $colorNameForMatching with size/primary="$actualSize"');
+              debugPrint('✅ Found in-stock variant for color $colorNameForMatching with size/primary="$actualSize"');
               break;
             } else {
-              developer.log('⚠️ Variant found but out of stock: inStock=${v.inStock}, qty=$qty');
+              debugPrint('⚠️ Variant found but out of stock: inStock=${v.inStock}, qty=$qty');
             }
           }
         }
@@ -1961,7 +2036,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // we still allow selection for better UX (user can see images / details),
         // but we log a warning for diagnostics.
         if (!hasInStockVariant) {
-          developer.log(
+          debugPrint(
             '⚠️ No in-stock variants for color $colorNameForMatching (display: ${selectedColorOption.displayNameOrName}) with size $actualSize. '
             'Proceeding with selection but product may be effectively out of stock for this combination.',
           );
@@ -1984,25 +2059,25 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
           
           if (colorMatch) {
-            developer.log('🔍 Found color match (no size): variantColorName="$variantColorName" == colorNameForMatching="$colorNameForMatching"');
+            debugPrint('🔍 Found color match (no size): variantColorName="$variantColorName" == colorNameForMatching="$colorNameForMatching"');
             // Check stock: must have quantity_available > 0 AND in_stock = true
             final qty = v.quantityAvailable ?? 0.0;
             final isInStock = v.inStock && qty > 0;
-            developer.log('🔍 Checking variant: colorMatch=$colorMatch, inStock=${v.inStock}, qty=$qty, available=$isInStock');
+            debugPrint('🔍 Checking variant: colorMatch=$colorMatch, inStock=${v.inStock}, qty=$qty, available=$isInStock');
             if (isInStock) {
               hasInStockVariant = true;
-              developer.log('✅ Found in-stock variant for color $colorNameForMatching');
+              debugPrint('✅ Found in-stock variant for color $colorNameForMatching');
               break;
             }
           } else if (variantColorName != null) {
-            developer.log('🔍 Color mismatch (no size): variantColorName="$variantColorName" != colorNameForMatching="$colorNameForMatching"');
+            debugPrint('🔍 Color mismatch (no size): variantColorName="$variantColorName" != colorNameForMatching="$colorNameForMatching"');
           }
         }
         
         // If no in-stock variant exists for this color at all, still allow selection
         // so the user can view the color, but log a warning.
         if (!hasInStockVariant) {
-          developer.log(
+          debugPrint(
             '⚠️ No in-stock variants for color $colorNameForMatching (display: ${selectedColorOption.displayNameOrName}) with any size. '
             'Proceeding with selection but product may be effectively out of stock for this color.',
           );
@@ -2297,7 +2372,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               );
               if (valueExists) {
                 isAvailable = true;
-                developer.log('✅ Material/Height fallback: "${value.name}" marked as available (exists in original options)');
+                debugPrint('✅ Material/Height fallback: "${value.name}" marked as available (exists in original options)');
               }
             }
           }
@@ -2359,7 +2434,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               isAvailable: true, // Force available for single option
               isSelected: true, // Auto-select single option
             );
-            developer.log('✅ Single option for ${attributeName}: "${singleValue.name}" - marked as available and selected');
+            debugPrint('✅ Single option for ${attributeName}: "${singleValue.name}" - marked as available and selected');
           }
         }
 
@@ -2404,7 +2479,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 isSelected: isSelected, // Mark as selected even if not available
               );
             }).toList();
-            developer.log('✅ Size preserved in recomputedOptions: "$optionSelectedValue" (from currentProduct.selectedSize: "${currentProduct.selectedSize}")');
+            debugPrint('✅ Size preserved in recomputedOptions: "$optionSelectedValue" (from currentProduct.selectedSize: "${currentProduct.selectedSize}")');
           } else if (newValues.isNotEmpty) {
             // Current size doesn't exist - use first available or first item
             final firstAvailable = newValues.firstWhere(
@@ -2440,6 +2515,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           values: newValues,
           selectedValue: optionSelectedValue,
           apiAttributeName: attrOption.apiAttributeName,
+          attributeId: attrOption.attributeId,
         ));
       }
       
@@ -2480,9 +2556,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 values: updatedValues,
                 selectedValue: opt.selectedValue, // Keep the preserved size
                 apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
               );
             nextSelectedPrimary = opt.selectedValue; // Update to match
-            developer.log('✅ Size preserved: "$nextSelectedPrimary" (from opt.selectedValue)');
+            debugPrint('✅ Size preserved: "$nextSelectedPrimary" (from opt.selectedValue)');
           } else if (opt.selectedValue.isNotEmpty) {
             // Use the preserved selectedValue from the option
             nextSelectedPrimary = opt.selectedValue;
@@ -2502,8 +2579,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
               values: updatedValues,
               selectedValue: opt.selectedValue,
               apiAttributeName: opt.apiAttributeName,
+              attributeId: opt.attributeId,
             );
-            developer.log('✅ Size preserved: "$nextSelectedPrimary" (using opt.selectedValue)');
+            debugPrint('✅ Size preserved: "$nextSelectedPrimary" (using opt.selectedValue)');
           } else if (opt.values.isNotEmpty) {
             // Fallback: current size doesn't exist in the list at all - find first available
             final firstAvailable = opt.values.firstWhere(
@@ -2517,8 +2595,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 values: opt.values,
                 selectedValue: nextSelectedPrimary,
                 apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
               );
-              developer.log('⚠️ Size changed from "${currentProduct.selectedSize}" to "$nextSelectedPrimary" (current size not in list)');
+              debugPrint('⚠️ Size changed from "${currentProduct.selectedSize}" to "$nextSelectedPrimary" (current size not in list)');
             }
           }
         }
@@ -2541,6 +2620,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   values: opt.values,
                   selectedValue: currentMaterial,
                   apiAttributeName: opt.apiAttributeName,
+                  attributeId: opt.attributeId,
                 );
               }
         } else {
@@ -2557,6 +2637,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   values: opt.values,
                   selectedValue: firstAvailable.name,
                   apiAttributeName: opt.apiAttributeName,
+                  attributeId: opt.attributeId,
                 );
               } else {
                 nextSelectedMaterial = null;
@@ -2575,6 +2656,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 values: opt.values,
                 selectedValue: firstAvailable.name,
                 apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
               );
             }
           }
@@ -2603,6 +2685,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   values: opt.values,
                   selectedValue: valueNameToUse,
                   apiAttributeName: opt.apiAttributeName,
+                  attributeId: opt.attributeId,
                 );
               }
             } else {
@@ -2620,6 +2703,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                     values: opt.values,
                     selectedValue: firstAvailable.name,
                     apiAttributeName: opt.apiAttributeName,
+                    attributeId: opt.attributeId,
                   );
                 } else {
                   nextSelectedHeelHeight = null;
@@ -2643,6 +2727,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   values: preservedValues,
                   selectedValue: heightAttrValue.name,
                   apiAttributeName: opt.apiAttributeName,
+                  attributeId: opt.attributeId,
                 );
                 // nextSelectedHeelHeight stays as currentHeight (already set from currentProduct)
               }
@@ -2662,6 +2747,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   values: opt.values,
                   selectedValue: firstAvailable.name,
                   apiAttributeName: opt.apiAttributeName,
+                  attributeId: opt.attributeId,
                 );
               }
             }
@@ -2759,13 +2845,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       selectedVariant = _findSelectedVariant(updatedProduct);
       
       if (selectedVariant != null) {
-        developer.log('🎨 COLOR CHANGED → Found EXACT MATCH variant_id=${selectedVariant.variantId} for color="${updatedProduct.selectedColor}", size="${updatedProduct.selectedSize}"');
+        debugPrint('🎨 COLOR CHANGED → Found EXACT MATCH variant_id=${selectedVariant.variantId} for color="${updatedProduct.selectedColor}", size="${updatedProduct.selectedSize}"');
         print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID: ${selectedVariant.variantId} 🎨🎨🎨');
       }
       
       // If no exact match found, try flexible match (size + color only)
       if (selectedVariant == null && updatedProduct.selectedSize.isNotEmpty && updatedProduct.selectedColor.isNotEmpty) {
-        developer.log('🔍 No exact variant match found, trying flexible match (size + color only)...');
+        debugPrint('🔍 No exact variant match found, trying flexible match (size + color only)...');
         String normalize(String s) => s.toLowerCase().trim();
         
         // Helper to get color value from variant
@@ -2803,7 +2889,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         if (flexibleMatch.isNotEmpty) {
           selectedVariant = flexibleMatch.first;
-          developer.log('✅ Found flexible match variant_id=${selectedVariant.variantId} for color=${updatedProduct.selectedColor}, size=${updatedProduct.selectedSize}');
+          debugPrint('✅ Found flexible match variant_id=${selectedVariant.variantId} for color=${updatedProduct.selectedColor}, size=${updatedProduct.selectedSize}');
         }
         
         if (flexibleMatch.isNotEmpty) {
@@ -2815,7 +2901,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             return qtyB.compareTo(qtyA);
           });
           selectedVariant = flexibleMatch.first;
-          developer.log('✅ Flexible match found: variantId=${selectedVariant.variantId}, quantityAvailable=${selectedVariant.quantityAvailable}');
+          debugPrint('✅ Flexible match found: variantId=${selectedVariant.variantId}, quantityAvailable=${selectedVariant.quantityAvailable}');
           print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID (FLEXIBLE MATCH): ${selectedVariant.variantId} 🎨🎨🎨');
         }
       }
@@ -2867,20 +2953,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
           
-          developer.log(
+          debugPrint(
             '📦 _onSelectColor → Found variant: size="${updatedProduct.selectedSize}", '
             'color="$actualColorName", variantId=${selectedVariant.variantId}, '
             'inStock=${selectedVariant.inStock}, qty=$quantityAvailable, '
             'available=$available, finalInStock=$variantInStock',
-            name: 'ProductDetails/Stock',
           );
           print('Zeinnaa 2: ${updatedVariantAttributeOptions.length} ,ID ${selectedVariant.variantId} , '
               'List of sizes :: ${ selectedVariant.attributes.length}');
         } else {
           // If quantityAvailable is null, rely on _isVariantInStock result
-          developer.log(
+          debugPrint(
             '⚠️ Selected variant has null quantityAvailable, using inStock flag: $variantInStock',
-            name: 'ProductDetails/Stock',
           );
         }
 
@@ -2888,18 +2972,17 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // This ensures we correctly reflect stock for the exact color+size combination
         // Use matched variant as single source of truth (same variant used for images)
         finalInStock = variantInStock;
-        developer.log(
+        debugPrint(
           '📦 _onSelectColor → variantId=${selectedVariant.variantId}, inStock=$variantInStock, qty=${selectedVariant.quantityAvailable}',
-          name: 'ProductDetails/Stock',
         );
       } else {
         // No variant found - use hasInStockVariant check result
         if (actualSize != null && actualSize.isNotEmpty) {
           finalInStock = hasInStockVariant;
-          developer.log('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" with size="$actualSize"');
+          debugPrint('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" with size="$actualSize"');
         } else {
           finalInStock = hasInStockVariant;
-          developer.log('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" (no size selected)');
+          debugPrint('📦 No variant match: Using hasInStockVariant=$hasInStockVariant for color="$colorNameForMatching" (no size selected)');
         }
         if (!finalInStock) {
           nextQuantity = 1;
@@ -2914,46 +2997,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         selectedVariantQuantityAvailable: qtyForBadge,
       );
 
-      // Update main product images when color changes so the gallery shows the selected color.
-      // Use colorNameForMatching (never placeholder) to find variant; fallback to option name/display.
-      VariantCombination? variantForImage;
-      final namesToTry = <String>[
-        if (colorNameForMatching.isNotEmpty && !colorNameForMatching.startsWith('COLOR_ID_')) colorNameForMatching,
-        if (selectedColorOption.name.isNotEmpty && !selectedColorOption.name.startsWith('COLOR_ID_')) selectedColorOption.name,
-        selectedColorOption.displayNameOrName,
-      ].where((s) => s.isNotEmpty).toSet().toList();
-
-      for (final candidateName in namesToTry) {
-        final normalizedColor = _norm(candidateName);
-        if (normalizedColor.isEmpty) continue;
-        for (final v in updatedProduct.variantCombinations) {
-          final variantColor = _getVariantColorValue(v);
-          if (variantColor == null || v.variantId.isEmpty) continue;
-          final nv = _norm(variantColor);
-          if (nv == normalizedColor || nv.contains(normalizedColor) || normalizedColor.contains(nv)) {
-            variantForImage = v;
-            break;
-          }
-        }
-        if (variantForImage != null) break;
-      }
-
-      if (selectedColorOption.images.isNotEmpty) {
+      // Update images only when color changes: use variant_id from first variant matching selected color (variantImagesMap = multiple images per variant).
+      final vid = updatedProduct.variantIdForImagesByColor;
+      if (vid != null && vid.isNotEmpty) {
+        updatedProduct = updatedProduct.withImagesForVariant(vid);
+        debugPrint('🎨 _onSelectColor: images from variantIdByColor=$vid (${updatedProduct.images.length} images)');
+      } else if (selectedColorOption.images.isNotEmpty) {
         updatedProduct = updatedProduct.copyWith(images: List<String>.from(selectedColorOption.images));
-        developer.log('🎨 Using ColorOption.images: ${selectedColorOption.images.length} (${selectedColorOption.displayNameOrName})');
-      } else if (variantForImage != null) {
-        final vid = variantForImage.variantId;
-        final variantImages = updatedProduct.variantImagesMap[vid];
-        if (variantImages != null && variantImages.isNotEmpty) {
-          updatedProduct = updatedProduct.copyWith(images: List<String>.from(variantImages));
-        } else {
-          final path = '/web/image/product.product/$vid/image_1920';
-          final fullUrl = '${AppConstants.baseUrl}${path.startsWith('/') ? path.substring(1) : path}';
-          updatedProduct = updatedProduct.copyWith(images: [fullUrl]);
-        }
-        developer.log('🎨 Using variant image for selected color: variantId=$vid');
+        debugPrint('🎨 Using ColorOption.images: ${selectedColorOption.images.length} (${selectedColorOption.displayNameOrName})');
       }
-      // If still no update (no option images, no matching variant), keep current images to avoid blank.
+      // If still no update (no variant for color, no option images), keep current images to avoid blank.
 
       emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
       
@@ -2978,13 +3031,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     SelectSizeEvent event,
     Emitter<ProductDetailsState> emit,
   ) async {
-    developer.log('🚀 ========== _onSelectSize CALLED ==========');
-    developer.log('🚀 Size ID selected: ${event.sizeId}');
+    debugPrint('🚀 ========== _onSelectSize CALLED ==========');
+    debugPrint('🚀 Size ID selected: ${event.sizeId}');
     
     if (state is ProductDetailsLoaded) {
       final currentState = state as ProductDetailsLoaded;
       final currentProduct = currentState.productDetails;
-      developer.log('🚀 Product loaded: ${currentProduct.name}');
+      debugPrint('🚀 Product loaded: ${currentProduct.name}');
       
       // Find the selected size.
       // NOTE: Backend sometimes sends sizeOptions as empty, but we still have sizes
@@ -2993,7 +3046,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       List<SizeOption> effectiveSizeOptions = currentProduct.sizeOptions;
 
       if (effectiveSizeOptions.isEmpty) {
-        developer.log(
+        debugPrint(
           '⚠️ _onSelectSize: sizeOptions is EMPTY for product ${currentProduct.id}, '
           'synthesizing from variantAttributeOptions...',
         );
@@ -3021,7 +3074,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             );
           }).toList();
         } else {
-          developer.log(
+          debugPrint(
             '⚠️ _onSelectSize: Could not synthesize sizeOptions (no size attribute values). '
             'Ignoring SelectSizeEvent(sizeId=${event.sizeId}).',
           );
@@ -3050,14 +3103,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             (v) => v.id == event.sizeId,
           );
           selectedSizeName = matchedValue.name;
-          developer.log('📏 _onSelectSize: resolved sizeId=${event.sizeId} → name="$selectedSizeName" from variantAttributeOptions (same source as size buttons)');
+          debugPrint('📏 _onSelectSize: resolved sizeId=${event.sizeId} → name="$selectedSizeName" from variantAttributeOptions (same source as size buttons)');
         } catch (_) {
           final selectedSizeOption = effectiveSizeOptions.firstWhere(
             (size) => size.id == event.sizeId,
             orElse: () => effectiveSizeOptions.first,
           );
           selectedSizeName = selectedSizeOption.name;
-          developer.log('📏 _onSelectSize: sizeId not in variantAttributeOptions, using SizeOption: name="$selectedSizeName"');
+          debugPrint('📏 _onSelectSize: sizeId not in variantAttributeOptions, using SizeOption: name="$selectedSizeName"');
         }
       } else {
         final selectedSizeOption = effectiveSizeOptions.firstWhere(
@@ -3169,10 +3222,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // Check stock for this exact combination using the proper stock check function
         if (_isVariantInStock(v)) {
           hasAvailableVariantForSelection = true;
-          developer.log(
+          debugPrint(
             '📦 _onSelectSize → Found in-stock variant: size="$selectedSizeName", '
             'color="${selectedColorName ?? 'none'}", variantId=${v.variantId}',
-            name: 'ProductDetails/Stock',
           );
           break;
         }
@@ -3269,6 +3321,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             values: opt.values,
             selectedValue: selectedSizeName,
             apiAttributeName: opt.apiAttributeName,
+            attributeId: opt.attributeId,
           );
         }
         return opt;
@@ -3315,42 +3368,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           inStock: inStock,
           selectedVariantQuantityAvailable: qtyForBadge,
         );
-        // Update images from the variant that matches selected COLOR + SIZE (by name), same as SelectColor.
-        // Do not rely on selectedVariant for images; find the variant by color+size so the main image
-        // stays on the selected color when only size changes.
-        final effectiveColorName = selectedColorName ?? currentProduct.selectedColor;
-        if (effectiveColorName.isNotEmpty && selectedSizeName.isNotEmpty) {
-          final normalizedColor = _norm(effectiveColorName);
-          final normalizedSize = _norm(selectedSizeName);
-          VariantCombination? variantForImage;
-          for (final v in productToEmit.variantCombinations) {
-            final variantColor = _getVariantColorValue(v);
-            final sizeVal = _getComboValueForAttribute(productToEmit, v, productToEmit.primaryVariantLabel) ??
-                _getComboValueForAttribute(productToEmit, v, 'SIZE');
-            if (variantColor == null || sizeVal == null) continue;
-            final nvc = _norm(variantColor);
-            final nvs = _norm(sizeVal);
-            final colorMatch = nvc == normalizedColor || nvc.contains(normalizedColor) || normalizedColor.contains(nvc);
-            final sizeMatch = nvs == normalizedSize;
-            if (colorMatch && sizeMatch && v.variantId.isNotEmpty) {
-              variantForImage = v;
-              break;
-            }
-          }
-          if (variantForImage != null) {
-            productToEmit = productToEmit.withImagesForVariant(variantForImage.variantId);
-            final variantHasImages = productToEmit.variantImagesMap[variantForImage.variantId]?.isNotEmpty ?? false;
-            if (!variantHasImages) {
-              final path = '/web/image/product.product/${variantForImage.variantId}/image_1920';
-              final fullUrl = '${AppConstants.baseUrl}${path.startsWith('/') ? path.substring(1) : path}';
-              productToEmit = productToEmit.copyWith(images: [fullUrl]);
-            }
-          } else {
-            productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
-          }
-        } else {
-          productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
-        }
+        // Images update only on color change; keep current images when size changes.
+        productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
       } else {
         productToEmit = productToEmit.copyWith(
           inStock: inStock,
@@ -3358,10 +3377,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }
 
-      developer.log(
+      debugPrint(
         '📦 _onSelectSize → size="$selectedSizeName", color="${selectedColorName ?? 'none'}", '
         'variantId=${selectedVariant?.variantId}, inStock=$inStock, qty=${selectedVariant?.quantityAvailable}',
-        name: 'ProductDetails/Stock',
       );
 
       emit(ProductDetailsLoaded(
@@ -3373,12 +3391,25 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     }
   }
 
-  /// Helper method to find the currently selected variant based on product details
+  /// Helper method to find the currently selected variant based on product details.
+  /// Prefer matching by attribute_name + value_name (strings: e.g. BLACK, 36, Synthetic Leather, 4.5);
+  /// then fallback to legacy name-based match.
   VariantCombination? _findSelectedVariant(ProductDetails pd) {
     try {
-      // Build selected pairs using attribute names
-      final Map<String, String> selectedByAttribute = {};
       String normalize(String s) => s.toLowerCase().trim();
+
+      // 1) Match by value_name: all 4 (color, size, material, height) validated against variant attributes.
+      final byValueName = pd.findVariantMatchingSelectionByValueName();
+      if (byValueName != null) {
+        debugPrint(
+          '📦 Variant matched by value_name: variantId=${byValueName.variantId}, '
+          'inStock=${byValueName.inStock}, quantityAvailable=${byValueName.quantityAvailable}',
+        );
+        return byValueName;
+      }
+
+      // 2) Fallback: build selected pairs using attribute names (legacy)
+      final Map<String, String> selectedByAttribute = {};
       
       // Add selected size/primary variant from variantAttributeOptions (source of truth)
       String? selectedSizeValue;
@@ -3484,7 +3515,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           final qtyB = b.quantityAvailable ?? 0;
           return qtyB.compareTo(qtyA); // Sort descending by stock
         });
-        developer.log('🔍 Multiple variants matched, selected one with highest stock: variantId=${matching.first.variantId}, quantityAvailable=${matching.first.quantityAvailable}');
+        debugPrint('🔍 Multiple variants matched, selected one with highest stock: variantId=${matching.first.variantId}, quantityAvailable=${matching.first.quantityAvailable}');
         return matching.first;
       }
       
@@ -3507,7 +3538,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             final qtyB = b.quantityAvailable ?? 0;
             return qtyB.compareTo(qtyA); // Sort descending by stock
           });
-          developer.log('🔍 Partial match found, selected one with highest stock: variantId=${partialMatch.first.variantId}, quantityAvailable=${partialMatch.first.quantityAvailable}');
+          debugPrint('🔍 Partial match found, selected one with highest stock: variantId=${partialMatch.first.variantId}, quantityAvailable=${partialMatch.first.quantityAvailable}');
           return partialMatch.first;
         }
       }
@@ -3519,7 +3550,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       return null;
     } catch (e) {
-      developer.log('⚠️ Error finding selected variant: $e');
+      debugPrint('⚠️ Error finding selected variant: $e');
       return null;
     }
   }
@@ -3528,16 +3559,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     AddToCartEvent event,
     Emitter<ProductDetailsState> emit,
   ) async {
-    developer.log('🛒 _onAddToCart called with event: ${event.toString()}');
+    debugPrint('🛒 _onAddToCart called with event: ${event.toString()}');
     
     if (state is ProductDetailsLoaded) {
       final currentState = state as ProductDetailsLoaded;
-      developer.log('📱 Current state: ProductDetailsLoaded with quantity: ${currentState.quantity}');
+      debugPrint('📱 Current state: ProductDetailsLoaded with quantity: ${currentState.quantity}');
       
       final pd = currentState.productDetails;
       
       // STEP 1: Determine the correct variant ID FIRST (before stock validation)
-      developer.log('🔍 Step 1: Determining variant ID to add...');
+      debugPrint('🔍 Step 1: Determining variant ID to add...');
       String productIdToAdd = event.productId;
       VariantCombination? targetVariant;
       try {
@@ -3579,7 +3610,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             final mapped = attrIdNameToId[attrId!]?[(valName.toLowerCase().trim())] ?? '';
             if (mapped.isNotEmpty) {
               selectedByAttrId[attrId] = mapped;
-              developer.log('📏 Added size to matching: attr_id=$attrId, value_id=$mapped, value_name=$valName');
+              debugPrint('📏 Added size to matching: attr_id=$attrId, value_id=$mapped, value_name=$valName');
             }
           }
         }
@@ -3605,9 +3636,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           
           if (colorAttrId != null && colorAttrId.isNotEmpty && colorValueId != null && colorValueId.isNotEmpty) {
             selectedByAttrId[colorAttrId] = colorValueId;
-            developer.log('🎨 Added color to matching: attr_id=$colorAttrId, value_id=$colorValueId, value_name=${pd.selectedColor}');
+            debugPrint('🎨 Added color to matching: attr_id=$colorAttrId, value_id=$colorValueId, value_name=${pd.selectedColor}');
           } else {
-            developer.log('⚠️ Could not find color attribute_id or value_id for color: ${pd.selectedColor}');
+            debugPrint('⚠️ Could not find color attribute_id or value_id for color: ${pd.selectedColor}');
           }
         }
 
@@ -3631,7 +3662,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           
           if (materialAttrId != null && materialAttrId.isNotEmpty && materialValueId != null && materialValueId.isNotEmpty) {
             selectedByAttrId[materialAttrId] = materialValueId;
-            developer.log('🧵 Added material to matching: attr_id=$materialAttrId, value_id=$materialValueId, value_name=${pd.selectedMaterial}');
+            debugPrint('🧵 Added material to matching: attr_id=$materialAttrId, value_id=$materialValueId, value_name=${pd.selectedMaterial}');
           }
         }
 
@@ -3656,7 +3687,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           
           if (heightAttrId != null && heightAttrId.isNotEmpty && heightValueId != null && heightValueId.isNotEmpty) {
             selectedByAttrId[heightAttrId] = heightValueId;
-            developer.log('👠 Added heel height to matching: attr_id=$heightAttrId, value_id=$heightValueId, value_name=${pd.selectedHeelHeightCm}');
+            debugPrint('👠 Added heel height to matching: attr_id=$heightAttrId, value_id=$heightValueId, value_name=${pd.selectedHeelHeightCm}');
           }
         }
 
@@ -3669,12 +3700,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             final mapped = attrIdNameToId[attrId!]?[(valName.toLowerCase().trim())] ?? '';
             if (mapped.isNotEmpty) {
               selectedByAttrId[attrId] = mapped;
-              developer.log('🔧 Added ${opt.attributeName} to matching: attr_id=$attrId, value_id=$mapped, value_name=$valName');
+              debugPrint('🔧 Added ${opt.attributeName} to matching: attr_id=$attrId, value_id=$mapped, value_name=$valName');
             }
           }
         }
 
-        developer.log('🎯 Variant resolution (by ids) — ' + selectedByAttrId.entries.map((e) => 'attr_id=${e.key}:value_id=${e.value}').join(', '));
+        debugPrint('🎯 Variant resolution (by ids) — ' + selectedByAttrId.entries.map((e) => 'attr_id=${e.key}:value_id=${e.value}').join(', '));
 
         bool matchesAll(VariantCombination v) {
           // For each selected pair attr_id -> value_id there must be an attribute in the variant with same ids
@@ -3694,18 +3725,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         
         if (matchingVariants.length == 1) {
           final matched = matchingVariants.first;
-          developer.log('✅ Matched variantId=${matched.variantId} with attributes: '+
+          debugPrint('✅ Matched variantId=${matched.variantId} with attributes: '+
             matched.attributes.map((a) => '${a.attributeName}:${a.valueName}').join(', '));
           productIdToAdd = matched.variantId;
           targetVariant = matched;
         } else if (matchingVariants.length > 1) {
-          developer.log('⚠️ Multiple variants matched (${matchingVariants.length}). Using first match.');
+          debugPrint('⚠️ Multiple variants matched (${matchingVariants.length}). Using first match.');
           final matched = matchingVariants.first;
           productIdToAdd = matched.variantId;
           targetVariant = matched;
         } else {
           // No exact match by IDs - try matching by attribute names as fallback
-          developer.log('⚠️ No exact match by IDs. Trying fallback matching by attribute names...');
+          debugPrint('⚠️ No exact match by IDs. Trying fallback matching by attribute names...');
           final Map<String, String> selectedByAttributeName = {};
           
           if (pd.selectedSize.isNotEmpty) {
@@ -3750,11 +3781,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           
           if (nameMatchedVariants.length == 1) {
             final matched = nameMatchedVariants.first;
-            developer.log('✅ Matched by attribute names: variantId=${matched.variantId}');
+            debugPrint('✅ Matched by attribute names: variantId=${matched.variantId}');
             productIdToAdd = matched.variantId;
             targetVariant = matched;
           } else if (nameMatchedVariants.length > 1) {
-            developer.log('⚠️ Multiple variants matched by names (${nameMatchedVariants.length}). Using first match.');
+            debugPrint('⚠️ Multiple variants matched by names (${nameMatchedVariants.length}). Using first match.');
             final matched = nameMatchedVariants.first;
             productIdToAdd = matched.variantId;
             targetVariant = matched;
@@ -3766,30 +3797,30 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             );
             if (selectedSize.id.isNotEmpty) {
               productIdToAdd = selectedSize.id;
-              developer.log('⚠️ No match found. Falling back to sizeOption.variantId=${selectedSize.id} for size="${selectedSize.name}"');
+              debugPrint('⚠️ No match found. Falling back to sizeOption.variantId=${selectedSize.id} for size="${selectedSize.name}"');
               // Try to find variant by this ID
               try {
                 targetVariant = pd.variantCombinations.firstWhere(
                   (v) => v.variantId == productIdToAdd,
                 );
               } catch (_) {
-                developer.log('❌ Could not find variant with variantId=$productIdToAdd');
+                debugPrint('❌ Could not find variant with variantId=$productIdToAdd');
               }
             } else {
-              developer.log('❌ No matching variant found and no size variantId available, using productId=${productIdToAdd}');
+              debugPrint('❌ No matching variant found and no size variantId available, using productId=${productIdToAdd}');
               // Try to find variant by productId
               try {
                 targetVariant = pd.variantCombinations.firstWhere(
                   (v) => v.variantId == productIdToAdd,
                 );
               } catch (_) {
-                developer.log('❌ Could not find variant with variantId=$productIdToAdd');
+                debugPrint('❌ Could not find variant with variantId=$productIdToAdd');
               }
             }
           }
         }
       } catch (e) {
-        developer.log('⚠️ Error resolving variant ID: $e');
+        debugPrint('⚠️ Error resolving variant ID: $e');
       }
       
       // If we still don't have a target variant, try to find it by the resolved productIdToAdd
@@ -3798,23 +3829,23 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           targetVariant = pd.variantCombinations.firstWhere(
             (v) => v.variantId == productIdToAdd,
           );
-          developer.log('✅ Found target variant by productIdToAdd: ${targetVariant.variantId}');
+          debugPrint('✅ Found target variant by productIdToAdd: ${targetVariant.variantId}');
         } catch (_) {
-          developer.log('⚠️ Could not find variant with variantId=$productIdToAdd');
+          debugPrint('⚠️ Could not find variant with variantId=$productIdToAdd');
         }
       }
       
       // STEP 2: Validate stock on the TARGET variant (the one we're actually adding)
-      developer.log('🔍 Step 2: Validating stock for variantId=$productIdToAdd');
+      debugPrint('🔍 Step 2: Validating stock for variantId=$productIdToAdd');
       int quantityToAdd = currentState.quantity;
       bool quantityWasClamped = false;
       
       if (targetVariant != null) {
-        developer.log('📦 Target variant: variantId=${targetVariant.variantId}, inStock=${targetVariant.inStock}, quantityAvailable=${targetVariant.quantityAvailable}');
+        debugPrint('📦 Target variant: variantId=${targetVariant.variantId}, inStock=${targetVariant.inStock}, quantityAvailable=${targetVariant.quantityAvailable}');
         
         // Check inStock first
         if (!targetVariant.inStock) {
-          developer.log('❌ Variant is marked as out of stock');
+          debugPrint('❌ Variant is marked as out of stock');
           final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
           final msg = isArabic
               ? 'هذا المنتج غير متوفر حالياً في المخزون.'
@@ -3827,7 +3858,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         final quantityAvailable = targetVariant.quantityAvailable;
         if (quantityAvailable != null) {
           if (quantityAvailable <= 0) {
-            developer.log('❌ Variant quantityAvailable is 0 or negative');
+            debugPrint('❌ Variant quantityAvailable is 0 or negative');
             final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
             final msg = isArabic
                 ? 'هذا المنتج غير متوفر حالياً في المخزون.'
@@ -3846,9 +3877,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 (item) => item.product.id == variantIdToCheck,
               );
               existingCartQuantity = existingItem.quantity;
-              developer.log('📋 Found existing cart item: quantity=$existingCartQuantity');
+              debugPrint('📋 Found existing cart item: quantity=$existingCartQuantity');
             } catch (e) {
-              developer.log('ℹ️ Item not found in cart, using 0 for existing quantity');
+              debugPrint('ℹ️ Item not found in cart, using 0 for existing quantity');
             }
           }
           
@@ -3856,27 +3887,27 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           final maxAllowed = quantityAvailable.toInt();
           final available = maxAllowed - existingCartQuantity;
           
-          developer.log('🔢 Stock check: quantity=${currentState.quantity}, existingCart=$existingCartQuantity, maxAllowed=$maxAllowed, available=$available');
+          debugPrint('🔢 Stock check: quantity=${currentState.quantity}, existingCart=$existingCartQuantity, maxAllowed=$maxAllowed, available=$available');
           
           // If user tries to add more than available, clamp to available quantity
           if (currentState.quantity > available && available > 0) {
             quantityToAdd = available;
             quantityWasClamped = true;
-            developer.log('⚠️ Quantity clamped from ${currentState.quantity} to $quantityToAdd (available: $available)');
+            debugPrint('⚠️ Quantity clamped from ${currentState.quantity} to $quantityToAdd (available: $available)');
           }
         } else {
-          developer.log('⚠️ quantityAvailable is null, but inStock=true. Proceeding with stock check...');
+          debugPrint('⚠️ quantityAvailable is null, but inStock=true. Proceeding with stock check...');
         }
       } else {
-        developer.log('⚠️ Could not find target variant for stock validation. Proceeding anyway...');
+        debugPrint('⚠️ Could not find target variant for stock validation. Proceeding anyway...');
       }
       
       emit(currentState.copyWith(isAdding: true));
-      developer.log('⏳ Emitting loading state...');
+      debugPrint('⏳ Emitting loading state...');
       
-      developer.log('🚀 Calling addToCart use case...');
+      debugPrint('🚀 Calling addToCart use case...');
 
-      developer.log('📤 addToCart payload — productIdToAdd=$productIdToAdd, colorId=${event.colorId}, sizeId=${event.sizeId}, qty=$quantityToAdd');
+      debugPrint('📤 addToCart payload — productIdToAdd=$productIdToAdd, colorId=${event.colorId}, sizeId=${event.sizeId}, qty=$quantityToAdd');
       final result = await addToCart(AddToCartParams(
         productId: productIdToAdd,
         colorId: event.colorId,
@@ -3884,11 +3915,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         quantity: quantityToAdd,
       ));
       
-      developer.log('📦 addToCart result received: ${result.toString()}');
+      debugPrint('📦 addToCart result received: ${result.toString()}');
       
       result.fold(
         (failure) {
-          developer.log('❌ Add to cart failed: ${failure.message}');
+          debugPrint('❌ Add to cart failed: ${failure.message}');
           
           // Check if this is a stock-related error - if so, don't show error since we already clamped
           final lowerMessage = failure.message.toLowerCase();
@@ -3899,7 +3930,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           
           if (isStockError) {
             // For stock errors, we've already clamped, so just refresh cart and show success
-            developer.log('⚠️ Stock error from API (should not happen after clamping), refreshing cart state');
+            debugPrint('⚠️ Stock error from API (should not happen after clamping), refreshing cart state');
             cartBloc.add(const RefreshCart());
             
             // If quantity was clamped, show the clamped dialog, otherwise just close
@@ -3918,11 +3949,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         },
         (cartItem) {
-          developer.log('✅ Cart item added successfully via API: ${cartItem.toString()}');
+          debugPrint('✅ Cart item added successfully via API: ${cartItem.toString()}');
           
           // The item has already been added to the cart via the API in the repository
           // Just refresh the cart to get the updated state
-          developer.log('🔄 Refreshing cart to get updated state...');
+          debugPrint('🔄 Refreshing cart to get updated state...');
           cartBloc.add(const RefreshCart());
           
           // If quantity was clamped, emit a special state to show dialog
@@ -3935,11 +3966,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           } else {
             emit(currentState.copyWith(isAdding: false));
           }
-          developer.log('✅ Final state emitted: isAdding = false');
+          debugPrint('✅ Final state emitted: isAdding = false');
         },
       );
     } else {
-      developer.log('⚠️ State is not ProductDetailsLoaded: ${state.runtimeType}');
+      debugPrint('⚠️ State is not ProductDetailsLoaded: ${state.runtimeType}');
     }
   }
 
@@ -3954,7 +3985,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       // Find the currently selected variant
       final selectedVariant = _findSelectedVariant(pd);
       if (selectedVariant == null) {
-        developer.log('⚠️ Cannot find selected variant, allowing increment');
+        debugPrint('⚠️ Cannot find selected variant, allowing increment');
         final newQuantity = s.quantity + 1;
         emit(s.copyWith(quantity: newQuantity));
         return;
@@ -3963,7 +3994,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       // Get available quantity for this variant
       final quantityAvailable = selectedVariant.quantityAvailable ?? double.infinity;
       if (quantityAvailable == 0) {
-        developer.log('⚠️ Product is out of stock, cannot increment');
+        debugPrint('⚠️ Product is out of stock, cannot increment');
         return;
       }
       
@@ -3978,7 +4009,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           existingCartQuantity = existingItem.quantity;
         } catch (e) {
           // Item not found in cart, existingCartQuantity remains 0
-          developer.log('ℹ️ Item not found in cart, using 0 for existing quantity');
+          debugPrint('ℹ️ Item not found in cart, using 0 for existing quantity');
         }
       }
       
@@ -3988,13 +4019,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       // Always prevent incrementing if it would exceed available stock
       if (totalQuantity >= maxAllowed) {
-        developer.log('⚠️ Cannot increment: total quantity ($totalQuantity) would exceed available stock ($maxAllowed)');
+        debugPrint('⚠️ Cannot increment: total quantity ($totalQuantity) would exceed available stock ($maxAllowed)');
         // Don't emit error, just silently prevent the increment
         return;
       }
       
       final newQuantity = s.quantity + 1;
-      developer.log('➕ Incrementing quantity from ${s.quantity} to $newQuantity (available: $maxAllowed, in cart: $existingCartQuantity)');
+      debugPrint('➕ Incrementing quantity from ${s.quantity} to $newQuantity (available: $maxAllowed, in cart: $existingCartQuantity)');
       emit(s.copyWith(quantity: newQuantity));
     }
   }
@@ -4007,10 +4038,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       final s = state as ProductDetailsLoaded;
       if (s.quantity > 1) {
         final newQuantity = s.quantity - 1;
-        developer.log('➖ Decrementing quantity from ${s.quantity} to $newQuantity');
+        debugPrint('➖ Decrementing quantity from ${s.quantity} to $newQuantity');
         emit(s.copyWith(quantity: newQuantity));
       } else {
-        developer.log('⚠️ Cannot decrement quantity below 1 (current: ${s.quantity})');
+        debugPrint('⚠️ Cannot decrement quantity below 1 (current: ${s.quantity})');
       }
     }
   }

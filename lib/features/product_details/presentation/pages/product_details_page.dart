@@ -472,108 +472,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         '🖼 ProductDetailsPage: images currently used for this product: ${productDetails.images}');
   }
 
-  /// Build the list of images for the currently selected variant.
-  /// Uses `variantCombinations.variantId` + `variantImagesMap` to filter images.
+  /// Build the list of images from variantImagesMap using only the selected color.
+  /// Images update only when color changes; size/material/height do not change images.
+  /// Uses variant_id from the first variant matching selected color to get multiple images from response.
   void _updateVariantImagesForCurrentSelection(ProductDetails productDetails) {
-    String normalize(String s) => s.toLowerCase().trim();
-
     debugPrint(
       '🧪 _updateVariantImagesForCurrentSelection → variantImagesMap keys: ${productDetails.variantImagesMap.keys.toList()}',
     );
 
-    // 1) Find the currently selected variant using variantCombinations
-    VariantCombination? selectedVariant;
+    // Resolve variant id by selected color only (ignore size/material/height)
+    final variantId = productDetails.variantIdForImagesByColor;
 
-    for (final v in productDetails.variantCombinations) {
-      bool matches = true;
-
-      // Match color if selected
-      if (productDetails.selectedColor.isNotEmpty) {
-        final variantColor =
-            v.getAttributeValue('COLOR NAME') ??
-            v.getAttributeValue('COLOR') ??
-            v.getAttributeValue('اللون');
-        if (variantColor == null ||
-            normalize(variantColor) != normalize(productDetails.selectedColor)) {
-          matches = false;
-        }
-      }
-
-      // Match size / primary label if selected
-      if (matches && productDetails.selectedSize.isNotEmpty) {
-        final variantSize =
-            v.getAttributeValue(productDetails.primaryVariantLabel) ??
-            v.getAttributeValue('SIZE');
-        if (variantSize == null ||
-            normalize(variantSize) != normalize(productDetails.selectedSize)) {
-          matches = false;
-        }
-      }
-
-      // Match material if selected
-      if (matches &&
-          productDetails.selectedMaterial != null &&
-          productDetails.selectedMaterial!.isNotEmpty) {
-        final variantMaterial =
-            v.getAttributeValue('MATERIALS') ??
-            v.getAttributeValue('MATERIAL') ??
-            v.getAttributeValue('MATERIAL NAME');
-        if (variantMaterial == null ||
-            normalize(variantMaterial) !=
-                normalize(productDetails.selectedMaterial!)) {
-          matches = false;
-        }
-      }
-
-      if (matches) {
-        selectedVariant = v;
-        break;
-      }
-    }
-
-    // 1b) If no variant matched via attributes, fall back to matching by productId
-    // This is especially useful when opening a specific variant directly by ID.
-    if (selectedVariant == null) {
-      try {
-        selectedVariant = productDetails.variantCombinations.firstWhere(
-          (v) => v.variantId.toString() == widget.productId.toString(),
-        );
-        debugPrint(
-          '🧪 ProductDetailsPage: Fallback matched variant by productId=${widget.productId} → variantId=${selectedVariant.variantId}',
-        );
-      } catch (_) {
-        // No direct match by productId; we'll fall back to default images below.
-      }
-    }
-
-    // 2) Use variantId to pick images from variantImagesMap
-    if (selectedVariant != null && selectedVariant.variantId.isNotEmpty) {
-      final variantId = selectedVariant.variantId;
-
-      // Use the shared helper on ProductDetails to pick images for this variant
+    if (variantId != null && variantId.isNotEmpty) {
+      // Get all images for this variant from variantImagesMap (multiple images per variant_id)
       _variantImageUrls = productDetails.imagesForVariant(variantId);
 
       debugPrint(
         '🧪 ProductDetailsPage._updateVariantImagesForCurrentSelection → '
-        'selectedVariantId=$variantId, '
-        'variantImagesCount=${_variantImageUrls.length}, '
-        'variantImages=$_variantImageUrls',
+        'variantIdByColor=$variantId, count=${_variantImageUrls.length}, images=$_variantImageUrls',
       );
-
-      // Keep track of the "active" variant id so later debug / checks
-      // (and any logic relying on _matchedVariantIds) use the currently
-      // selected variant, not only the initial productId.
       _matchedVariantIds = [variantId];
-
-      debugPrint(
-          '🧪 ProductDetailsPage: using images for variantId=$variantId → $_variantImageUrls');
-      debugPrint(
-          '🧪 ProductDetailsPage: selection → color=${productDetails.selectedColor}, size=${productDetails.selectedSize}, material=${productDetails.selectedMaterial}');
     } else {
-      // No matching variant found – fall back to existing images
+      // No variant for this color – use product-level images
       _variantImageUrls = productDetails.images;
       debugPrint(
-          '⚠️ ProductDetailsPage: no matching VariantCombination; using default images');
+        '⚠️ ProductDetailsPage: no variant for color "${productDetails.selectedColor}"; using product images',
+      );
     }
   }
 

@@ -724,6 +724,9 @@ Widget _buildFullWidthAttributeButtons({
             attrNameLower == 'size' ||
             attrNameLower == productDetails.primaryVariantLabel.toLowerCase() ||
             attrNameLower.contains('size');
+        // HEIGHT: for now always treat as enabled (height button disabling commented out in BLoC)
+        final bool isHeightAttribute =
+            attrNameLower == 'height' || attrNameLower.contains('heel');
 
         // Selection rule:
         // - For SIZE: rely ONLY on productDetails.selectedSize (BLoC source of truth)
@@ -735,20 +738,19 @@ Widget _buildFullWidthAttributeButtons({
 
         // Interaction rule:
         // - Unclickable when: already selected, only one option, only one available, or unavailable
-        // - Otherwise: size tappable (unless selected), others only when available
+        // - Height (for now): always tappable when not selected (disabling commented out in BLoC)
+        // - Size: tappable when not selected and not single-option; others only when available
         final bool isTapEnabled = !isSelected &&
-            !shouldBeUnclickable &&
-            (isSizeAttribute || (!isSizeAttribute && val.isAvailable));
+            (isHeightAttribute || (!shouldBeUnclickable && (isSizeAttribute || (!isSizeAttribute && !isHeightAttribute && val.isAvailable))));
 
         // Grey disabled look for: single-option, only-one-available, or unavailable.
-        // When this value is selected, show selected style (orange) so user sees the choice
-        // even if the option is marked unavailable (e.g. 2.8 from API selected_variant).
+        // Height: do not show disabled (height button enabling - disabling method commented out in BLoC)
         final bool showDisabledVisual = !isSelected &&
             (isSingleOptionAttribute ||
                 onlyOneAvailableAttribute ||
-                (!val.isAvailable && !isSizeAttribute));
+                (!val.isAvailable && !isSizeAttribute && !isHeightAttribute));
         final bool isEnabledChoice = !showDisabledVisual &&
-            (isSizeAttribute || val.isAvailable == true);
+            (isSizeAttribute || isHeightAttribute || val.isAvailable == true);
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
