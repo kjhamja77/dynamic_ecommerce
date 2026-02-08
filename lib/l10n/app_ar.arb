@@ -554,7 +554,13 @@
   "@onboardingError": {
     "description": "Error message for onboarding loading failure"
   },
-  
+  "onboardingTitle1": "مرحباً بك",
+  "onboardingDescription1": "اكتشف آلاف المنتجات والعروض الحصرية وتجربة تسوق سلسة — كل ذلك في مكان واحد.",
+  "onboardingTitle2": "تسوق بذكاء",
+  "onboardingDescription2": "احصل على توصيات شخصية واعثر على ما تبحث عنه بالضبط.",
+  "onboardingTitle3": "توصيل سريع",
+  "onboardingDescription3": "استمتع بتوصيل سريع وإرجاع سهل. رحلة التسوق تبدأ من هنا!",
+
   "done": "تم",
   "@done": {
     "description": "Done button text"

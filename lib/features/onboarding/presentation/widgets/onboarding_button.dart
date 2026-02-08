@@ -8,6 +8,8 @@ class OnboardingButton extends StatelessWidget {
   final bool isPrimary;
   final bool isLoading;
   final IconData? icon;
+  /// When true, icon is shown after the text (e.g. Next in RTL: "التالي ←").
+  final bool iconAtEnd;
 
   const OnboardingButton({
     super.key,
@@ -16,13 +18,15 @@ class OnboardingButton extends StatelessWidget {
     this.isPrimary = true,
     this.isLoading = false,
     this.icon,
+    this.iconAtEnd = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final double iconSize = ResponsiveConstants.smIconSize;
     return SizedBox(
       width: double.infinity,
-      height: ResponsiveConstants.lgButtonHeight,
+      height: ResponsiveConstants.mdButtonHeight,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -36,8 +40,8 @@ class OnboardingButton extends StatelessWidget {
         ),
         child: isLoading
             ? SizedBox(
-                width: ResponsiveConstants.mdIconSize,
-                height: ResponsiveConstants.mdIconSize,
+                width: iconSize,
+                height: iconSize,
                 child: CircularProgressIndicator(
                   strokeWidth: ResponsiveConstants.loadingIndicatorStrokeWidth,
                   valueColor: AlwaysStoppedAnimation<Color>(
@@ -49,19 +53,9 @@ class OnboardingButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (icon != null) ...[
-                    if (text.isNotEmpty) ...[
-                      Icon(
-                        icon,
-                        size: ResponsiveConstants.mdIconSize,
-                      ),
-                      SizedBox(width: ResponsiveConstants.smSpacing),
-                    ] else ...[
-                      Icon(
-                        icon,
-                        size: ResponsiveConstants.mdIconSize,
-                      ),
-                    ],
+                  if (!iconAtEnd && icon != null) ...[
+                    Icon(icon, size: iconSize),
+                    if (text.isNotEmpty) SizedBox(width: ResponsiveConstants.smSpacing),
                   ],
                   if (text.isNotEmpty)
                     Flexible(
@@ -74,6 +68,10 @@ class OnboardingButton extends StatelessWidget {
                         textAlign: TextAlign.center,
                       ),
                     ),
+                  if (iconAtEnd && icon != null) ...[
+                    if (text.isNotEmpty) SizedBox(width: ResponsiveConstants.smSpacing),
+                    Icon(icon, size: iconSize),
+                  ],
                 ],
               ),
       ),

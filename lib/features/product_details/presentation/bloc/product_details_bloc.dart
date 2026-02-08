@@ -92,6 +92,42 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     return false;
   }
 
+  /// Returns true when variant attribute value matches the selected value.
+  /// For HEIGHT (and other numeric attributes), compares numerically so "4" and "4.0" match.
+  bool _attributeValuesMatch(String attrKey, String? v, String entryValue, String Function(String) normalize) {
+    if (v == null || v.isEmpty) return false;
+    final keyNorm = _norm(attrKey);
+    if (keyNorm == 'height') {
+      final a = double.tryParse(v.trim());
+      final b = double.tryParse(entryValue.trim());
+      if (a != null && b != null) return (a - b).abs() < 0.01;
+    }
+    return normalize(v) == normalize(entryValue);
+  }
+
+  /// Debug: log current selection by attribute (id + name) and matched variant (id, qty, attributes by id).
+  void _logVariantSelectionDebug(ProductDetails pd, VariantCombination variant, String source) {
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('📋 [$source] Selection by attribute (check by ID, not name):');
+      for (final opt in pd.variantAttributeOptions) {
+        if (opt.selectedValue.isEmpty) continue;
+        final selectedVal = opt.values.where(
+          (v) => v.name.toLowerCase().trim() == opt.selectedValue.toLowerCase().trim(),
+        ).toList();
+        final valueId = selectedVal.isNotEmpty ? selectedVal.first.id : '?';
+        buffer.writeln('   ${opt.attributeName}: value_id=$valueId, value_name="${opt.selectedValue}"');
+      }
+      buffer.writeln('   → Matched variant: variantId=${variant.variantId}, quantityAvailable=${variant.quantityAvailable}, inStock=${variant.inStock}');
+      buffer.write('   → Variant attributes (by id): ');
+      final attrParts = variant.attributes.map((a) => 'attr_id=${a.attributeId ?? "?"}:value_id=${a.valueId ?? "?"}:value_name="${a.valueName}"').toList();
+      buffer.writeln(attrParts.join('; '));
+      developer.log(buffer.toString(), name: 'ProductDetails/VariantDebug');
+    } catch (e) {
+      developer.log('⚠️ _logVariantSelectionDebug error: $e', name: 'ProductDetails/VariantDebug');
+    }
+  }
+
   /// Attribute value lookup from a variant combination.
   /// Uses the product's variant attribute options to resolve the API attribute name
   /// (e.g. MATERIAL NAME → MATERIALS), so any attribute (material, height, size, etc.)
@@ -481,6 +517,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     }
   }
 
+  /// Handles a tap on any attribute option (material, height, brand, or size when
+  /// dispatched as FilterVariantsByAttribute). Recomputes availability, syncs selection
+  /// to product, then refreshes variant and stock so the badge updates on every attribute click.
   Future<void> _onFilterVariantsByAttribute(
     FilterVariantsByAttributeEvent event,
     Emitter<ProductDetailsState> emit,
@@ -1214,58 +1253,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       inStock: newInStock,
     );
     
-    // Step 7: sync quantity & stock with the matched variant (if any)
-    int nextQuantity = blocState.quantity;
-    final VariantCombination? selectedVariant = _findSelectedVariant(updatedProduct);
+    // Step 7: Refresh variant and stock for the current selection (runs on every attribute tap:
+    // size, color, material, height, or any other attribute).
+    final result = _applySelectedVariantStock(updatedProduct, blocState.quantity);
+    updatedProduct = result.product;
+    final nextQuantity = result.quantity;
+    final selectedVariant = _findSelectedVariant(updatedProduct);
     if (selectedVariant != null) {
-      final double? quantityAvailable = selectedVariant.quantityAvailable;
-      bool variantInStock = selectedVariant.inStock;
-      
-      if (quantityAvailable != null) {
-        // Check if there's already an item in cart with this variant ID
-        int existingCartQuantity = 0;
-        final variantIdToCheck = selectedVariant.variantId;
-        if (cartBloc.state is CartLoaded) {
-          final cartState = cartBloc.state as CartLoaded;
-          try {
-            final existingItem = cartState.cartItems.firstWhere(
-              (item) => item.product.id == variantIdToCheck,
-            );
-            existingCartQuantity = existingItem.quantity;
-          } catch (e) {
-            // Item not found in cart, existingCartQuantity remains 0
-          }
-        }
-        
-        final maxAllowed = quantityAvailable.toInt();
-        final available = maxAllowed - existingCartQuantity;
-        
-        if (maxAllowed <= 0 || available <= 0) {
-          // No stock for this combination
-          variantInStock = false;
-          nextQuantity = 1;
-        } else {
-          // Clamp to available quantity (accounting for cart items)
-          if (nextQuantity > available) {
-            nextQuantity = available;
-          }
-          if (nextQuantity <= 0) {
-            nextQuantity = 1;
-          }
-        }
-        
-        developer.log('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
-      }
-      
-      updatedProduct = updatedProduct.copyWith(
-        inStock: variantInStock,
-        selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
+      _logVariantSelectionDebug(updatedProduct, selectedVariant, 'FilterVariantsByAttribute');
+      developer.log(
+        '🔍 Filter variant (any attribute): variantId=${selectedVariant.variantId}, '
+        'quantityAvailable=${updatedProduct.selectedVariantQuantityAvailable}, inStock=${updatedProduct.inStock}, adjustedQty=$nextQuantity',
       );
-      if (updatedProduct.variantImagesMap.isNotEmpty) {
-        updatedProduct = updatedProduct.withImagesForVariant(selectedVariant.variantId);
-      }
-    } else {
-      updatedProduct = updatedProduct.copyWith(selectedVariantQuantityAvailable: null);
     }
 
     emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
@@ -2888,6 +2887,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // This ensures we correctly reflect stock for the exact color+size combination
         // Use matched variant as single source of truth (same variant used for images)
         finalInStock = variantInStock;
+        _logVariantSelectionDebug(updatedProduct, selectedVariant, 'SelectColor');
         developer.log(
           '📦 _onSelectColor → variantId=${selectedVariant.variantId}, inStock=$variantInStock, qty=${selectedVariant.quantityAvailable}',
           name: 'ProductDetails/Stock',
@@ -2909,8 +2909,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       final int? qtyForBadge = selectedVariant?.quantityAvailable != null
           ? selectedVariant!.quantityAvailable!.toInt()
           : null;
+      bool stockForBadge = finalInStock;
+      if (qtyForBadge != null && qtyForBadge <= 0) {
+        stockForBadge = false;
+      }
       updatedProduct = updatedProduct.copyWith(
-        inStock: finalInStock,
+        inStock: stockForBadge,
         selectedVariantQuantityAvailable: qtyForBadge,
       );
 
@@ -3311,6 +3315,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         final int? qtyForBadge = selectedVariant.quantityAvailable != null
             ? selectedVariant.quantityAvailable!.toInt()
             : null;
+        if (qtyForBadge != null && qtyForBadge <= 0) {
+          inStock = false;
+        }
+        _logVariantSelectionDebug(productToEmit, selectedVariant, 'SelectSize');
         productToEmit = productToEmit.copyWith(
           inStock: inStock,
           selectedVariantQuantityAvailable: qtyForBadge,
@@ -3371,6 +3379,67 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       ));
       return;
     }
+  }
+
+  /// Applies the currently selected variant's stock (and images) to [pd].
+  /// Call this after any attribute change (size, color, material, height, or other)
+  /// so stock badge and add-to-cart stay in sync for every tap.
+  /// Returns updated product and quantity to use.
+  ({ProductDetails product, int quantity}) _applySelectedVariantStock(
+    ProductDetails pd,
+    int currentQuantity,
+  ) {
+    final VariantCombination? selectedVariant = _findSelectedVariant(pd);
+    if (selectedVariant == null) {
+      return (product: pd.copyWith(selectedVariantQuantityAvailable: null), quantity: currentQuantity);
+    }
+    final double? quantityAvailable = selectedVariant.quantityAvailable;
+    bool variantInStock = selectedVariant.inStock;
+    int? qtyForProduct = quantityAvailable != null ? quantityAvailable.toInt() : null;
+    int nextQuantity = currentQuantity;
+    if (quantityAvailable != null) {
+      if (quantityAvailable <= 0) {
+        variantInStock = false;
+        qtyForProduct = 0;
+        nextQuantity = 1;
+      } else {
+        int existingCartQuantity = 0;
+        if (cartBloc.state is CartLoaded) {
+          final cartState = cartBloc.state as CartLoaded;
+          try {
+            final existingItem = cartState.cartItems.firstWhere(
+              (item) => item.product.id == selectedVariant.variantId,
+            );
+            existingCartQuantity = existingItem.quantity;
+          } catch (_) {}
+        }
+        final maxAllowed = quantityAvailable.toInt();
+        final available = maxAllowed - existingCartQuantity;
+        if (available <= 0) {
+          variantInStock = false;
+          nextQuantity = 1;
+        } else {
+          if (nextQuantity > available) nextQuantity = available;
+          if (nextQuantity <= 0) nextQuantity = 1;
+        }
+      }
+    }
+    final heightStr = pd.selectedHeelHeightCm?.toStringAsFixed(1) ?? '—';
+    debugPrint(
+      '### size: ${pd.selectedSize.isNotEmpty ? pd.selectedSize : "—"}, '
+      'color: ${pd.selectedColor.isNotEmpty ? pd.selectedColor : "—"}, '
+      'height: $heightStr, '
+      'material: ${pd.selectedMaterial ?? "—"}, '
+      'stock: ${qtyForProduct ?? "—"}',
+    );
+    ProductDetails updated = pd.copyWith(
+      inStock: variantInStock,
+      selectedVariantQuantityAvailable: qtyForProduct,
+    );
+    if (updated.variantImagesMap.isNotEmpty) {
+      updated = updated.withImagesForVariant(selectedVariant.variantId);
+    }
+    return (product: updated, quantity: nextQuantity);
   }
 
   /// Helper method to find the currently selected variant based on product details
@@ -3463,13 +3532,13 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       // Find matching variant - must match all selected attributes.
       // Use _getComboValueForAttribute so we match regardless of API attribute names.
-      // For color, use bilingual match (Arabic displayName <-> English variant value).
+      // For color, use bilingual match. For HEIGHT, match numerically so "4" and "4.0" match.
       final matching = pd.variantCombinations.where((combo) {
         for (final entry in selectedByAttribute.entries) {
           final v = _getComboValueForAttribute(pd, combo, entry.key);
           final bool match = _isColorAttributeKey(entry.key)
               ? _colorValuesMatch(pd, v, entry.value)
-              : (v != null && normalize(v) == normalize(entry.value));
+              : _attributeValuesMatch(entry.key, v, entry.value, normalize);
           if (!match) return false;
         }
         return true;
@@ -3478,7 +3547,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       if (matching.length == 1) {
         return matching.first;
       } else if (matching.length > 1) {
-        // If multiple matches, prefer one with highest available stock
+        // If multiple matches, prefer the variant that matches the page product id (pd.id)
+        // so we show the correct stock for the variant the user is viewing (e.g. 0 = Out of stock).
+        final productIdStr = pd.id.toString();
+        VariantCombination? preferred;
+        try {
+          preferred = matching.firstWhere((m) => m.variantId == productIdStr);
+        } catch (_) {}
+        if (preferred != null) {
+          developer.log('🔍 Multiple variants matched, using variant matching product id: variantId=${preferred.variantId}, quantityAvailable=${preferred.quantityAvailable}');
+          return preferred;
+        }
+        // Fallback: prefer one with highest available stock (e.g. when pd.id is template id)
         matching.sort((a, b) {
           final qtyA = a.quantityAvailable ?? 0;
           final qtyB = b.quantityAvailable ?? 0;
@@ -3501,6 +3581,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }).toList();
         
         if (partialMatch.isNotEmpty) {
+          final productIdStr = pd.id.toString();
+          VariantCombination? preferred;
+          try {
+            preferred = partialMatch.firstWhere((m) => m.variantId == productIdStr);
+          } catch (_) {}
+          if (preferred != null) {
+            developer.log('🔍 Partial match found, using variant matching product id: variantId=${preferred.variantId}, quantityAvailable=${preferred.quantityAvailable}');
+            return preferred;
+          }
           // Sort by highest stock when multiple partial matches
           partialMatch.sort((a, b) {
             final qtyA = a.quantityAvailable ?? 0;

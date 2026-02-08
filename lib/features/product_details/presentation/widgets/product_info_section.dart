@@ -838,10 +838,26 @@ class _StockBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Use BLoC-computed inStock and selectedVariantQuantityAvailable (single source of truth)
+    // When quantity is 0, show Out of stock (not Low stock)
     bool inStock = productDetails.inStock;
+    final int? q = productDetails.selectedVariantQuantityAvailable;
+    if (q != null && q <= 0) {
+      inStock = false;
+    }
+    // Fallback: when bloc didn't set quantity, if the variant matching this product id has 0 stock, show Out of stock
+    if (q == null && productDetails.variantCombinations.isNotEmpty && productDetails.id.isNotEmpty) {
+      try {
+        final variantForProduct = productDetails.variantCombinations.firstWhere(
+          (c) => c.variantId == productDetails.id,
+        );
+        if ((variantForProduct.quantityAvailable != null && variantForProduct.quantityAvailable! <= 0) ||
+            !variantForProduct.inStock) {
+          inStock = false;
+        }
+      } catch (_) {}
+    }
     bool low = false;
-    if (productDetails.selectedVariantQuantityAvailable != null) {
-      final q = productDetails.selectedVariantQuantityAvailable!;
+    if (q != null) {
       low = q > 0 && q <= 5;
     } else if (productDetails.variantCombinations.isNotEmpty) {
       // Fallback: resolve variant for low stock when bloc didn't set quantity

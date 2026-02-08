@@ -8,13 +8,45 @@ import '../../../../core/constants/app_constants.dart';
 
 class OnboardingContent extends StatelessWidget {
   final OnboardingPage page;
+  final int pageIndex;
   final bool isLastPage;
 
   const OnboardingContent({
     super.key,
     required this.page,
+    required this.pageIndex,
     required this.isLastPage,
   });
+
+  String _title(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    if (locale.languageCode == 'ar' && pageIndex >= 0 && pageIndex <= 2) {
+      switch (pageIndex) {
+        case 0:
+          return AppLocalizations.of(context)!.onboardingTitle1;
+        case 1:
+          return AppLocalizations.of(context)!.onboardingTitle2;
+        case 2:
+          return AppLocalizations.of(context)!.onboardingTitle3;
+      }
+    }
+    return page.name;
+  }
+
+  String _description(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    if (locale.languageCode == 'ar' && pageIndex >= 0 && pageIndex <= 2) {
+      switch (pageIndex) {
+        case 0:
+          return AppLocalizations.of(context)!.onboardingDescription1;
+        case 1:
+          return AppLocalizations.of(context)!.onboardingDescription2;
+        case 2:
+          return AppLocalizations.of(context)!.onboardingDescription3;
+      }
+    }
+    return page.description ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +73,12 @@ class OnboardingContent extends StatelessWidget {
 
           SizedBox(height: ResponsiveConstants.xlSpacing),
 
-          // Text Content Section – no ellipsis on title, text takes the space it needs
+          // Text Content Section – use localized title/description when app is in Arabic
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                page.name,
+                _title(context),
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.headlineFontSize,
                   fontWeight: FontWeight.w700,
@@ -56,7 +88,7 @@ class OnboardingContent extends StatelessWidget {
               ),
               SizedBox(height: ResponsiveConstants.mdSpacing),
               Text(
-                page.description ?? '',
+                _description(context),
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.lgFontSize,
                   color: Colors.grey.shade600,

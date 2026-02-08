@@ -561,13 +561,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       debugPrint(
           '🧪 ProductDetailsPage: using images for variantId=$variantId → $_variantImageUrls');
       debugPrint(
-          '🧪 ProductDetailsPage: selection → color=${productDetails.selectedColor}, size=${productDetails.selectedSize}, material=${productDetails.selectedMaterial}');
+          '🧪 ProductDetailsPage: selection → color=${productDetails.selectedColor}, size=${productDetails.selectedSize}, material=${productDetails.selectedMaterial}, height=${productDetails.selectedHeelHeightCm}');
     } else {
       // No matching variant found – fall back to existing images
       _variantImageUrls = productDetails.images;
       debugPrint(
           '⚠️ ProductDetailsPage: no matching VariantCombination; using default images');
     }
+    // Always log stock for the currently selected variant (from BLoC state)
+    debugPrint(
+        '📦 ProductDetailsPage: variant stock → inStock=${productDetails.inStock}, quantityAvailable=${productDetails.selectedVariantQuantityAvailable}');
   }
 
   bool _isProductInStock(ProductDetails productDetails) {

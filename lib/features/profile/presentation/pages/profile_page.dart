@@ -30,6 +30,11 @@ import '../../../../features/addresses/addresses.dart' as Addresses;
 import '../../../settings/presentation/pages/notifications_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../settings/presentation/bloc/settings_event.dart';
+import '../../../settings/presentation/bloc/settings_state.dart';
+import '../../../settings/presentation/widgets/language_selector.dart';
+import '../../../settings/domain/entities/language.dart';
+import '../../../../core/services/app_localization_service.dart';
 import '../../../auth/presentation/bloc/biometric_bloc.dart';
 import '../../../auth/presentation/bloc/biometric_event.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -40,6 +45,11 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/navigation/navigation_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../../home/presentation/bloc/home_bloc.dart';
+import '../../../home/presentation/bloc/welcome_bloc.dart';
+import '../../../search/presentation/bloc/search_bloc.dart';
+import '../../../favorites/presentation/bloc/favorites_bloc.dart';
+import '../../../cart/presentation/bloc/cart_bloc.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -91,6 +101,89 @@ class _ProfilePageState extends State<ProfilePage>
         });
       }
     } catch (_) {}
+  }
+
+  void _showGuestLanguageSheet(BuildContext context) {
+    final localizationService = AppLocalizationService();
+    // Build providers defensively: blocs may not be in Profile tab's ancestor tree.
+    final providers = <BlocProvider<dynamic>>[
+      BlocProvider<SettingsBloc>(
+        create: (_) => di.sl<SettingsBloc>()..add(LoadSettings()),
+      ),
+    ];
+    void addBlocIfPresent<T extends BlocBase<dynamic>>(T? value) {
+      if (value != null) providers.add(BlocProvider<T>.value(value: value));
+    }
+    try {
+      addBlocIfPresent(context.read<HomeBloc>());
+    } catch (_) {}
+    try {
+      addBlocIfPresent(context.read<WelcomeBloc>());
+    } catch (_) {}
+    try {
+      addBlocIfPresent(context.read<SearchBloc>());
+    } catch (_) {}
+    try {
+      addBlocIfPresent(context.read<FavoritesBloc>());
+    } catch (_) {}
+    try {
+      addBlocIfPresent(context.read<ProfileBloc>());
+    } catch (_) {}
+    try {
+      addBlocIfPresent(context.read<CartBloc>());
+    } catch (_) {}
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => MultiBlocProvider(
+        providers: providers,
+        child: BlocBuilder<SettingsBloc, SettingsState>(
+          builder: (ctx, state) {
+            final currentLang = state is SettingsLoaded
+                ? state.settings.language
+                : Language.supportedLanguages.firstWhere(
+                    (l) => l.code.code == localizationService.currentLocale.languageCode,
+                    orElse: () => Language.defaultLanguage,
+                  );
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                    ResponsiveConstants.xxlPadding +
+                    ResponsiveConstants.lgPadding,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    child: Text(
+                      AppLocalizations.of(ctx)!.languageRegion,
+                      style: AppFonts.getTextStyle(
+                        fontSize: ResponsiveConstants.lgFontSize,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(ctx).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: LanguageSelector(
+                        currentLanguage: currentLang,
+                        onLanguageChanged: () {
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -202,6 +295,22 @@ class _ProfilePageState extends State<ProfilePage>
                               ),
                               child: Text(AppLocalizations.of(context)!.signIn,
                                 style: AppFonts.getTextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: ResponsiveConstants.smSpacing),
+                          TextButton.icon(
+                            onPressed: () => _showGuestLanguageSheet(context),
+                            icon: Icon(
+                              Icons.language,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            label: Text(
+                              AppLocalizations.of(context)!.languageRegion,
+                              style: AppFonts.getTextStyle(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
