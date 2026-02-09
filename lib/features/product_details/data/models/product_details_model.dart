@@ -1019,13 +1019,16 @@ class ProductDetailsModel extends ProductDetails {
             : (quantityAvailable is String 
                 ? double.tryParse(quantityAvailable) ?? 0.0 
                 : 0.0);
-        final inStock = (mv['in_stock'] ?? false) as bool || quantityAvailableDouble > 0;
+        // When quantity is 0, treat as out of stock; store 0 so bloc can show "Out of stock" not "Low stock"
+        final inStock = (mv['in_stock'] ?? false) as bool && quantityAvailableDouble > 0;
+        final bool hasQtyField = quantityAvailable != null;
+        final double? quantityAvailableToStore = hasQtyField ? quantityAvailableDouble : null;
         
         return VariantCombination(
           variantId: variantIdStr,
           inStock: inStock,
           attributes: attrs,
-          quantityAvailable: quantityAvailableDouble > 0 ? quantityAvailableDouble : null,
+          quantityAvailable: quantityAvailableToStore,
         );
       }).toList(),
       primaryVariantLabel: primaryVariantLabel.isNotEmpty ? primaryVariantLabel : 'Size',

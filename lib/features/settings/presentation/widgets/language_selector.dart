@@ -99,13 +99,20 @@ class LanguageSelector extends StatelessWidget {
                         // This ensures all API-driven content is reloaded with the updated Accept-Language header
                         if (context.mounted) {
                           // Reload home pages and featured products
-                          final homeBloc = context.read<HomeBloc>();
-                          homeBloc.add(const LoadPages(1)); // userId 1 (same as DynamicHomeTabWidget)
-                          homeBloc.add(LoadFeaturedProducts());
+                          try {
+                            final homeBloc = context.read<HomeBloc>();
+                            homeBloc.add(const LoadPages(1)); // userId 1 (same as DynamicHomeTabWidget)
+                            homeBloc.add(LoadFeaturedProducts());
+                          } catch (e) {
+                            debugPrint('⚠️ LanguageSelector: Error reloading HomeBloc: $e');
+                          }
 
                           // Reload rotating welcome texts
-                          final welcomeBloc = context.read<WelcomeBloc>();
-                          welcomeBloc.add(LoadWelcomeTexts());
+                          try {
+                            context.read<WelcomeBloc>().add(LoadWelcomeTexts());
+                          } catch (e) {
+                            debugPrint('⚠️ LanguageSelector: Error reloading WelcomeBloc: $e');
+                          }
 
                           // Reload search data (categories and tabs)
                           try {

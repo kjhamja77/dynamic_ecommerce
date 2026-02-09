@@ -746,6 +746,42 @@ abstract class AppLocalizations {
   /// **'خطأ في تحميل التعريف'**
   String get onboardingError;
 
+  /// No description provided for @onboardingTitle1.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرحباً بك'**
+  String get onboardingTitle1;
+
+  /// No description provided for @onboardingDescription1.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتشف آلاف المنتجات والعروض الحصرية وتجربة تسوق سلسة — كل ذلك في مكان واحد.'**
+  String get onboardingDescription1;
+
+  /// No description provided for @onboardingTitle2.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسوق بذكاء'**
+  String get onboardingTitle2;
+
+  /// No description provided for @onboardingDescription2.
+  ///
+  /// In ar, this message translates to:
+  /// **'احصل على توصيات شخصية واعثر على ما تبحث عنه بالضبط.'**
+  String get onboardingDescription2;
+
+  /// No description provided for @onboardingTitle3.
+  ///
+  /// In ar, this message translates to:
+  /// **'توصيل سريع'**
+  String get onboardingTitle3;
+
+  /// No description provided for @onboardingDescription3.
+  ///
+  /// In ar, this message translates to:
+  /// **'استمتع بتوصيل سريع وإرجاع سهل. رحلة التسوق تبدأ من هنا!'**
+  String get onboardingDescription3;
+
   /// Done button text
   ///
   /// In ar, this message translates to:

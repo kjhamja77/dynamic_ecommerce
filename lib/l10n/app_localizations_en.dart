@@ -337,6 +337,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingError => 'Error loading onboarding';
 
   @override
+  String get onboardingTitle1 => 'Welcome';
+
+  @override
+  String get onboardingDescription1 =>
+      'Discover thousands of products, exclusive deals, and a seamless shopping experience — all in one place.';
+
+  @override
+  String get onboardingTitle2 => 'Shop Smart';
+
+  @override
+  String get onboardingDescription2 =>
+      'Get personalized recommendations and find exactly what you\'re looking for.';
+
+  @override
+  String get onboardingTitle3 => 'Fast Delivery';
+
+  @override
+  String get onboardingDescription3 =>
+      'Enjoy quick delivery and easy returns. Your shopping journey starts here!';
+
+  @override
   String get done => 'Done';
 
   @override

@@ -336,6 +336,27 @@ class AppLocalizationsAr extends AppLocalizations {
   String get onboardingError => 'خطأ في تحميل التعريف';
 
   @override
+  String get onboardingTitle1 => 'مرحباً بك';
+
+  @override
+  String get onboardingDescription1 =>
+      'اكتشف آلاف المنتجات والعروض الحصرية وتجربة تسوق سلسة — كل ذلك في مكان واحد.';
+
+  @override
+  String get onboardingTitle2 => 'تسوق بذكاء';
+
+  @override
+  String get onboardingDescription2 =>
+      'احصل على توصيات شخصية واعثر على ما تبحث عنه بالضبط.';
+
+  @override
+  String get onboardingTitle3 => 'توصيل سريع';
+
+  @override
+  String get onboardingDescription3 =>
+      'استمتع بتوصيل سريع وإرجاع سهل. رحلة التسوق تبدأ من هنا!';
+
+  @override
   String get done => 'تم';
 
   @override

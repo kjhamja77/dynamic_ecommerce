@@ -161,6 +161,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         itemBuilder: (context, index) {
                           return OnboardingContent(
                             page: state.pages[index],
+                            pageIndex: index,
                             isLastPage: index == state.pages.length - 1,
                           );
                         },
@@ -199,7 +200,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               onPressed: state.isLastPage
                                   ? _completeOnboarding
                                   : () => _nextPage(state.currentPageIndex, state.pages.length),
-                              icon: state.isLastPage ? Icons.arrow_forward : Icons.arrow_forward,
+                              icon: Icons.arrow_forward,
+                              iconAtEnd: true,
                             ),
                           ),
                         ],
