@@ -165,7 +165,103 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
 
     return null;
   }
-  
+
+  /// Same resolution as _getComboValueForAttribute but returns valueId (for matching when value_name is Arabic).
+  String? _getComboValueIdForAttribute(
+    ProductDetails product,
+    VariantCombination combo,
+    String attributeName,
+  ) {
+    final lower = _norm(attributeName);
+    final matching = product.variantAttributeOptions.where((o) => _norm(o.attributeName) == lower).toList();
+    final option = matching.isEmpty ? null : matching.first;
+    final String? apiName = option?.apiAttributeName;
+    final List<String> keysToTry = [
+      if (apiName != null && apiName.isNotEmpty) apiName,
+      attributeName,
+    ];
+    for (final k in keysToTry) {
+      for (final attr in combo.attributes) {
+        if (_norm(attr.attributeName) == _norm(k)) {
+          final id = attr.valueId;
+          if (id != null && id.isNotEmpty) return id;
+          break;
+        }
+      }
+    }
+    for (final attr in combo.attributes) {
+      final a = _norm(attr.attributeName);
+      if (a == lower || a.contains(lower) || lower.contains(a)) {
+        final id = attr.valueId;
+        if (id != null && id.isNotEmpty) return id;
+      }
+      final lowerWords = lower.split(RegExp(r'\s+')).where((w) => w.length > 2);
+      final aWords = a.split(RegExp(r'\s+')).where((w) => w.length > 2);
+      if (lowerWords.any((w) => a.contains(w)) || aWords.any((w) => lower.contains(w))) {
+        final id = attr.valueId;
+        if (id != null && id.isNotEmpty) return id;
+      }
+    }
+    return null;
+  }
+
+  /// On initial load, recompute material (and similar non-critical) option availability from
+  /// variants: a value is available if any variant has selected size + selected color + this value,
+  /// regardless of stock. Prevents all material buttons from being grey when everything is out of stock.
+  ProductDetails _recomputeMaterialAvailabilityFromVariants(ProductDetails product) {
+    final options = product.variantAttributeOptions;
+    final List<VariantAttributeOption> newOptions = [];
+    for (final opt in options) {
+      final attrLower = opt.attributeName.toLowerCase();
+      final isMaterialAttr = attrLower.contains('material');
+      if (!isMaterialAttr) {
+        newOptions.add(opt);
+        continue;
+      }
+      final newValues = opt.values.map((value) {
+        bool isAvailable = false;
+        for (final combo in product.variantCombinations) {
+          final comboVal = _getComboValueForAttribute(product, combo, opt.attributeName);
+          final comboValId = _getComboValueIdForAttribute(product, combo, opt.attributeName);
+          final valueMatches = (comboVal != null && _norm(comboVal) == _norm(value.name)) ||
+              (comboValId != null && value.id.toString().trim() == comboValId.trim());
+          if (!valueMatches) continue;
+          final sizeVal = _getComboValueForAttribute(product, combo, product.primaryVariantLabel) ??
+              _getComboValueForAttribute(product, combo, 'SIZE');
+          final colorVal = _getComboValueForAttribute(product, combo, 'COLOR NAME') ??
+              _getComboValueForAttribute(product, combo, 'COLOR') ??
+              _getComboValueForAttribute(product, combo, 'اللون');
+          final sizeMatch = product.selectedSize.isEmpty ||
+              (sizeVal != null && _norm(sizeVal) == _norm(product.selectedSize));
+          final colorMatch = product.selectedColor.isEmpty ||
+              (colorVal != null && _norm(colorVal) == _norm(product.selectedColor));
+          if (sizeMatch && colorMatch) {
+            isAvailable = true;
+            break;
+          }
+        }
+        // Show as selected the value that matches current selectedValue (so one chip is clearly selected).
+        final isSelected = opt.selectedValue.isNotEmpty &&
+            (_norm(opt.selectedValue) == _norm(value.name) ||
+                value.id.toString().trim() == opt.selectedValue.trim());
+        return VariantAttributeValue(
+          id: value.id,
+          name: value.name,
+          isAvailable: isAvailable,
+          isSelected: isSelected,
+        );
+      }).toList();
+      newOptions.add(VariantAttributeOption(
+        attributeName: opt.attributeName,
+        values: newValues,
+        selectedValue: opt.selectedValue,
+        apiAttributeName: opt.apiAttributeName,
+        attributeId: opt.attributeId,
+      ));
+    }
+    return product.copyWith(variantAttributeOptions: newOptions);
+  }
+
   void _onResetAddingState(
     ResetAddingStateEvent event,
     Emitter<ProductDetailsState> emit,
@@ -616,18 +712,26 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                    attrLower == 'اللون';
           }
           
-          // First, check if the candidate value for this attribute matches
+          // First, check if the candidate value for this attribute matches (by name or by valueId for e.g. Arabic vs English).
           final String? comboValForThisAttr = _getComboValueForAttribute(
             currentProduct,
             combo,
             attributeName,
           );
-          if (comboValForThisAttr == null || 
-              comboValForThisAttr.toLowerCase() != value.name.toLowerCase()) {
+          final String? comboValIdForThisAttr = _getComboValueIdForAttribute(
+            currentProduct,
+            combo,
+            attributeName,
+          );
+          final bool valueMatches = (comboValForThisAttr != null &&
+                  _norm(comboValForThisAttr) == _norm(value.name)) ||
+              (comboValIdForThisAttr != null &&
+                  value.id.toString().trim() == comboValIdForThisAttr.trim());
+          if (!valueMatches) {
             matchesSelections = false;
             if (isMaterialAttr && matchesTried < 3) {
               debugPrint(
-                '   Material value "${value.name}": combo has "${comboValForThisAttr ?? 'null'}" for attr "$attributeName" → no match',
+                '   Material value "${value.name}" (id=${value.id}): combo has name="${comboValForThisAttr ?? 'null'}" id=${comboValIdForThisAttr ?? 'null'} → no match',
               );
             }
           }
@@ -679,17 +783,21 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             matchesTried += 1;
             if (isInStock) {
               matchesStock += 1;
+            }
+            // For Material (and other non-critical attributes): enable the button if a variant
+            // EXISTS for this value (size+color+material), regardless of stock. User can still
+            // select and we show "Out of Stock" for that combination. Prevents all material
+            // buttons from being grey when every variant is out of stock.
+            if (isMaterialAttr) {
               isAvailable = true;
-              if (isMaterialAttr) {
-                debugPrint(
-                  '   ✅ Material value "${value.name}" is AVAILABLE (variantId=${combo.variantId}, matched=$matchesTried)',
-                );
-              }
-              break;
-            } else if (isMaterialAttr && matchesTried <= 2) {
               debugPrint(
-                '   ⚠️ Material value "${value.name}": variant matches but OUT OF STOCK (variantId=${combo.variantId})',
+                '   ✅ Material value "${value.name}" ENABLED (variant exists, variantId=${combo.variantId}, inStock=$isInStock)',
               );
+              break;
+            }
+            if (isInStock) {
+              isAvailable = true;
+              break;
             }
           }
         }
@@ -739,13 +847,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
 
-        // Selection: show as selected if (a) available and matches selection, or
-        // (b) user just tapped this value (event for this attribute) so UI always reflects the tap.
-        // Without (b), when availability is wrongly computed (e.g. all false), all chips stay grey.
-        final bool selectedMatch = selectedByAttribute[attributeName]?.toLowerCase().trim() == value.name.toLowerCase().trim();
+        // Selection: always show which value is selected (by name or id); only disable when no variant exists.
+        // So selected chip stays selected (orange) even if that combo is out of stock; only unavailable chips are grey.
+        final String? selVal = selectedByAttribute[attributeName];
+        final bool selectedMatch = selVal != null && selVal.isNotEmpty &&
+            (_norm(selVal) == _norm(value.name) || value.id.toString().trim() == selVal.trim());
         final bool isJustTappedValue = event.attributeName.toLowerCase().trim() == attributeName.toLowerCase().trim() &&
-            event.attributeValue.toLowerCase().trim() == value.name.toLowerCase().trim();
-        final bool isSelected = (isAvailable && selectedMatch) || isJustTappedValue;
+            (_norm(event.attributeValue) == _norm(value.name) || value.id.toString().trim() == event.attributeValue.trim());
+        final bool isSelected = selectedMatch || isJustTappedValue;
         return VariantAttributeValue(
           id: value.id,
           name: value.name,
@@ -1637,6 +1746,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           selectedHeelHeightCm:
               initialSelectedHeelHeight ?? productDetails.selectedHeelHeightCm,
         );
+
+        // On initial load, set material (and similar) availability from variants: enable if a variant
+        // EXISTS (size+color+material), not only when in stock, so buttons are not all grey when out of stock.
+        updatedProduct = _recomputeMaterialAvailabilityFromVariants(updatedProduct);
+
         // Debug: values we send to the filter at initial (first value of all attributes)
         final initialFilterInput = updatedProduct.getSelectedAttributesByValueName();
         debugPrint(

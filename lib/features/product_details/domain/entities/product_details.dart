@@ -502,17 +502,39 @@ class VariantCombination extends Equatable {
   /// Get the value of a specific attribute
   String? getAttributeValue(String attributeName) {
     try {
-      return attributes.firstWhere((attr) => 
-        attr.attributeName.toLowerCase() == attributeName.toLowerCase()
-      ).valueName;
+      return attributes.firstWhere((attr) =>
+          attr.attributeName.toLowerCase() == attributeName.toLowerCase())
+          .valueName;
     } catch (e) {
       return null;
     }
   }
 
-  /// Check if this variant has a specific attribute value
+  /// Get the value_id of a specific attribute (for matching when value_name differs e.g. Arabic vs English).
+  String? getAttributeValueId(String attributeName) {
+    try {
+      final attr = attributes.firstWhere((attr) =>
+          attr.attributeName.toLowerCase() == attributeName.toLowerCase());
+      return attr.valueId;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Check if this variant has a specific attribute value (by name or by value_id).
   bool hasAttributeValue(String attributeName, String valueName) {
     return getAttributeValue(attributeName)?.toLowerCase() == valueName.toLowerCase();
+  }
+
+  /// True if this variant has this attribute with the given value (match by valueName or valueId).
+  bool hasAttributeValueOrId(String attributeName, String valueName, String? valueId) {
+    final v = getAttributeValue(attributeName);
+    final id = getAttributeValueId(attributeName);
+    if (valueName.isNotEmpty && v != null &&
+        v.toLowerCase().trim() == valueName.toLowerCase().trim()) return true;
+    if (valueId != null && valueId.isNotEmpty && id != null &&
+        id.trim() == valueId.trim()) return true;
+    return false;
   }
 
   /// Returns true if this variant's attributes match the given map of
