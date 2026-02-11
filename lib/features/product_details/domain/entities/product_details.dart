@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 
 class ProductDetails extends Equatable {
@@ -297,7 +298,8 @@ class ProductDetails extends Equatable {
   }
 
   /// Builds map of API attribute_name -> value_name from current selection (strings).
-  /// Keys: COLOR, SIZE, MATERIALS, HEIGHT. Used to match variant by value_name (e.g. BLACK, 36, Synthetic Leather, 4.5).
+  /// Keys: COLOR, SIZE, MATERIALS, HEIGHT, WIDTH, MEASUREMENT, etc.
+  /// Used to match variant by value_name (e.g. BLACK, 36, Synthetic Leather, 4.5).
   Map<String, String> getSelectedAttributesByValueName() {
     final map = <String, String>{};
     if (selectedColor.isNotEmpty) map['COLOR'] = selectedColor.trim();
@@ -312,14 +314,21 @@ class ProductDetails extends Equatable {
     for (final opt in variantAttributeOptions) {
       if (opt.selectedValue.isEmpty) continue;
       final attrLower = opt.attributeName.toLowerCase();
+      final value = opt.selectedValue.trim();
       if (attrLower.contains('color') || attrLower == 'colour' || attrLower == 'اللون') {
-        if (!map.containsKey('COLOR')) map['COLOR'] = opt.selectedValue.trim();
+        if (!map.containsKey('COLOR')) map['COLOR'] = value;
       } else if (attrLower == 'size' || (primaryVariantLabel.isNotEmpty && attrLower == primaryVariantLabel.toLowerCase())) {
-        if (!map.containsKey('SIZE')) map['SIZE'] = opt.selectedValue.trim();
+        if (!map.containsKey('SIZE')) map['SIZE'] = value;
       } else if (attrLower.contains('material')) {
-        if (!map.containsKey('MATERIALS')) map['MATERIALS'] = opt.selectedValue.trim();
+        if (!map.containsKey('MATERIALS')) map['MATERIALS'] = value;
       } else if (attrLower == 'height' || attrLower.contains('heel')) {
-        if (!map.containsKey('HEIGHT')) map['HEIGHT'] = opt.selectedValue.trim();
+        if (!map.containsKey('HEIGHT')) map['HEIGHT'] = value;
+      } else {
+        // Include all other attributes (WIDTH, MEASUREMENT, BRAND, etc.) for exact variant matching
+        final key = opt.apiAttributeName?.isNotEmpty == true
+            ? opt.apiAttributeName!
+            : opt.attributeName;
+        map[key] = value;
       }
     }
     return map;
@@ -363,6 +372,413 @@ class ProductDetails extends Equatable {
     if (matching.length == 1) return matching.first;
     matching.sort((a, b) => (b.quantityAvailable ?? 0).compareTo(a.quantityAvailable ?? 0));
     return matching.first;
+  }
+
+  /// Filters variants based on all selected attributes from variantAttributeOptions.
+  /// Returns all variant combinations that match the currently selected attribute values.
+  /// This function uses attribute_id + value_name matching when available, falling back to attribute_name + value_name.
+  /// 
+  /// Example usage:
+  /// ```dart
+  /// final filteredVariants = productDetails.filterVariantsBySelectedAttributes();
+  /// // Returns all variants that match SIZE=36, COLOR=BLACK, MATERIALS=Synthetic Leather, etc.
+  /// ```
+  List<VariantCombination> filterVariantsBySelectedAttributes() {
+    // Get all selected attributes from variantAttributeOptions
+    final Map<String, String> selectedAttributes = {};
+    
+    for (final opt in variantAttributeOptions) {
+      if (opt.selectedValue.isEmpty) continue;
+      
+      // Prefer using attribute_id if available (more reliable matching)
+      if (opt.attributeId != null && opt.attributeId!.trim().isNotEmpty) {
+        selectedAttributes[opt.attributeId!.trim()] = opt.selectedValue.trim();
+      } else {
+        // Fallback to attribute name
+        final attrKey = opt.apiAttributeName?.isNotEmpty == true 
+            ? opt.apiAttributeName! 
+            : opt.attributeName;
+        selectedAttributes[attrKey] = opt.selectedValue.trim();
+      }
+    }
+    
+    if (selectedAttributes.isEmpty) {
+      return List.from(variantCombinations);
+    }
+    
+    // Filter variants that match all selected attributes
+    final filtered = variantCombinations.where((variant) {
+      // Try matching by attribute_id first (more reliable)
+      final byAttrId = getSelectedAttributesByAttributeIdAndValueName();
+      if (byAttrId.isNotEmpty) {
+        return variant.matchesAttributesByAttributeIdAndValueName(byAttrId);
+      }
+      
+      // Fallback to attribute_name matching
+      return variant.matchesAttributesByValueName(selectedAttributes);
+    }).toList();
+    
+    return filtered;
+  }
+
+  /// Returns true when there exists at least one variant in [variantCombinations]
+  /// that matches **both** the given [colorName] and the attribute/value pair
+  /// ([attributeName] = [valueName]) and is actually available in stock
+  /// (`inStock == true` and `quantityAvailable > 0`).
+  ///
+  /// This is used by the UI attribute section to decide whether a specific
+  /// attribute button (size, material, height, etc.) should be enabled for the
+  /// currently selected color.
+  bool hasInStockVariantForColorAndAttributeValue({
+    required String colorName,
+    required String attributeName,
+    required String valueName,
+  }) {
+    if (colorName.isEmpty || valueName.isEmpty) return false;
+
+    String norm(String s) => s.toLowerCase().trim();
+    final normalizedColor = norm(colorName);
+    final normalizedValue = norm(valueName);
+
+    // Common attribute names used by the backend for color.
+    const colorAttrNames = [
+      'COLOR NAME',
+      'color name',
+      'Color Name',
+      'color',
+      'Color',
+      'COLOR',
+      'colour',
+      'Colour',
+      'اللون',
+      'لون',
+    ];
+
+    for (final combo in variantCombinations) {
+      // 1) Match color using flexible comparison (handles minor naming
+      // differences like "Black", "BLACK 01", Arabic display, etc.).
+      String? variantColor;
+      for (final attrName in colorAttrNames) {
+        final v = combo.getAttributeValue(attrName);
+        if (v != null && v.isNotEmpty) {
+          variantColor = v;
+          break;
+        }
+      }
+      if (variantColor == null || variantColor.isEmpty) continue;
+
+      final nVariantColor = norm(variantColor);
+      final bool colorMatches =
+          nVariantColor == normalizedColor ||
+          nVariantColor.contains(normalizedColor) ||
+          normalizedColor.contains(nVariantColor);
+      if (!colorMatches) continue;
+
+      // 2) Match the target attribute/value pair.
+      final String? variantAttrValue =
+          combo.getAttributeValue(attributeName);
+      if (variantAttrValue == null || variantAttrValue.isEmpty) continue;
+
+      if (norm(variantAttrValue) != normalizedValue) continue;
+
+      // 3) Stock rule: only consider variants that are actually available.
+      final double qty = combo.quantityAvailable ?? 0;
+      final bool inStockAndPositiveQty = combo.inStock && qty > 0;
+      if (!inStockAndPositiveQty) continue;
+
+      // Found at least one matching, in‑stock variant.
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Returns true when there exists at least one variant in [variantCombinations]
+  /// that matches the given [colorName] and is actually available in stock
+  /// (`inStock == true` and `quantityAvailable > 0`).
+  ///
+  /// This is used to check if a color has ANY in-stock variants at all.
+  /// If a color has no in-stock variants, all attribute buttons should be disabled.
+  bool hasAnyInStockVariantForColor(String colorName) {
+    if (colorName.isEmpty) return false;
+
+    String norm(String s) => s.toLowerCase().trim();
+    final normalizedColor = norm(colorName);
+
+    // Common attribute names used by the backend for color.
+    const colorAttrNames = [
+      'COLOR NAME',
+      'color name',
+      'Color Name',
+      'color',
+      'Color',
+      'COLOR',
+      'colour',
+      'Colour',
+      'اللون',
+      'لون',
+    ];
+
+    for (final combo in variantCombinations) {
+      // Match color using flexible comparison (handles minor naming
+      // differences like "Black", "BLACK 01", Arabic display, etc.).
+      String? variantColor;
+      for (final attrName in colorAttrNames) {
+        final v = combo.getAttributeValue(attrName);
+        if (v != null && v.isNotEmpty) {
+          variantColor = v;
+          break;
+        }
+      }
+      if (variantColor == null || variantColor.isEmpty) continue;
+
+      final nVariantColor = norm(variantColor);
+      final bool colorMatches =
+          nVariantColor == normalizedColor ||
+          nVariantColor.contains(normalizedColor) ||
+          normalizedColor.contains(nVariantColor);
+      if (!colorMatches) continue;
+
+      // Stock rule: only consider variants that are actually available.
+      final double qty = combo.quantityAvailable ?? 0;
+      final bool inStockAndPositiveQty = combo.inStock && qty > 0;
+      if (!inStockAndPositiveQty) continue;
+
+      // Found at least one in-stock variant for this color.
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Filters variants by the given [colorName] that have `inStock == true` and
+  /// `quantityAvailable > 0`, then collects ALL attribute values from those variants.
+  ///
+  /// Returns a map where:
+  /// - Key: attribute name (e.g., "SIZE", "MATERIAL NAME", "HEIGHT")
+  /// - Value: Set of value names that are available for this color with stock
+  ///
+  /// This is used to determine which attribute buttons should be enabled
+  /// and which values should be auto-selected for the selected color.
+  Map<String, Set<String>> getEnabledAttributeValuesForColor(String colorName) {
+    final Map<String, Set<String>> enabledAttributes = {};
+    
+    if (colorName.isEmpty || variantCombinations.isEmpty) {
+      debugPrint('🔍 getEnabledAttributeValuesForColor: colorName is empty or no variants');
+      return enabledAttributes;
+    }
+
+    String norm(String s) => s.toLowerCase().trim();
+    final normalizedColor = norm(colorName);
+
+    debugPrint('🔍 getEnabledAttributeValuesForColor: Starting filter for color="$colorName" (normalized="$normalizedColor")');
+    debugPrint('   Total variants to check: ${variantCombinations.length}');
+
+    // Common attribute names used by the backend for color.
+    const colorAttrNames = [
+      'COLOR NAME',
+      'color name',
+      'Color Name',
+      'color',
+      'Color',
+      'COLOR',
+      'colour',
+      'Colour',
+      'اللون',
+      'لون',
+    ];
+
+    // Step 1: Filter variants that match color AND have stock
+    final List<VariantCombination> matchingVariants = [];
+    
+    for (int i = 0; i < variantCombinations.length; i++) {
+      final combo = variantCombinations[i];
+      
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🔍 Checking Variant #${i + 1}/${variantCombinations.length}');
+      debugPrint('   Variant ID: ${combo.variantId}');
+      
+      // Match color
+      String? variantColor;
+      for (final attrName in colorAttrNames) {
+        final v = combo.getAttributeValue(attrName);
+        if (v != null && v.isNotEmpty) {
+          variantColor = v;
+          break;
+        }
+      }
+      
+      if (variantColor == null || variantColor.isEmpty) {
+        debugPrint('   ❌ No color attribute found - SKIPPING');
+        continue;
+      }
+
+      debugPrint('   Color found: "$variantColor"');
+      
+      final nVariantColor = norm(variantColor);
+      final bool colorMatches =
+          nVariantColor == normalizedColor ||
+          nVariantColor.contains(normalizedColor) ||
+          normalizedColor.contains(nVariantColor);
+      
+      if (!colorMatches) {
+        debugPrint('   ❌ Color mismatch: "$variantColor" (normalized="$nVariantColor") != "$colorName" (normalized="$normalizedColor") - SKIPPING');
+        continue;
+      }
+
+      debugPrint('   ✅ Color matches!');
+
+      // Check stock conditions: inStock == true AND quantityAvailable > 0
+      final double qty = combo.quantityAvailable ?? 0;
+      final bool inStockAndPositiveQty = combo.inStock && qty > 0;
+      
+      debugPrint('   Stock check: inStock=${combo.inStock}, quantityAvailable=${combo.quantityAvailable}, qty=$qty');
+      
+      if (!inStockAndPositiveQty) {
+        debugPrint('   ❌ Stock condition failed (inStock=$inStockAndPositiveQty) - SKIPPING');
+        continue;
+      }
+
+      debugPrint('   ✅ Stock condition passed!');
+      
+      // Print all attributes for this variant
+      debugPrint('   📋 Variant Attributes:');
+      for (final attr in combo.attributes) {
+        debugPrint('      - ${attr.attributeName}: "${attr.valueName}"');
+      }
+
+      // This variant matches color and has stock - add it
+      matchingVariants.add(combo);
+      debugPrint('   ✅ Variant ADDED to matching list');
+    }
+
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📊 Filter Results: Found ${matchingVariants.length} matching variants with stock');
+
+    // Step 2: Collect all attribute values from matching variants
+    // Skip color attributes since we're filtering by color
+    debugPrint('🔍 Step 2: Collecting attribute values from ${matchingVariants.length} matching variants...');
+    
+    for (int i = 0; i < matchingVariants.length; i++) {
+      final combo = matchingVariants[i];
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📦 Processing Matching Variant #${i + 1}/${matchingVariants.length}');
+      debugPrint('   Variant ID: ${combo.variantId}');
+      debugPrint('   Attributes:');
+      
+      for (final attr in combo.attributes) {
+        final attrName = attr.attributeName;
+        final attrValue = attr.valueName;
+        
+        // Skip color attributes
+        final attrNameLower = attrName.toLowerCase();
+        if (attrNameLower == 'color name' ||
+            attrNameLower == 'color' ||
+            attrNameLower == 'colour' ||
+            attrNameLower == 'اللون' ||
+            attrNameLower == 'لون') {
+          debugPrint('      ⏭️  ${attrName}: "${attrValue}" (SKIPPED - color attribute)');
+          continue;
+        }
+
+        // Skip empty values
+        if (attrValue.isEmpty) {
+          debugPrint('      ⏭️  ${attrName}: "" (SKIPPED - empty value)');
+          continue;
+        }
+
+        debugPrint('      ✅ ${attrName}: "${attrValue}" (ADDED to enabled set)');
+
+        // Add to enabled set for this attribute
+        enabledAttributes.putIfAbsent(attrName, () => <String>{});
+        enabledAttributes[attrName]!.add(attrValue);
+      }
+    }
+
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📊 Final Enabled Attributes Map:');
+    for (final entry in enabledAttributes.entries) {
+      debugPrint('   ${entry.key}: ${entry.value.toList()}');
+    }
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return enabledAttributes;
+  }
+
+  /// Returns the first matching variant for the given [colorName] that has
+  /// `inStock == true` and `quantityAvailable > 0`, along with its stock info.
+  /// This is used to update the stock badge based on the matched variant.
+  VariantCombination? getFirstInStockVariantForColor(String colorName) {
+    if (colorName.isEmpty || variantCombinations.isEmpty) {
+      return null;
+    }
+
+    String norm(String s) => s.toLowerCase().trim();
+    final normalizedColor = norm(colorName);
+
+    // Common attribute names used by the backend for color.
+    const colorAttrNames = [
+      'COLOR NAME',
+      'color name',
+      'Color Name',
+      'color',
+      'Color',
+      'COLOR',
+      'colour',
+      'Colour',
+      'اللون',
+      'لون',
+    ];
+
+    for (final combo in variantCombinations) {
+      // Match color
+      String? variantColor;
+      for (final attrName in colorAttrNames) {
+        final v = combo.getAttributeValue(attrName);
+        if (v != null && v.isNotEmpty) {
+          variantColor = v;
+          break;
+        }
+      }
+      if (variantColor == null || variantColor.isEmpty) continue;
+
+      final nVariantColor = norm(variantColor);
+      final bool colorMatches =
+          nVariantColor == normalizedColor ||
+          nVariantColor.contains(normalizedColor) ||
+          normalizedColor.contains(nVariantColor);
+      if (!colorMatches) continue;
+
+      // Check stock conditions: inStock == true AND quantityAvailable > 0
+      final double qty = combo.quantityAvailable ?? 0;
+      final bool inStockAndPositiveQty = combo.inStock && qty > 0;
+      if (!inStockAndPositiveQty) continue;
+
+      // Found first matching variant with stock
+      return combo;
+    }
+
+    return null;
+  }
+
+  /// Gets a map of all currently selected attribute values.
+  /// Key: attribute name (or attribute_id if available), Value: selected value name.
+  /// This is useful for debugging and displaying selected attributes.
+  Map<String, String> getAllSelectedAttributes() {
+    final Map<String, String> selected = {};
+    
+    for (final opt in variantAttributeOptions) {
+      if (opt.selectedValue.isEmpty) continue;
+      
+      // Use attribute_id as key if available, otherwise use attribute name
+      final key = opt.attributeId?.isNotEmpty == true 
+          ? opt.attributeId! 
+          : (opt.apiAttributeName?.isNotEmpty == true ? opt.apiAttributeName! : opt.attributeName);
+      
+      selected[key] = opt.selectedValue;
+    }
+    
+    return selected;
   }
 }
 

@@ -269,6 +269,7 @@ class AddToCartBottomSheet extends StatelessWidget {
                 (hasRealColors && productDetails.selectedColor.isNotEmpty) ||
                 (hasSizes && productDetails.selectedSize.isNotEmpty);
             if (!showSelected) return <Widget>[];
+
             return [
               Padding(
                 padding: EdgeInsets.symmetric(
@@ -281,7 +282,10 @@ class AddToCartBottomSheet extends StatelessWidget {
                       style: AppFonts.getTextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                     if (hasRealColors &&
@@ -407,34 +411,29 @@ class AddToCartBottomSheet extends StatelessWidget {
                                     style: AppFonts.getTextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
                                     ),
                                   );
                                 }
-                                
+
                                 final pd = state.productDetails;
                                 int displayedQty = state.quantity;
-                                
-                                // Clamp quantity to the selected variant's available stock for display
+
+                                // Clamp quantity to the selected variant's available
+                                // stock for display, using the same loop-based logic
+                                // as attributes/badge.
                                 try {
-                                  final selectedVariant = _findSelectedVariant(pd);
-                                  if (selectedVariant != null && selectedVariant.quantityAvailable != null) {
-                                    int maxAvailable = selectedVariant.quantityAvailable!.round();
-                                    
-                                    // Check cart for existing quantity
-                                    final cartState = context.read<CartBloc>().state;
-                                    if (cartState is CartLoaded) {
-                                      try {
-                                        final existingItem = cartState.cartItems.firstWhere(
-                                          (item) => item.product.id == selectedVariant.variantId,
-                                        );
-                                        maxAvailable = maxAvailable - existingItem.quantity;
-                                      } catch (e) {
-                                        // Item not found in cart
-                                      }
-                                    }
-                                    
-                                    // Always clamp displayed quantity to available stock (max 1)
+                                  final cartState =
+                                      context.read<CartBloc>().state;
+                                  final available = _getAvailableQuantityForSelection(
+                                    pd,
+                                    cartState,
+                                  );
+                                  if (available != null) {
+                                    int maxAvailable = available;
+
                                     if (maxAvailable > 0) {
                                       if (displayedQty > maxAvailable) {
                                         displayedQty = maxAvailable;
@@ -444,15 +443,18 @@ class AddToCartBottomSheet extends StatelessWidget {
                                     }
                                   }
                                 } catch (e) {
-                                  developer.log('⚠️ Error clamping quantity: $e');
+                                  developer.log(
+                                      '⚠️ Error clamping quantity: $e');
                                 }
-                                
+
                                 return Text(
                                   '$displayedQty',
                                   style: AppFonts.getTextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface,
                                   ),
                                 );
                               },
@@ -483,30 +485,22 @@ class AddToCartBottomSheet extends StatelessWidget {
                               final pd = state.productDetails;
                               final currentQty = state.quantity;
                               
-                              // Find selected variant and get available quantity
-                              int maxAvailable = 999; // Default high value
+                              // Find available quantity using the same loop-based
+                              // logic as attributes/badge and remaining stock label.
+                              int maxAvailable = 999; // Fallback high value
                               try {
-                                final selectedVariant = _findSelectedVariant(pd);
-                                if (selectedVariant != null && selectedVariant.quantityAvailable != null) {
-                                  maxAvailable = selectedVariant.quantityAvailable!.round();
-                                  
-                                  // Check cart for existing quantity
-                                  if (cartState is CartLoaded) {
-                                    try {
-                                      final existingItem = cartState.cartItems.firstWhere(
-                                        (item) => item.product.id == selectedVariant.variantId,
-                                      );
-                                      maxAvailable = maxAvailable - existingItem.quantity;
-                                    } catch (e) {
-                                      // Item not found in cart, maxAvailable remains unchanged
-                                      developer.log('ℹ️ Item not found in cart, using full available quantity');
-                                    }
-                                  }
+                                final available = _getAvailableQuantityForSelection(
+                                  pd,
+                                  cartState,
+                                );
+                                if (available != null) {
+                                  maxAvailable = available;
                                 }
                               } catch (e) {
-                                developer.log('⚠️ Error calculating max available: $e');
+                                developer.log(
+                                    '⚠️ Error calculating max available: $e');
                               }
-                              
+
                               // Always limit increment to available stock
                               final isAtMax = currentQty >= maxAvailable;
                               
@@ -551,62 +545,19 @@ class AddToCartBottomSheet extends StatelessWidget {
                   final pd = state.productDetails;
                   int remainingQty = 999; // Default
                   bool hasStockInfo = false;
-                  
+
                   try {
-                    final selectedVariant = _findSelectedVariant(pd);
-                    if (selectedVariant != null && selectedVariant.quantityAvailable != null) {
-                      remainingQty = selectedVariant.quantityAvailable!.round();
+                    final available =
+                        _getAvailableQuantityForSelection(pd, cartState);
+                    if (available != null) {
+                      remainingQty = available;
                       hasStockInfo = true;
-                      
-                      // Check cart for existing quantity
-                      if (cartState is CartLoaded) {
-                        try {
-                          final existingItem = cartState.cartItems.firstWhere(
-                            (item) => item.product.id == selectedVariant.variantId,
-                          );
-                          remainingQty = remainingQty - existingItem.quantity;
-                        } catch (e) {
-                          // Item not found in cart, remainingQty remains unchanged
-                        }
-                      }
-                    } else {
-                      // Fallback: try to find any variant that matches at least size and color
-                      if (pd.selectedSize.isNotEmpty && pd.selectedColor.isNotEmpty) {
-                        final fallbackMatch = pd.variantCombinations.where((v) {
-                          final sizeMatch = v.hasAttributeValue('SIZE', pd.selectedSize) ||
-                                           v.hasAttributeValue('size', pd.selectedSize) ||
-                                           v.hasAttributeValue(pd.primaryVariantLabel, pd.selectedSize);
-                          final colorMatch = v.hasAttributeValue('COLOR NAME', pd.selectedColor) ||
-                                            v.hasAttributeValue('color name', pd.selectedColor) ||
-                                            v.hasAttributeValue('color', pd.selectedColor) ||
-                                            v.hasAttributeValue('colour', pd.selectedColor);
-                          return sizeMatch && colorMatch;
-                        }).toList();
-                        
-                        if (fallbackMatch.isNotEmpty && fallbackMatch.first.quantityAvailable != null) {
-                          remainingQty = fallbackMatch.first.quantityAvailable!.round();
-                          hasStockInfo = true;
-                          
-                          // Check cart for existing quantity
-                          if (cartState is CartLoaded) {
-                            try {
-                              final existingItem = cartState.cartItems.firstWhere(
-                                (item) => item.product.id == fallbackMatch.first.variantId,
-                              );
-                              remainingQty = remainingQty - existingItem.quantity;
-                            } catch (e) {
-                              // Item not found in cart
-                            }
-                          }
-                          
-                          developer.log('✅ Using fallback match: variantId=${fallbackMatch.first.variantId}, qty=$remainingQty');
-                        }
-                      }
                     }
                   } catch (e) {
-                    developer.log('⚠️ Error calculating remaining quantity: $e');
+                    developer.log(
+                        '⚠️ Error calculating remaining quantity: $e');
                   }
-                  
+
                   // Only show stock info if low stock (≤5) or out of stock
                   if (!hasStockInfo || (remainingQty > 5 && remainingQty > 0)) {
                     return const SizedBox.shrink();
@@ -710,117 +661,127 @@ class AddToCartBottomSheet extends StatelessWidget {
               width: double.infinity,
               height: ResponsiveConstants.lgButtonHeight,
               child: BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+                buildWhen: (previous, current) => current is ProductDetailsLoaded,
                 builder: (context, state) {
-                  final isAdding =
-                      state is ProductDetailsLoaded && state.isAdding;
-                  final currentPd = state is ProductDetailsLoaded
-                      ? state.productDetails
-                      : productDetails;
+                  return BlocBuilder<CartBloc, CartState>(
+                    builder: (context, cartState) {
+                      final isAdding =
+                          state is ProductDetailsLoaded && state.isAdding;
+                      final currentPd = state is ProductDetailsLoaded
+                          ? state.productDetails
+                          : productDetails;
 
-                  String _normalize(String s) => s
-                      .toLowerCase()
-                      .trim()
-                      .replaceAll(RegExp(r"[^\p{L}\p{N}]", unicode: true), '')
-                      .replaceAll(RegExp(r"\s+"), '');
-                  bool normalizeEqual(String a, String b) => _normalize(a) == _normalize(b);
-                  final bool hasColorRequirement = currentPd.colorOptions
-                      .where((c) => c.name.toLowerCase() != 'default')
-                      .isNotEmpty;
-                  final bool colorSelected =
-                      !hasColorRequirement ||
-                      (currentPd.selectedColor.isNotEmpty &&
-                          currentPd.selectedColor.toLowerCase() != 'default');
+                      String _normalize(String s) => s
+                          .toLowerCase()
+                          .trim()
+                          .replaceAll(RegExp(r"[^\p{L}\p{N}]", unicode: true), '')
+                          .replaceAll(RegExp(r"\s+"), '');
+                      bool normalizeEqual(String a, String b) => _normalize(a) == _normalize(b);
+                      final bool hasColorRequirement = currentPd.colorOptions
+                          .where((c) => c.name.toLowerCase() != 'default')
+                          .isNotEmpty;
+                      final bool colorSelected =
+                          !hasColorRequirement ||
+                          (currentPd.selectedColor.isNotEmpty &&
+                              currentPd.selectedColor.toLowerCase() != 'default');
 
-                  // Primary attribute (dynamic) selection check
-                  final primaryOpt = currentPd.variantAttributeOptions
-                      .firstWhere(
-                        (o) =>
-                            o.attributeName.toLowerCase() ==
-                                currentPd.primaryVariantLabel.toLowerCase() ||
-                            o.attributeName.toLowerCase() == 'size',
-                        orElse: () => const VariantAttributeOption(
-                          attributeName: '',
-                          values: [],
-                          selectedValue: '',
-                        ),
+                      // Primary attribute (dynamic) selection check
+                      final primaryOpt = currentPd.variantAttributeOptions
+                          .firstWhere(
+                            (o) =>
+                                o.attributeName.toLowerCase() ==
+                                    currentPd.primaryVariantLabel.toLowerCase() ||
+                                o.attributeName.toLowerCase() == 'size',
+                            orElse: () => const VariantAttributeOption(
+                              attributeName: '',
+                              values: [],
+                              selectedValue: '',
+                            ),
+                          );
+                      final bool hasPrimaryRequirement =
+                          primaryOpt.attributeName.isNotEmpty;
+                      final bool primarySelected =
+                          !hasPrimaryRequirement ||
+                          (primaryOpt.selectedValue.isNotEmpty || currentPd.selectedSize.isNotEmpty);
+
+                      bool variantCombinationSelected = true;
+                      if ((hasColorRequirement || hasPrimaryRequirement) &&
+                          colorSelected &&
+                          primarySelected &&
+                          currentPd.variantCombinations.isNotEmpty) {
+                        final String selColor = currentPd.selectedColor;
+                        final String selPrimary =
+                            primaryOpt.selectedValue.isNotEmpty
+                            ? primaryOpt.selectedValue
+                            : currentPd.selectedSize;
+                        variantCombinationSelected = currentPd.variantCombinations
+                            .any((v) {
+                              String? _getAttr(List<String> keys) {
+                                for (final k in keys) {
+                                  final val = v.getAttributeValue(k);
+                                  if (val != null && val.isNotEmpty) return val;
+                                }
+                                return null;
+                              }
+
+                              // Try common color keys in both EN/AR with case variants
+                              final colorVal = _getAttr([
+                                'color', 'Color', 'colour', 'Colour', 'COLOR', 'COLOR NAME', 'اللون', 'لون', 'لون المنتج'
+                              ]);
+                              final bool colorMatch = !hasColorRequirement || (
+                                colorVal != null && (
+                                  normalizeEqual(colorVal, selColor) ||
+                                  _normalize(colorVal).contains(_normalize(selColor)) ||
+                                  _normalize(selColor).contains(_normalize(colorVal))
+                                )
+                              );
+                              final bool primaryMatch = !hasPrimaryRequirement || (
+                                (
+                                  v.getAttributeValue(currentPd.primaryVariantLabel) != null &&
+                                  normalizeEqual(
+                                    v.getAttributeValue(currentPd.primaryVariantLabel)!,
+                                    selPrimary,
+                                  )
+                                ) || (
+                                  v.getAttributeValue('size') != null &&
+                                  normalizeEqual(
+                                    v.getAttributeValue('size')!,
+                                    selPrimary,
+                                  )
+                                ) || (
+                                  v.getAttributeValue('SIZE') != null &&
+                                  normalizeEqual(
+                                    v.getAttributeValue('SIZE')!,
+                                    selPrimary,
+                                  )
+                                ) || (
+                                  v.getAttributeValue('المقاس') != null &&
+                                  normalizeEqual(
+                                    v.getAttributeValue('المقاس')!,
+                                    selPrimary,
+                                  )
+                                )
+                              );
+                              return colorMatch && primaryMatch;
+                            });
+                      }
+
+                      // Use the same quantity we show in the UI (from _getAvailableQuantityForSelection)
+                      // as the source of truth for the Add to Cart button. This keeps button and "(X available)"
+                      // in sync.
+                      final int? availableQty =
+                          _getAvailableQuantityForSelection(currentPd, cartState);
+                      final bool variantInStock =
+                          availableQty != null && availableQty > 0;
+                      final bool isOutOfStock = !variantInStock;
+                      final bool canAdd = variantInStock && !isAdding;
+
+                      developer.log(
+                        '🔘 Button stock check -> availableQty=$availableQty, '
+                        'variantInStock=$variantInStock, isOutOfStock=$isOutOfStock, canAdd=$canAdd',
                       );
-                  final bool hasPrimaryRequirement =
-                      primaryOpt.attributeName.isNotEmpty;
-                  final bool primarySelected =
-                      !hasPrimaryRequirement ||
-                      (primaryOpt.selectedValue.isNotEmpty || currentPd.selectedSize.isNotEmpty);
-
-                  bool variantCombinationSelected = true;
-                  if ((hasColorRequirement || hasPrimaryRequirement) &&
-                      colorSelected &&
-                      primarySelected &&
-                      currentPd.variantCombinations.isNotEmpty) {
-                    final String selColor = currentPd.selectedColor;
-                    final String selPrimary =
-                        primaryOpt.selectedValue.isNotEmpty
-                        ? primaryOpt.selectedValue
-                        : currentPd.selectedSize;
-                    variantCombinationSelected = currentPd.variantCombinations
-                        .any((v) {
-                          String? _getAttr(List<String> keys) {
-                            for (final k in keys) {
-                              final val = v.getAttributeValue(k);
-                              if (val != null && val.isNotEmpty) return val;
-                            }
-                            return null;
-                          }
-
-                          // Try common color keys in both EN/AR with case variants
-                          final colorVal = _getAttr([
-                            'color', 'Color', 'colour', 'Colour', 'COLOR', 'COLOR NAME', 'اللون', 'لون', 'لون المنتج'
-                          ]);
-                          final bool colorMatch = !hasColorRequirement || (
-                            colorVal != null && (
-                              normalizeEqual(colorVal, selColor) ||
-                              _normalize(colorVal).contains(_normalize(selColor)) ||
-                              _normalize(selColor).contains(_normalize(colorVal))
-                            )
-                          );
-                          final bool primaryMatch = !hasPrimaryRequirement || (
-                            (
-                              v.getAttributeValue(currentPd.primaryVariantLabel) != null &&
-                              normalizeEqual(
-                                v.getAttributeValue(currentPd.primaryVariantLabel)!,
-                                selPrimary,
-                              )
-                            ) || (
-                              v.getAttributeValue('size') != null &&
-                              normalizeEqual(
-                                v.getAttributeValue('size')!,
-                                selPrimary,
-                              )
-                            ) || (
-                              v.getAttributeValue('SIZE') != null &&
-                              normalizeEqual(
-                                v.getAttributeValue('SIZE')!,
-                                selPrimary,
-                              )
-                            ) || (
-                              v.getAttributeValue('المقاس') != null &&
-                              normalizeEqual(
-                                v.getAttributeValue('المقاس')!,
-                                selPrimary,
-                              )
-                            )
-                          );
-                          return colorMatch && primaryMatch;
-                        });
-                  }
-
-                  final bool isOutOfStock = !currentPd.inStock;
-                  final bool canAdd =
-                      colorSelected &&
-                      primarySelected &&
-                      variantCombinationSelected &&
-                      currentPd.inStock &&
-                      !isAdding;
-                  developer.log('🧩 Selection check -> hasColorReq=$hasColorRequirement, colorSelected=$colorSelected, hasPrimaryReq=$hasPrimaryRequirement, primarySelected=$primarySelected, variantOk=$variantCombinationSelected, inStock=${currentPd.inStock}');
-                  return ElevatedButton(
+                      developer.log('🧩 Selection check -> hasColorReq=$hasColorRequirement, colorSelected=$colorSelected, hasPrimaryReq=$hasPrimaryRequirement, primarySelected=$primarySelected, variantOk=$variantCombinationSelected');
+                      return ElevatedButton(
                     onPressed: canAdd && !isOutOfStock
                         ? () async {
                             await HapticService.heavyImpact();
@@ -956,13 +917,25 @@ class AddToCartBottomSheet extends StatelessWidget {
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isOutOfStock
-                          ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.5)
+                          ? Theme.of(context)
+                              .colorScheme
+                              .surface
+                              .withValues(alpha: 0.5)
                           : Theme.of(context).colorScheme.primary,
                       foregroundColor: isOutOfStock
-                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
+                          ? Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6)
                           : Theme.of(context).colorScheme.onPrimary,
-                      disabledBackgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
-                      disabledForegroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      disabledBackgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withValues(alpha: 0.5),
+                      disabledForegroundColor: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(
                           ResponsiveConstants.mdRadius,
@@ -971,48 +944,64 @@ class AddToCartBottomSheet extends StatelessWidget {
                       elevation: isOutOfStock ? 0 : 0,
                       shadowColor: isOutOfStock
                           ? Colors.transparent
-                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                          : Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.2),
                     ),
-                    child: isAdding
-                        ? SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context).colorScheme.onPrimary,
-                              ),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isOutOfStock
-                                    ? Icons.block
-                                    : Icons.shopping_cart_outlined,
-                                size: 20,
-                                color: isOutOfStock
-                                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
-                                    : Theme.of(context).colorScheme.onPrimary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                isOutOfStock
-                                    ? AppLocalizations.of(context)!.outOfStock
-                                    : (canAdd
-                                        ? AppLocalizations.of(context)!.addToCart
-                                        : AppLocalizations.of(context)!.selectOptions),
-                                style: AppFonts.getTextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: isOutOfStock
-                                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
-                                      : Theme.of(context).colorScheme.onPrimary,
+                        child: isAdding
+                            ? SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Theme.of(context).colorScheme.onPrimary,
+                                  ),
                                 ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    isOutOfStock
+                                        ? Icons.block
+                                        : Icons.shopping_cart_outlined,
+                                    size: 20,
+                                    color: isOutOfStock
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.6)
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onPrimary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isOutOfStock
+                                        ? AppLocalizations.of(context)!.outOfStock
+                                        : (canAdd
+                                            ? AppLocalizations.of(context)!.addToCart
+                                            : AppLocalizations.of(context)!
+                                                .selectOptions),
+                                    style: AppFonts.getTextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: isOutOfStock
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.6)
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                      );
+                    },
                   );
                 },
               ),
@@ -1212,6 +1201,52 @@ class AddToCartBottomSheet extends StatelessWidget {
       return null;
     } catch (e) {
       developer.log('⚠️ Error finding selected variant: $e');
+      return null;
+    }
+  }
+
+  /// Helper to compute the available quantity for the *current selection*,
+  /// using the same loop-based stock logic we use for attributes/badge,
+  /// and then subtracting any quantity already in the cart for that variant.
+  int? _getAvailableQuantityForSelection(
+    ProductDetails pd,
+    CartState cartState,
+  ) {
+    try {
+      VariantCombination? selectedVariant;
+
+      // 1) Prefer the same color-based loop used for badge/attribute disabling.
+      if (pd.selectedColor.isNotEmpty &&
+          pd.variantCombinations.isNotEmpty) {
+        selectedVariant =
+            pd.getFirstInStockVariantForColor(pd.selectedColor);
+      }
+
+      // 2) Fallback: use full selection matching (size/color/material/height).
+      selectedVariant ??= _findSelectedVariant(pd);
+
+      if (selectedVariant == null ||
+          selectedVariant.quantityAvailable == null) {
+        return null;
+      }
+
+      int available = selectedVariant.quantityAvailable!.round();
+
+      // Subtract what is already in the cart for this variant.
+      if (cartState is CartLoaded) {
+        try {
+          final existingItem = cartState.cartItems.firstWhere(
+            (item) => item.product.id == selectedVariant!.variantId,
+          );
+          available = available - existingItem.quantity;
+        } catch (_) {
+          // Item not in cart → keep full available quantity.
+        }
+      }
+
+      return available;
+    } catch (e) {
+      developer.log('⚠️ Error in _getAvailableQuantityForSelection: $e');
       return null;
     }
   }

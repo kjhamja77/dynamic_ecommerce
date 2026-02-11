@@ -15,19 +15,35 @@ class ProductDetailsLoaded extends ProductDetailsState {
   final ProductDetails productDetails;
   final int quantity;
   final bool isAdding;
+  /// True while we are recomputing variant/attribute availability
+  /// (e.g. after a color/attribute selection) so the UI can show a loader.
+  final bool isVariantFilterLoading;
 
-  const ProductDetailsLoaded(this.productDetails, {this.quantity = 1, this.isAdding = false});
+  const ProductDetailsLoaded(
+    this.productDetails, {
+    this.quantity = 1,
+    this.isAdding = false,
+    this.isVariantFilterLoading = false,
+  });
 
-  ProductDetailsLoaded copyWith({ProductDetails? productDetails, int? quantity, bool? isAdding}) {
+  ProductDetailsLoaded copyWith({
+    ProductDetails? productDetails,
+    int? quantity,
+    bool? isAdding,
+    bool? isVariantFilterLoading,
+  }) {
     return ProductDetailsLoaded(
       productDetails ?? this.productDetails,
       quantity: quantity ?? this.quantity,
       isAdding: isAdding ?? this.isAdding,
+      isVariantFilterLoading:
+          isVariantFilterLoading ?? this.isVariantFilterLoading,
     );
   }
 
   @override
-  List<Object?> get props => [productDetails, quantity, isAdding];
+  List<Object?> get props =>
+      [productDetails, quantity, isAdding, isVariantFilterLoading];
 }
 
 class ProductDetailsError extends ProductDetailsState {

@@ -356,6 +356,22 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
+      // Sync variantAttributeOptions so MATERIAL attribute has selectedValue = event.material.
+      // This ensures _findSelectedVariant receives the full selection (past + new) and finds the exact variant.
+      final updatedVariantAttributeOptions = p.variantAttributeOptions.map((opt) {
+        final attrLower = opt.attributeName.toLowerCase();
+        if (attrLower.contains('material') && opt.selectedValue != event.material) {
+          return VariantAttributeOption(
+            attributeName: opt.attributeName,
+            values: opt.values,
+            selectedValue: event.material,
+            apiAttributeName: opt.apiAttributeName,
+            attributeId: opt.attributeId,
+          );
+        }
+        return opt;
+      }).toList();
+
       var updated = ProductDetails(
         id: p.id,
         brand: p.brand,
@@ -368,7 +384,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         images: p.images,
         colorOptions: p.colorOptions,
         sizeOptions: p.sizeOptions,
-        variantAttributeOptions: p.variantAttributeOptions,
+        variantAttributeOptions: updatedVariantAttributeOptions,
         selectedColor: p.selectedColor,
         selectedSize: p.selectedSize,
         isFavorite: p.isFavorite,
@@ -509,6 +525,23 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
+      // Sync variantAttributeOptions so HEIGHT attribute has selectedValue = event height.
+      // This ensures _findSelectedVariant receives the full selection (past + new) and finds the exact variant.
+      final updatedVariantAttributeOptions = p.variantAttributeOptions.map((opt) {
+        final attrLower = opt.attributeName.toLowerCase();
+        if ((attrLower == 'height' || attrLower.contains('heel')) &&
+            opt.selectedValue != heightStr) {
+          return VariantAttributeOption(
+            attributeName: opt.attributeName,
+            values: opt.values,
+            selectedValue: heightStr,
+            apiAttributeName: opt.apiAttributeName,
+            attributeId: opt.attributeId,
+          );
+        }
+        return opt;
+      }).toList();
+
       var updated = ProductDetails(
         id: p.id,
         brand: p.brand,
@@ -521,7 +554,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         images: p.images,
         colorOptions: p.colorOptions,
         sizeOptions: p.sizeOptions,
-        variantAttributeOptions: p.variantAttributeOptions,
+        variantAttributeOptions: updatedVariantAttributeOptions,
         selectedColor: p.selectedColor,
         selectedSize: p.selectedSize,
         isFavorite: p.isFavorite,
@@ -1334,56 +1367,66 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     // Step 7: sync quantity & stock with the matched variant (if any)
     int nextQuantity = blocState.quantity;
     final VariantCombination? selectedVariant = _findSelectedVariant(updatedProduct);
-    if (selectedVariant != null) {
-      final double? quantityAvailable = selectedVariant.quantityAvailable;
-      bool variantInStock = selectedVariant.inStock;
-      
-      if (quantityAvailable != null) {
-        // Check if there's already an item in cart with this variant ID
-        int existingCartQuantity = 0;
-        final variantIdToCheck = selectedVariant.variantId;
-        if (cartBloc.state is CartLoaded) {
-          final cartState = cartBloc.state as CartLoaded;
-          try {
-            final existingItem = cartState.cartItems.firstWhere(
-              (item) => item.product.id == variantIdToCheck,
-            );
-            existingCartQuantity = existingItem.quantity;
-          } catch (e) {
-            // Item not found in cart, existingCartQuantity remains 0
-          }
-        }
+      if (selectedVariant != null) {
+        final double? quantityAvailable = selectedVariant.quantityAvailable;
+        bool variantInStock = selectedVariant.inStock;
         
-        final maxAllowed = quantityAvailable.toInt();
-        final available = maxAllowed - existingCartQuantity;
-        
-        if (maxAllowed <= 0 || available <= 0) {
-          // No stock for this combination
-          variantInStock = false;
-          nextQuantity = 1;
-        } else {
-          // Clamp to available quantity (accounting for cart items)
-          if (nextQuantity > available) {
-            nextQuantity = available;
+        if (quantityAvailable != null) {
+          // Check if there's already an item in cart with this variant ID
+          int existingCartQuantity = 0;
+          final variantIdToCheck = selectedVariant.variantId;
+          if (cartBloc.state is CartLoaded) {
+            final cartState = cartBloc.state as CartLoaded;
+            try {
+              final existingItem = cartState.cartItems.firstWhere(
+                (item) => item.product.id == variantIdToCheck,
+              );
+              existingCartQuantity = existingItem.quantity;
+            } catch (e) {
+              // Item not found in cart, existingCartQuantity remains 0
+            }
           }
-          if (nextQuantity <= 0) {
+          
+          final maxAllowed = quantityAvailable.toInt();
+          final available = maxAllowed - existingCartQuantity;
+          
+          if (maxAllowed <= 0 || available <= 0) {
+            // No stock for this combination
+            variantInStock = false;
             nextQuantity = 1;
+          } else {
+            // Clamp to available quantity (accounting for cart items)
+            if (nextQuantity > available) {
+              nextQuantity = available;
+            }
+            if (nextQuantity <= 0) {
+              nextQuantity = 1;
+            }
           }
+          
+          debugPrint('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
         }
         
-        debugPrint('🔍 Filter variant: variantId=${selectedVariant.variantId}, totalAvailable=$maxAllowed, inCart=$existingCartQuantity, available=$available, adjustedQty=$nextQuantity');
+        updatedProduct = updatedProduct.copyWith(
+          inStock: variantInStock,
+          selectedVariantQuantityAvailable:
+              selectedVariant.quantityAvailable?.toInt(),
+        );
+        // Images update only on color change; do not change images in FilterVariantsByAttribute.
+      } else {
+        // No exact variant for current color + all selected attributes:
+        // treat this combination as out of stock for badge / Add to Cart.
+        updatedProduct = updatedProduct.copyWith(
+          inStock: false,
+          selectedVariantQuantityAvailable: null,
+        );
       }
-      
-      updatedProduct = updatedProduct.copyWith(
-        inStock: variantInStock,
-        selectedVariantQuantityAvailable: selectedVariant.quantityAvailable?.toInt(),
-      );
-      // Images update only on color change; do not change images in FilterVariantsByAttribute.
-    } else {
-      updatedProduct = updatedProduct.copyWith(selectedVariantQuantityAvailable: null);
-    }
 
-    emit(ProductDetailsLoaded(updatedProduct, quantity: nextQuantity, isAdding: false));
+    emit(ProductDetailsLoaded(
+      updatedProduct,
+      quantity: nextQuantity,
+      isAdding: false,
+    ));
   }
 
   Future<void> _onLoadProductDetails(
@@ -2950,74 +2993,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       );
       
       // Sync stock & quantity with the newly selected variant
-      // IMPORTANT: When color changes, we need to find variant matching size+color only
-      // Other attributes (material, heel height) might not match the new color variant
+      // When color changes, use ONLY getFirstInStockVariantForColor (color-only matching)
       int nextQuantity = currentState.quantity;
-      VariantCombination? selectedVariant;
-      
-      // First try exact match (all attributes)
-      selectedVariant = _findSelectedVariant(updatedProduct);
-      
-      if (selectedVariant != null) {
-        debugPrint('🎨 COLOR CHANGED → Found EXACT MATCH variant_id=${selectedVariant.variantId} for color="${updatedProduct.selectedColor}", size="${updatedProduct.selectedSize}"');
-        print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID: ${selectedVariant.variantId} 🎨🎨🎨');
-      }
-      
-      // If no exact match found, try flexible match (size + color only)
-      if (selectedVariant == null && updatedProduct.selectedSize.isNotEmpty && updatedProduct.selectedColor.isNotEmpty) {
-        debugPrint('🔍 No exact variant match found, trying flexible match (size + color only)...');
-        String normalize(String s) => s.toLowerCase().trim();
-        
-        // Helper to get color value from variant
-        String? getVariantColorValue(VariantCombination v) {
-          final colorAttrNames = ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون'];
-          for (final attrName in colorAttrNames) {
-            final value = v.getAttributeValue(attrName);
-            if (value != null && value.isNotEmpty) {
-              return value;
-            }
-          }
-          return null;
-        }
-        
-        final normalizedSelectedColor = normalize(updatedProduct.selectedColor);
-        final flexibleMatch = updatedProduct.variantCombinations.where((combo) {
-          // Must match size
-          bool sizeMatch = combo.hasAttributeValue('SIZE', updatedProduct.selectedSize) ||
-                          combo.hasAttributeValue('size', updatedProduct.selectedSize) ||
-                          combo.hasAttributeValue(updatedProduct.primaryVariantLabel, updatedProduct.selectedSize);
-          
-          if (!sizeMatch) return false;
-          
-          // Must match color (with normalization for better matching)
-          final variantColorName = getVariantColorValue(combo);
-          if (variantColorName == null) return false;
-          
-          final normalizedVariantColor = normalize(variantColorName);
-          bool colorMatch = normalizedVariantColor == normalizedSelectedColor ||
-                           normalizedVariantColor.contains(normalizedSelectedColor) ||
-                           normalizedSelectedColor.contains(normalizedVariantColor);
-          
-          return colorMatch;
-        }).toList();
-        
-        if (flexibleMatch.isNotEmpty) {
-          selectedVariant = flexibleMatch.first;
-          debugPrint('✅ Found flexible match variant_id=${selectedVariant.variantId} for color=${updatedProduct.selectedColor}, size=${updatedProduct.selectedSize}');
-        }
-        
-        if (flexibleMatch.isNotEmpty) {
-          // Sort by highest stock
+      final VariantCombination? selectedVariant = updatedProduct.selectedColor.isNotEmpty
+          ? updatedProduct.getFirstInStockVariantForColor(updatedProduct.selectedColor)
+          : null;
 
-          flexibleMatch.sort((a, b) {
-            final qtyA = a.quantityAvailable ?? 0;
-            final qtyB = b.quantityAvailable ?? 0;
-            return qtyB.compareTo(qtyA);
-          });
-          selectedVariant = flexibleMatch.first;
-          debugPrint('✅ Flexible match found: variantId=${selectedVariant.variantId}, quantityAvailable=${selectedVariant.quantityAvailable}');
-          print('🎨🎨🎨 COLOR CHANGED → VARIANT_ID (FLEXIBLE MATCH): ${selectedVariant.variantId} 🎨🎨🎨');
-        }
+      if (selectedVariant != null) {
+        debugPrint('🎨 COLOR CHANGED → getFirstInStockVariantForColor: variantId=${selectedVariant.variantId}, inStock=${selectedVariant.inStock}, quantityAvailable=${selectedVariant.quantityAvailable}');
+      } else {
+        debugPrint('🎨 COLOR CHANGED → getFirstInStockVariantForColor: no in-stock variant for color="${updatedProduct.selectedColor}"');
       }
       
       // CRITICAL: When size is selected, use hasInStockVariant as the primary source of truth
@@ -3483,10 +3468,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           selectedVariantQuantityAvailable: qtyForBadge,
         );
         // Images update only on color change; keep current images when size changes.
-        productToEmit = productToEmit.copyWith(images: List<String>.from(currentProduct.images));
+        productToEmit =
+            productToEmit.copyWith(images: List<String>.from(currentProduct.images));
       } else {
+        // No exact variant for this size+color(+other attrs) → treat as out of stock.
         productToEmit = productToEmit.copyWith(
-          inStock: inStock,
+          inStock: false,
           selectedVariantQuantityAvailable: null,
         );
       }
@@ -3668,6 +3655,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       return null;
     }
   }
+
+  // NOTE: no _applyLoopStock helper here; stock is computed per-handler.
 
   Future<void> _onAddToCart(
     AddToCartEvent event,
@@ -4096,8 +4085,15 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       final s = state as ProductDetailsLoaded;
       final pd = s.productDetails;
       
-      // Find the currently selected variant
-      final selectedVariant = _findSelectedVariant(pd);
+      // Use the same variant resolution as the add-to-cart bottom sheet
+      // (getFirstInStockVariantForColor first, then _findSelectedVariant)
+      // so increment respects the same available stock shown in the UI.
+      VariantCombination? selectedVariant;
+      if (pd.selectedColor.isNotEmpty && pd.variantCombinations.isNotEmpty) {
+        selectedVariant = pd.getFirstInStockVariantForColor(pd.selectedColor);
+      }
+      selectedVariant ??= _findSelectedVariant(pd);
+
       if (selectedVariant == null) {
         debugPrint('⚠️ Cannot find selected variant, allowing increment');
         final newQuantity = s.quantity + 1;
@@ -4114,11 +4110,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       
       // Check if there's already an item in cart with this variant ID
       int existingCartQuantity = 0;
+      final variantId = selectedVariant.variantId;
       if (cartBloc.state is CartLoaded) {
         final cartState = cartBloc.state as CartLoaded;
         try {
           final existingItem = cartState.cartItems.firstWhere(
-            (item) => item.product.id == selectedVariant.variantId,
+            (item) => item.product.id == variantId,
           );
           existingCartQuantity = existingItem.quantity;
         } catch (e) {
@@ -4127,19 +4124,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
-      // Calculate total quantity (current selection + already in cart)
-      final totalQuantity = s.quantity + existingCartQuantity;
+      // Available = total stock minus what's already in cart (same as bottom sheet)
       final maxAllowed = quantityAvailable.toInt();
+      final available = maxAllowed - existingCartQuantity;
       
-      // Always prevent incrementing if it would exceed available stock
-      if (totalQuantity >= maxAllowed) {
-        debugPrint('⚠️ Cannot increment: total quantity ($totalQuantity) would exceed available stock ($maxAllowed)');
-        // Don't emit error, just silently prevent the increment
+      // If current quantity exceeds available (e.g. after variant change), clamp and emit
+      if (s.quantity > available && available > 0) {
+        debugPrint('⚠️ Clamping quantity from ${s.quantity} to $available (available stock)');
+        emit(s.copyWith(quantity: available));
+        return;
+      }
+      if (available <= 0) {
+        debugPrint('⚠️ No available stock, cannot increment');
+        return;
+      }
+      
+      // Prevent incrementing if already at max available
+      if (s.quantity >= available) {
+        debugPrint('⚠️ Cannot increment: quantity (${s.quantity}) at max available ($available)');
         return;
       }
       
       final newQuantity = s.quantity + 1;
-      debugPrint('➕ Incrementing quantity from ${s.quantity} to $newQuantity (available: $maxAllowed, in cart: $existingCartQuantity)');
+      debugPrint('➕ Incrementing quantity from ${s.quantity} to $newQuantity (available: $available)');
       emit(s.copyWith(quantity: newQuantity));
     }
   }

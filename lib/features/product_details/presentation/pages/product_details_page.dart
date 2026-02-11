@@ -226,14 +226,29 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       bottomNavigationBar: BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
         builder: (context, state) {
           if (state is ProductDetailsLoaded) {
-            final bool isAvailable = _isProductInStock(state.productDetails);
+            final pd = state.productDetails;
+            final bool isAvailable = _isProductInStock(pd);
             final hasMatchingVariantId = _matchedVariantIds.isNotEmpty;
             debugPrint(
-                '🧪 ProductDetailsPage bottom bar → variantIds=${state.productDetails.variantCombinations.map((v) => v.variantId).toList()}');
+                '🧪 ProductDetailsPage bottom bar → variantIds=${pd.variantCombinations.map((v) => v.variantId).toList()}');
             debugPrint(
               '🧪 ProductDetailsPage bottom bar → hasMatchingVariantId=$hasMatchingVariantId '
               'for productId=${widget.productId}, matchedVariantIds=$_matchedVariantIds',
             );
+
+            // Derive stock for the currently selected color using the same loop
+            // logic used by the badge / bottom sheet.
+            bool variantInStock = isAvailable;
+            if (pd.selectedColor.isNotEmpty &&
+                pd.variantCombinations.isNotEmpty) {
+              final matchedVariant =
+                  pd.getFirstInStockVariantForColor(pd.selectedColor);
+              // getFirstInStockVariantForColor only returns variants with
+              // inStock == true && quantityAvailable > 0. If null → out of stock.
+              variantInStock = matchedVariant != null;
+            }
+            final bool isOutOfStock = !variantInStock;
+
             return Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -256,15 +271,25 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: isAvailable
-                        ? () async {
+                    // Use the same stock rule as the badge: if there is no in-stock
+                    // variant for the selected color, disable the CTA and show
+                    // "Out of stock". Otherwise, allow opening the bottom sheet.
+                    onPressed: isOutOfStock
+                        ? null
+                        : () async {
                             await HapticService.buttonClick();
-                            AddToCartBottomSheet.show(context, state.productDetails, context.read<ProductDetailsBloc>());
-                          }
-                        : null,
+                            AddToCartBottomSheet.show(
+                              context,
+                              pd,
+                              context.read<ProductDetailsBloc>(),
+                            );
+                          },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      foregroundColor: colorScheme.onPrimary,
+                      backgroundColor:
+                          isOutOfStock ? colorScheme.surface : primary,
+                      foregroundColor: isOutOfStock
+                          ? colorScheme.onSurface.withValues(alpha: 0.6)
+                          : colorScheme.onPrimary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -273,15 +298,18 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (isAvailable) ...[
+                        if (!isOutOfStock) ...[
                           Icon(
                             Icons.shopping_cart,
                             size: ResponsiveConstants.mdIconSize,
                           ),
                           SizedBox(width: ResponsiveConstants.smSpacing),
                         ],
+                        SizedBox(width: ResponsiveConstants.smSpacing),
                         Text(
-                          isAvailable ? AppLocalizations.of(context)!.addToCart : AppLocalizations.of(context)!.outOfStock,
+                          isOutOfStock
+                              ? AppLocalizations.of(context)!.outOfStock
+                              : AppLocalizations.of(context)!.addToCart,
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.mdFontSize,
                             fontWeight: FontWeight.w600,

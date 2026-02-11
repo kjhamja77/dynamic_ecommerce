@@ -487,47 +487,66 @@ class ProductDetailsModel extends ProductDetails {
         }
       }
 
-    // If API provides a selected_variant (type == variant), preselect ALL matching attributes by name
+    // Preselect attribute values from an initial variant:
+    // 1) Prefer explicit selected_variant from the API when present.
+    // 2) Otherwise, fall back to the first entry in variant_combinations.
+    // This ensures that, on first load, the UI reflects a real variant
+    // combination instead of arbitrary \"first available\" values per attribute.
     double? selectedHeelHeightFromVariant;
-    if ((json['type']?.toString() ?? '') == 'variant') {
-      final Map<String, dynamic>? selectedVariant = json['selected_variant'] as Map<String, dynamic>?;
-      if (selectedVariant != null) {
-        final List<dynamic> selAttrs = (selectedVariant['attributes'] as List<dynamic>?) ?? const [];
-        if (selAttrs.isNotEmpty && variantAttributeOptions.isNotEmpty) {
-          for (final sa in selAttrs) {
-            if (sa is! Map) continue;
-            final String attrName = (sa['attribute_name'] ?? '').toString();
-            final String valueName = (sa['value_name'] ?? '').toString();
-            if (attrName.toLowerCase() == 'height' || attrName.toLowerCase() == 'heel height') {
-              final numeric = double.tryParse(
-                valueName.replaceAll(RegExp(r'[^0-9.]'), ''),
-              );
-              if (numeric != null) {
-                selectedHeelHeightFromVariant = numeric;
-              }
-            }
-            final int optIdx = variantAttributeOptions.indexWhere(
-              (o) => o.attributeName.toLowerCase() == attrName.toLowerCase() ||
-                  (o.apiAttributeName?.toLowerCase() == attrName.toLowerCase()),
+    Map<String, dynamic>? initialVariant =
+        json['selected_variant'] as Map<String, dynamic>?;
+
+    if (initialVariant == null) {
+      final List<dynamic> combos =
+          (json['variant_combinations'] as List<dynamic>?) ?? const [];
+      if (combos.isNotEmpty && combos.first is Map<String, dynamic>) {
+        initialVariant = combos.first as Map<String, dynamic>;
+      }
+    }
+
+    if (initialVariant != null) {
+      final List<dynamic> selAttrs =
+          (initialVariant['attributes'] as List<dynamic>?) ?? const [];
+      if (selAttrs.isNotEmpty && variantAttributeOptions.isNotEmpty) {
+        for (final sa in selAttrs) {
+          if (sa is! Map) continue;
+          final String attrName = (sa['attribute_name'] ?? '').toString();
+          final String valueName = (sa['value_name'] ?? '').toString();
+
+          // Capture numeric heel height when available
+          if (attrName.toLowerCase() == 'height' ||
+              attrName.toLowerCase() == 'heel height') {
+            final numeric = double.tryParse(
+              valueName.replaceAll(RegExp(r'[^0-9.]'), ''),
             );
-            if (optIdx >= 0) {
-              final opt = variantAttributeOptions[optIdx];
-              final updatedValues = opt.values.map((v) {
-                return VariantAttributeValueModel(
-                  id: v.id,
-                  name: v.name,
-                  isAvailable: v.isAvailable,
-                  isSelected: v.name.toLowerCase() == valueName.toLowerCase(),
-                );
-              }).toList();
-              variantAttributeOptions[optIdx] = VariantAttributeOptionModel(
-                attributeName: opt.attributeName,
-                values: updatedValues,
-                selectedValue: valueName,
-                apiAttributeName: opt.apiAttributeName,
-                attributeId: opt.attributeId,
-              );
+            if (numeric != null) {
+              selectedHeelHeightFromVariant = numeric;
             }
+          }
+
+          final int optIdx = variantAttributeOptions.indexWhere(
+            (o) =>
+                o.attributeName.toLowerCase() == attrName.toLowerCase() ||
+                (o.apiAttributeName?.toLowerCase() ==
+                    attrName.toLowerCase()),
+          );
+          if (optIdx >= 0) {
+            final opt = variantAttributeOptions[optIdx];
+            final updatedValues = opt.values.map((v) {
+              return VariantAttributeValueModel(
+                id: v.id,
+                name: v.name,
+                isAvailable: v.isAvailable,
+                isSelected: v.name.toLowerCase() == valueName.toLowerCase(),
+              );
+            }).toList();
+            variantAttributeOptions[optIdx] = VariantAttributeOptionModel(
+              attributeName: opt.attributeName,
+              values: updatedValues,
+              selectedValue: valueName,
+              apiAttributeName: opt.apiAttributeName,
+              attributeId: opt.attributeId,
+            );
           }
         }
       }
