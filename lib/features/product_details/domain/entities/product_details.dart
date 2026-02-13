@@ -46,6 +46,10 @@ class ProductDetails extends Equatable {
   final List<ProductTag> tags; // Product tags/categories
   // Map of variant_id -> list of image URLs for that variant
   final Map<String, List<String>> variantImagesMap;
+  // Map of value_id -> list of available combination value_ids
+  // Used for smart enable/disable logic: when a value is selected,
+  // only values in its combination list remain enabled
+  final Map<String, List<String>> attributeValueCombinations;
 
   const ProductDetails({
     required this.id,
@@ -87,6 +91,7 @@ class ProductDetails extends Equatable {
     this.selectedVariantQuantityAvailable,
     this.tags = const [],
     this.variantImagesMap = const {},
+    this.attributeValueCombinations = const {},
   });
 
   @override
@@ -130,6 +135,7 @@ class ProductDetails extends Equatable {
       selectedVariantQuantityAvailable,
       tags,
       variantImagesMap,
+      attributeValueCombinations,
       ];
 
   /// Get all variants that have a specific attribute value
@@ -253,6 +259,7 @@ class ProductDetails extends Equatable {
     int? selectedVariantQuantityAvailable,
     List<ProductTag>? tags,
     Map<String, List<String>>? variantImagesMap,
+    Map<String, List<String>>? attributeValueCombinations,
   }) {
     return ProductDetails(
       id: id ?? this.id,
@@ -294,6 +301,7 @@ class ProductDetails extends Equatable {
       selectedVariantQuantityAvailable: selectedVariantQuantityAvailable ?? this.selectedVariantQuantityAvailable,
       tags: tags ?? this.tags,
       variantImagesMap: variantImagesMap ?? this.variantImagesMap,
+      attributeValueCombinations: attributeValueCombinations ?? this.attributeValueCombinations,
     );
   }
 
@@ -419,6 +427,265 @@ class ProductDetails extends Equatable {
     }).toList();
     
     return filtered;
+  }
+
+  /// Returns all **in‑stock** variants that are compatible with the **current UI
+  /// selection** (SIZE, MATERIAL, HEIGHT, etc.).
+  ///
+  /// This uses [filterVariantsBySelectedAttributes] and then applies the stock
+  /// rule (`inStock == true && quantityAvailable > 0`).
+  List<VariantCombination> getCompatibleInStockVariantsForCurrentSelection() {
+    if (variantCombinations.isEmpty) {
+      return const <VariantCombination>[];
+    }
+
+    final filtered = filterVariantsBySelectedAttributes();
+    if (filtered.isEmpty) {
+      return const <VariantCombination>[];
+    }
+
+    final compatible = filtered.where((v) {
+      final qty = v.quantityAvailable ?? 0;
+      return v.inStock && qty > 0;
+    }).toList();
+
+    return compatible;
+  }
+
+  /// Builds a map of **attribute name → set of enabled value names** based on the
+  /// **current selection across all attributes**.
+  ///
+  /// - Keys are normalized attribute names (lower‑cased, trimmed), e.g.:
+  ///   `"size"`, `"materials"`, `"height"`, `"width"`, `"material name"`, etc.
+  /// - Values are normalized value names, e.g. `"40"`, `"synthetic leather"`, `"7"`.
+  ///
+  /// **CRITICAL**: For each attribute, enabled values are computed by filtering variants
+  /// that match **ALL OTHER selected attributes** (excluding the attribute being computed).
+  /// This ensures that:
+  /// - When SIZE=40 is selected, SIZE buttons still show all sizes available for the selected COLOR
+  /// - When MATERIAL=Synthetic Leather is selected, MATERIAL buttons still show all materials available for COLOR+SIZE
+  ///
+  /// A value is considered **enabled** if there exists at least one in‑stock variant that:
+  /// - Matches all OTHER selected attributes (excluding the attribute we're computing for)
+  /// - Contains this attribute/value pair
+  ///
+  /// This is the safest way to decide which attribute buttons should be enabled
+  /// after the user has already selected some combination of attributes.
+  Map<String, Set<String>> getEnabledValuesForCurrentSelection() {
+    final Map<String, Set<String>> enabled = {};
+
+    if (variantCombinations.isEmpty) {
+      return enabled;
+    }
+
+    String norm(String s) => s.toLowerCase().trim();
+
+    // Get all unique attribute names from variantAttributeOptions
+    final Set<String> allAttributeNames = {};
+    for (final opt in variantAttributeOptions) {
+      final attrKey = opt.apiAttributeName?.isNotEmpty == true 
+          ? opt.apiAttributeName! 
+          : opt.attributeName;
+      allAttributeNames.add(attrKey);
+    }
+
+    // For each attribute type, compute enabled values by filtering variants that match
+    // ALL OTHER selected attributes (excluding this attribute)
+    for (final attributeName in allAttributeNames) {
+      final normalizedAttrName = norm(attributeName);
+      
+      // Skip color attributes (they're handled separately via getEnabledAttributeValuesForColor)
+      if (normalizedAttrName.contains('color') ||
+          normalizedAttrName == 'colour' ||
+          normalizedAttrName == 'اللون' ||
+          normalizedAttrName == 'لون') {
+        continue;
+      }
+
+      // Build selection map WITHOUT this attribute
+      final Map<String, String> selectionWithoutThisAttr = {};
+      final Map<String, String> selectionWithoutThisAttrByAttrId = {};
+      
+      // Add selectedColor if it's not the attribute we're computing for
+      if (selectedColor.isNotEmpty) {
+        final colorAttrNameLower = norm(attributeName);
+        final isColorAttribute = colorAttrNameLower.contains('color') ||
+            colorAttrNameLower == 'colour' ||
+            colorAttrNameLower == 'اللون' ||
+            colorAttrNameLower == 'لون';
+        
+        if (!isColorAttribute) {
+          // Find color attribute name from variantAttributeOptions or use common names
+          String? colorAttrName;
+          for (final opt in variantAttributeOptions) {
+            final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+                ? opt.apiAttributeName! 
+                : opt.attributeName;
+            final optAttrNameLower = norm(optAttrName);
+            if (optAttrNameLower.contains('color') ||
+                optAttrNameLower == 'colour' ||
+                optAttrNameLower == 'اللون') {
+              colorAttrName = optAttrName;
+              if (opt.attributeId != null && opt.attributeId!.trim().isNotEmpty) {
+                selectionWithoutThisAttrByAttrId[opt.attributeId!.trim()] = selectedColor.trim();
+              }
+              break;
+            }
+          }
+          // Fallback to common color attribute names
+          colorAttrName ??= 'COLOR NAME';
+          selectionWithoutThisAttr[colorAttrName] = selectedColor.trim();
+        }
+      }
+      
+      // Add selectedSize if it's not the attribute we're computing for
+      if (selectedSize.isNotEmpty) {
+        final sizeAttrNameLower = norm(attributeName);
+        final isSizeAttribute = sizeAttrNameLower == 'size' ||
+            sizeAttrNameLower == norm(primaryVariantLabel);
+        
+        if (!isSizeAttribute) {
+          // Find size attribute name from variantAttributeOptions or use common names
+          String? sizeAttrName;
+          for (final opt in variantAttributeOptions) {
+            final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+                ? opt.apiAttributeName! 
+                : opt.attributeName;
+            final optAttrNameLower = norm(optAttrName);
+            if (optAttrNameLower == 'size' ||
+                optAttrNameLower == norm(primaryVariantLabel)) {
+              sizeAttrName = optAttrName;
+              if (opt.attributeId != null && opt.attributeId!.trim().isNotEmpty) {
+                selectionWithoutThisAttrByAttrId[opt.attributeId!.trim()] = selectedSize.trim();
+              }
+              break;
+            }
+          }
+          // Fallback to common size attribute names
+          sizeAttrName ??= primaryVariantLabel.isNotEmpty ? primaryVariantLabel : 'SIZE';
+          selectionWithoutThisAttr[sizeAttrName] = selectedSize.trim();
+        }
+      }
+      
+      // Add other selected attributes from variantAttributeOptions
+      for (final opt in variantAttributeOptions) {
+        if (opt.selectedValue.isEmpty) continue;
+        
+        final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+            ? opt.apiAttributeName! 
+            : opt.attributeName;
+        
+        // Skip this attribute
+        if (norm(optAttrName) == normalizedAttrName) {
+          continue;
+        }
+        
+        // Skip if already added from selectedColor/selectedSize
+        final optAttrNameLower = norm(optAttrName);
+        final isColorAttr = optAttrNameLower.contains('color') ||
+            optAttrNameLower == 'colour' ||
+            optAttrNameLower == 'اللون';
+        final isSizeAttr = optAttrNameLower == 'size' ||
+            optAttrNameLower == norm(primaryVariantLabel);
+        
+        if (isColorAttr && selectedColor.isNotEmpty) continue;
+        if (isSizeAttr && selectedSize.isNotEmpty) continue;
+        
+        // Add to selection map
+        if (opt.attributeId != null && opt.attributeId!.trim().isNotEmpty) {
+          selectionWithoutThisAttrByAttrId[opt.attributeId!.trim()] = opt.selectedValue.trim();
+        }
+        selectionWithoutThisAttr[optAttrName] = opt.selectedValue.trim();
+      }
+
+      // Filter variants that match all OTHER selected attributes and are in stock
+      final compatibleVariants = variantCombinations.where((combo) {
+        // Check stock first
+        final double qty = combo.quantityAvailable ?? 0;
+        if (!combo.inStock || qty <= 0) return false;
+
+        // If no other attributes are selected, all variants are compatible
+        if (selectionWithoutThisAttr.isEmpty && selectionWithoutThisAttrByAttrId.isEmpty) {
+          return true;
+        }
+
+        // Try matching by attribute_id first (more reliable)
+        if (selectionWithoutThisAttrByAttrId.isNotEmpty) {
+          return combo.matchesAttributesByAttributeIdAndValueName(selectionWithoutThisAttrByAttrId);
+        }
+        
+        // Fallback to attribute_name matching
+        return combo.matchesAttributesByValueName(selectionWithoutThisAttr);
+      }).toList();
+
+      // Collect all values for this attribute from compatible variants
+      final Set<String> enabledValues = {};
+      for (final combo in compatibleVariants) {
+        for (final attr in combo.attributes) {
+          final attrName = attr.attributeName;
+          final valueName = attr.valueName;
+          if (attrName.isEmpty || valueName.isEmpty) continue;
+          
+          // Check if this attribute matches (flexible matching)
+          final attrNameNormalized = norm(attrName);
+          bool matches = false;
+          
+          // 1) Exact match
+          if (attrNameNormalized == normalizedAttrName) {
+            matches = true;
+          }
+          // 2) Check if attribute name contains the normalized name or vice versa
+          else if (attrNameNormalized.contains(normalizedAttrName) ||
+                   normalizedAttrName.contains(attrNameNormalized)) {
+            matches = true;
+          }
+          // 3) Check against apiAttributeName from variantAttributeOptions
+          else {
+            for (final opt in variantAttributeOptions) {
+              final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+                  ? opt.apiAttributeName! 
+                  : opt.attributeName;
+              final optAttrNameNormalized = norm(optAttrName);
+              
+              // If the option's normalized name matches what we're looking for,
+              // and the variant's attribute name matches the option's name
+              if (optAttrNameNormalized == normalizedAttrName &&
+                  (attrNameNormalized == optAttrNameNormalized ||
+                   attrNameNormalized.contains(optAttrNameNormalized) ||
+                   optAttrNameNormalized.contains(attrNameNormalized))) {
+                matches = true;
+                break;
+              }
+            }
+          }
+          
+          // 4) Special handling for material attributes (MATERIALS, MATERIAL NAME, etc.)
+          if (!matches && (normalizedAttrName.contains('material') || attrNameNormalized.contains('material'))) {
+            matches = true;
+          }
+          
+          // 5) Special handling for size attributes
+          if (!matches && (normalizedAttrName == 'size' || attrNameNormalized == 'size')) {
+            // Check if this is the primary variant label
+            final primaryLabelNormalized = norm(primaryVariantLabel);
+            if (attrNameNormalized == primaryLabelNormalized || 
+                normalizedAttrName == primaryLabelNormalized) {
+              matches = true;
+            }
+          }
+          
+          if (matches) {
+            enabledValues.add(norm(valueName));
+          }
+        }
+      }
+
+      if (enabledValues.isNotEmpty) {
+        enabled[normalizedAttrName] = enabledValues;
+      }
+    }
+
+    return enabled;
   }
 
   /// Returns true when there exists at least one variant in [variantCombinations]
@@ -564,15 +831,11 @@ class ProductDetails extends Equatable {
     final Map<String, Set<String>> enabledAttributes = {};
     
     if (colorName.isEmpty || variantCombinations.isEmpty) {
-      debugPrint('🔍 getEnabledAttributeValuesForColor: colorName is empty or no variants');
       return enabledAttributes;
     }
 
     String norm(String s) => s.toLowerCase().trim();
     final normalizedColor = norm(colorName);
-
-    debugPrint('🔍 getEnabledAttributeValuesForColor: Starting filter for color="$colorName" (normalized="$normalizedColor")');
-    debugPrint('   Total variants to check: ${variantCombinations.length}');
 
     // Common attribute names used by the backend for color.
     const colorAttrNames = [
@@ -594,10 +857,6 @@ class ProductDetails extends Equatable {
     for (int i = 0; i < variantCombinations.length; i++) {
       final combo = variantCombinations[i];
       
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      debugPrint('🔍 Checking Variant #${i + 1}/${variantCombinations.length}');
-      debugPrint('   Variant ID: ${combo.variantId}');
-      
       // Match color
       String? variantColor;
       for (final attrName in colorAttrNames) {
@@ -609,11 +868,8 @@ class ProductDetails extends Equatable {
       }
       
       if (variantColor == null || variantColor.isEmpty) {
-        debugPrint('   ❌ No color attribute found - SKIPPING');
         continue;
       }
-
-      debugPrint('   Color found: "$variantColor"');
       
       final nVariantColor = norm(variantColor);
       final bool colorMatches =
@@ -622,49 +878,23 @@ class ProductDetails extends Equatable {
           normalizedColor.contains(nVariantColor);
       
       if (!colorMatches) {
-        debugPrint('   ❌ Color mismatch: "$variantColor" (normalized="$nVariantColor") != "$colorName" (normalized="$normalizedColor") - SKIPPING');
         continue;
       }
-
-      debugPrint('   ✅ Color matches!');
 
       // Check stock conditions: inStock == true AND quantityAvailable > 0
       final double qty = combo.quantityAvailable ?? 0;
       final bool inStockAndPositiveQty = combo.inStock && qty > 0;
       
-      debugPrint('   Stock check: inStock=${combo.inStock}, quantityAvailable=${combo.quantityAvailable}, qty=$qty');
-      
       if (!inStockAndPositiveQty) {
-        debugPrint('   ❌ Stock condition failed (inStock=$inStockAndPositiveQty) - SKIPPING');
         continue;
       }
 
-      debugPrint('   ✅ Stock condition passed!');
-      
-      // Print all attributes for this variant
-      debugPrint('   📋 Variant Attributes:');
-      for (final attr in combo.attributes) {
-        debugPrint('      - ${attr.attributeName}: "${attr.valueName}"');
-      }
-
-      // This variant matches color and has stock - add it
       matchingVariants.add(combo);
-      debugPrint('   ✅ Variant ADDED to matching list');
     }
 
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    debugPrint('📊 Filter Results: Found ${matchingVariants.length} matching variants with stock');
-
     // Step 2: Collect all attribute values from matching variants
-    // Skip color attributes since we're filtering by color
-    debugPrint('🔍 Step 2: Collecting attribute values from ${matchingVariants.length} matching variants...');
-    
     for (int i = 0; i < matchingVariants.length; i++) {
       final combo = matchingVariants[i];
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      debugPrint('📦 Processing Matching Variant #${i + 1}/${matchingVariants.length}');
-      debugPrint('   Variant ID: ${combo.variantId}');
-      debugPrint('   Attributes:');
       
       for (final attr in combo.attributes) {
         final attrName = attr.attributeName;
@@ -677,30 +907,18 @@ class ProductDetails extends Equatable {
             attrNameLower == 'colour' ||
             attrNameLower == 'اللون' ||
             attrNameLower == 'لون') {
-          debugPrint('      ⏭️  ${attrName}: "${attrValue}" (SKIPPED - color attribute)');
           continue;
         }
 
-        // Skip empty values
         if (attrValue.isEmpty) {
-          debugPrint('      ⏭️  ${attrName}: "" (SKIPPED - empty value)');
           continue;
         }
-
-        debugPrint('      ✅ ${attrName}: "${attrValue}" (ADDED to enabled set)');
 
         // Add to enabled set for this attribute
         enabledAttributes.putIfAbsent(attrName, () => <String>{});
         enabledAttributes[attrName]!.add(attrValue);
       }
     }
-
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    debugPrint('📊 Final Enabled Attributes Map:');
-    for (final entry in enabledAttributes.entries) {
-      debugPrint('   ${entry.key}: ${entry.value.toList()}');
-    }
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return enabledAttributes;
   }
@@ -904,16 +1122,18 @@ class VariantCombination extends Equatable {
   final bool inStock;
   final List<VariantAttribute> attributes;
   final double? quantityAvailable;
+  final double? price; // Variant-specific price
 
   const VariantCombination({
     required this.variantId,
     required this.inStock,
     required this.attributes,
     this.quantityAvailable,
+    this.price,
   });
 
   @override
-  List<Object?> get props => [variantId, inStock, attributes, quantityAvailable];
+  List<Object?> get props => [variantId, inStock, attributes, quantityAvailable, price];
 
   /// Get the value of a specific attribute
   String? getAttributeValue(String attributeName) {

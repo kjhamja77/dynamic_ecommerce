@@ -42,6 +42,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     on<FilterVariantsByAttributeEvent>(_onFilterVariantsByAttribute);
     on<IncrementQuantityEvent>(_onIncrementQty);
     on<DecrementQuantityEvent>(_onDecrementQty);
+    on<ResetQuantityEvent>(_onResetQuantity);
     on<ResetAddingStateEvent>(_onResetAddingState);
     on<SelectVariantByIdEvent>(_onSelectVariantById);
   }
@@ -721,31 +722,24 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         int matchesTried = 0;
         int matchesStock = 0;
 
-        // HEIGHT: for now do not disable height options - keep all height buttons enabled
-        final bool isHeightAttrForAvailability = attributeName.toLowerCase() == 'height' || attributeName.toLowerCase() == 'heel height';
-        if (isHeightAttrForAvailability) {
-          isAvailable = true; // Force height button to always be enabled (disabling logic commented out below)
-        } else {
+        // UX IMPROVEMENT: Enable buttons more liberally - let users interact with all options.
+        // Only disable if the value doesn't exist in ANY variant. Stock validation happens at cart level.
+        // This allows users to explore combinations freely, and we show "Out of Stock" CTA when needed.
+        
+        // Helper to check if an attribute is critical (Size or Color)
+        bool isCriticalAttribute(String attrName) {
+          final attrLower = attrName.toLowerCase();
+          return attrLower == 'size' ||
+                 attrLower == 'القياس' ||
+                 attrLower == currentProduct.primaryVariantLabel.toLowerCase() ||
+                 attrLower == 'color' ||
+                 attrLower == 'colour' ||
+                 attrLower == 'color name' ||
+                 attrLower == 'اللون';
+        }
+        
+        // Check if this value exists in ANY variant (very permissive - enables interaction)
         for (final combo in currentProduct.variantCombinations) {
-          bool matchesSelections = true;
-
-          // CRITICAL FIX: Only require critical attributes (Size and Color) when checking availability
-          // Optional attributes (Material, Height, Brand) should NOT block availability checks
-          // This allows users to change sizes/colors even when other attributes are selected
-          
-          // Helper to check if an attribute is critical (Size or Color)
-          bool isCriticalAttribute(String attrName) {
-            final attrLower = attrName.toLowerCase();
-            return attrLower == 'size' ||
-                   attrLower == 'القياس' ||
-                   attrLower == currentProduct.primaryVariantLabel.toLowerCase() ||
-                   attrLower == 'color' ||
-                   attrLower == 'colour' ||
-                   attrLower == 'color name' ||
-                   attrLower == 'اللون';
-          }
-          
-          // First, check if the candidate value for this attribute matches (by name or by valueId for e.g. Arabic vs English).
           final String? comboValForThisAttr = _getComboValueForAttribute(
             currentProduct,
             combo,
@@ -756,100 +750,42 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             combo,
             attributeName,
           );
-          final bool valueMatches = (comboValForThisAttr != null &&
+          
+          final bool valueExists = (comboValForThisAttr != null &&
                   _norm(comboValForThisAttr) == _norm(value.name)) ||
               (comboValIdForThisAttr != null &&
                   value.id.toString().trim() == comboValIdForThisAttr.trim());
-          if (!valueMatches) {
-            matchesSelections = false;
-            if (isMaterialAttr && matchesTried < 3) {
-              debugPrint(
-                '   Material value "${value.name}" (id=${value.id}): combo has name="${comboValForThisAttr ?? 'null'}" id=${comboValIdForThisAttr ?? 'null'} → no match',
-              );
-            }
-          }
           
-          // Then, only check critical attributes (Size and Color) if they are selected
-          // CRITICAL: When checking availability for non-critical attributes (Material, Height),
-          // we should NOT require other non-critical attributes to match. This allows users to
-          // freely switch between materials/heights without disabling each other.
-          // Only Size and Color are required to match.
-          if (matchesSelections) {
-            // Check if the attribute we're evaluating is non-critical
-            final bool isEvaluatingNonCritical = !isCriticalAttribute(attributeName);
-            
-            for (final entry in selectedByAttribute.entries) {
-              final String selAttr = entry.key;
-              final String selValue = entry.value;
-
-              // Skip if this is the attribute we're evaluating (already checked above)
-              if (selAttr == attributeName) continue;
-              
-              // CRITICAL FIX: If we're evaluating a non-critical attribute (e.g., Material),
-              // and another non-critical attribute is selected (e.g., Height), skip it.
-              // This prevents Material from being disabled when Height is selected, and vice versa.
-              // Only require critical attributes (Size, Color) to match.
-              if (isEvaluatingNonCritical && !isCriticalAttribute(selAttr)) {
-                continue; // Skip non-critical attributes when evaluating non-critical attributes
-              }
-              
-              // Only check critical attributes (Size and Color) when evaluating critical attributes
-              if (!isCriticalAttribute(selAttr)) continue;
-              
-              // When evaluating availability, allow trying the candidate value for this attribute
-              final String mustMatchValue = selValue;
-              final String? comboVal = _getComboValueForAttribute(
-                currentProduct,
-                combo,
-                selAttr,
-              );
-              if (comboVal == null || comboVal.toLowerCase() != mustMatchValue.toLowerCase()) {
-                matchesSelections = false;
-                break;
-              }
-            }
-          }
-
-          // Check if variant is in stock
-          final isInStock = _isVariantInStock(combo);
-          if (matchesSelections) {
+          if (valueExists) {
             matchesTried += 1;
+            final isInStock = _isVariantInStock(combo);
             if (isInStock) {
               matchesStock += 1;
             }
-            // For Material (and other non-critical attributes): enable the button if a variant
-            // EXISTS for this value (size+color+material), regardless of stock. User can still
-            // select and we show "Out of Stock" for that combination. Prevents all material
-            // buttons from being grey when every variant is out of stock.
-            if (isMaterialAttr) {
-              isAvailable = true;
-              debugPrint(
-                '   ✅ Material value "${value.name}" ENABLED (variant exists, variantId=${combo.variantId}, inStock=$isInStock)',
-              );
-              break;
-            }
-            if (isInStock) {
-              isAvailable = true;
-              break;
-            }
+            // Enable button if value exists in ANY variant (regardless of current selection)
+            // Stock validation will happen at cart/CTA level
+            isAvailable = true;
+            break;
           }
         }
-        } // end else: skip variant-combo availability loop for height
-
-        // For material: only preserve availability when the value was ALREADY available before
-        // (so we don't enable e.g. Synthetic Leather when it's not available for this combination).
-        if (!isAvailable && isMaterialAttr) {
-          final originalValues = attrOption.values.where(
-            (v) => v.name.toLowerCase().trim() == value.name.toLowerCase().trim(),
-          ).toList();
-          if (originalValues.isNotEmpty && originalValues.first.isAvailable) {
-            isAvailable = true;
-            if (matchesTried < 2) {
-              debugPrint(
-                '   ✅ Material value "${value.name}" kept available (was already available)',
-              );
-            }
+        
+        // If value doesn't exist in any variant, keep it disabled
+        if (!isAvailable) {
+          if (isMaterialAttr) {
+            debugPrint(
+              '   🔻 Material value "${value.name}" DISABLED: value does not exist in any variant',
+            );
+          } else {
+            debugPrint(
+              '   🔻 Disabled value: attr="$attributeName" value="${value.name}" '
+              '(value does not exist in any variant)',
+            );
           }
+        } else {
+          debugPrint(
+            '   ✅ Enabled value: attr="$attributeName" value="${value.name}" '
+            '(exists in variants, matchesTried=$matchesTried, inStockMatches=$matchesStock)',
+          );
         }
 
         // [HEIGHT DISABLING - commented out so height button stays enabled]
@@ -923,6 +859,52 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
         // Update selectedValue to match the single option
         selectedByAttribute[attributeName] = singleValue.name;
+      } else {
+        // CRITICAL: When user changes HEIGHT (or other attribute), the current selection for
+        // Material/WIDTH/etc. may become invalid for the new combination. Auto-select the first
+        // enabled value so we always have a valid variant match (prevents "No matching variants").
+        final bool isCriticalAttr = attrNameLower == 'size' ||
+            attrNameLower == 'القياس' ||
+            attrNameLower == currentProduct.primaryVariantLabel.toLowerCase() ||
+            attrNameLower.contains('color') ||
+            attrNameLower == 'colour' ||
+            attrNameLower == 'اللون';
+        if (!isCriticalAttr) {
+          final currentSel = selectedByAttribute[attributeName] ?? '';
+          VariantAttributeValue? currentSelectedVal;
+          for (final v in newValues) {
+            if (_norm(v.name) == _norm(currentSel) || v.id.toString().trim() == currentSel.trim()) {
+              currentSelectedVal = v;
+              break;
+            }
+          }
+          if (currentSelectedVal != null && !currentSelectedVal.isAvailable) {
+            VariantAttributeValue? firstEnabled;
+            for (final v in newValues) {
+              if (v.isAvailable) {
+                firstEnabled = v;
+                break;
+              }
+            }
+            if (firstEnabled != null) {
+              selectedByAttribute[attributeName] = firstEnabled.name;
+              // Update newValues to reflect new selection
+              for (int i = 0; i < newValues.length; i++) {
+                final v = newValues[i];
+                final nowSelected = _norm(v.name) == _norm(firstEnabled.name) || v.id.toString().trim() == firstEnabled.id.toString().trim();
+                if (v.isSelected != nowSelected) {
+                  newValues[i] = VariantAttributeValue(
+                    id: v.id,
+                    name: v.name,
+                    isAvailable: v.isAvailable,
+                    isSelected: nowSelected,
+                  );
+                }
+              }
+              debugPrint('✅ Auto-selected "${firstEnabled.name}" for "$attributeName" (previous selection was disabled for new combination)');
+            }
+          }
+        }
       }
 
       recomputedOptions.add(VariantAttributeOption(
@@ -948,10 +930,19 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     }
 
     // Step 3: matching variants for stock/availability (images update only on color change; do not set images here)
+    // CRITICAL: Use _norm for comparison to handle trailing spaces (e.g. "اسود " vs "اسود") and Arabic/English naming.
+    // When selected value is COLOR_ID_X (fallback for Arabic colors), match by valueId instead of value_name.
     final matching = currentProduct.variantCombinations.where((combo) {
       for (final entry in selectedByAttribute.entries) {
-        final v = _getComboValueForAttribute(currentProduct, combo, entry.key);
-        if (v == null || v.toLowerCase() != entry.value.toLowerCase()) return false;
+        final selVal = entry.value;
+        if (_isColorAttributeKey(entry.key) && selVal.startsWith('COLOR_ID_')) {
+          final idFromSel = selVal.replaceFirst('COLOR_ID_', '').trim();
+          final comboId = _getComboValueIdForAttribute(currentProduct, combo, entry.key);
+          if (comboId == null || comboId.trim() != idFromSel) return false;
+        } else {
+          final v = _getComboValueForAttribute(currentProduct, combo, entry.key);
+          if (v == null || _norm(v) != _norm(selVal)) return false;
+        }
       }
       return true;
     }).toList();
@@ -1068,50 +1059,20 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       final String selectedSizeForMatching = selectedSizeEnglishName;
       debugPrint('📏 Using size for matching: "$selectedSizeForMatching"');
       
-      // Build color availability map for this size
+      // UX IMPROVEMENT: Build color availability map from ALL variants (not just matching selected size)
+      // This enables colors more liberally - users can interact with all colors, stock validation happens at cart level
       final Map<String, bool> colorAvailabilityMap = {};
       for (final v in currentProduct.variantCombinations) {
-        // Check if variant matches the selected size
-        bool primaryMatch = v.hasAttributeValue('SIZE', selectedSizeForMatching) ||
-                           v.hasAttributeValue('size', selectedSizeForMatching) ||
-                           v.hasAttributeValue('Size', selectedSizeForMatching);
-        
-        if (!primaryMatch && currentProduct.primaryVariantLabel.isNotEmpty) {
-          primaryMatch = v.hasAttributeValue(currentProduct.primaryVariantLabel, selectedSizeForMatching);
-        }
-        
-        if (!primaryMatch) {
-          primaryMatch = v.hasAttributeValue('BRAND', selectedSizeForMatching) ||
-                        v.hasAttributeValue('brand', selectedSizeForMatching) ||
-                        v.hasAttributeValue('Brand', selectedSizeForMatching);
-        }
-        
-        if (!primaryMatch) {
-          for (final attr in v.attributes) {
-            final attrName = attr.attributeName.toLowerCase();
-            final attrValue = attr.valueName;
-            final isSizeAttribute = attrName.contains('size') ||
-                                   attrName == currentProduct.primaryVariantLabel.toLowerCase() ||
-                                   attrName == 'brand' ||
-                                   attrName == 'القياس';
-            if (isSizeAttribute && normalize(attrValue) == normalize(selectedSizeForMatching)) {
-              primaryMatch = true;
-              break;
-            }
-          }
-        }
-        
-        if (!primaryMatch) continue;
+        // Don't filter by size - include all variants to enable all colors
+        // Stock validation will happen at cart/CTA level
         
         final colorValue = getVariantColorValue(v);
         if (colorValue != null && colorValue.isNotEmpty) {
           final normalizedColor = normalize(colorValue);
-          final isInStock = _isVariantInStock(v);
-          
+          // Enable color if it exists in ANY variant (even out of stock)
+          // Stock validation happens at cart level
           if (!colorAvailabilityMap.containsKey(normalizedColor)) {
-            colorAvailabilityMap[normalizedColor] = isInStock;
-          } else if (isInStock) {
-            colorAvailabilityMap[normalizedColor] = true;
+            colorAvailabilityMap[normalizedColor] = true; // Always enable if color exists
           }
           
           // CRITICAL: Store by ColorOption ID (not variant value_id)
@@ -1142,11 +1103,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                   (colorOpt.name.startsWith('COLOR_ID_') && colorOptDisplayNormalized == normalizedVariantColorName)) {
                 // Use ColorOption.id (e.g., 224) not variant value_id (e.g., 5418)
                 final colorIdKey = 'COLOR_ID_${colorOpt.id}';
-                if (!colorAvailabilityMap.containsKey(colorIdKey)) {
-                  colorAvailabilityMap[colorIdKey] = isInStock;
-                } else if (isInStock) {
-                  colorAvailabilityMap[colorIdKey] = true;
-                }
+                // Always enable if color exists in any variant
+                colorAvailabilityMap[colorIdKey] = true;
                 debugPrint('🔍 Mapped variant color "$variantColorValueName" (variant_value_id=$variantColorValueId) to ColorOption ID ${colorOpt.id}');
                 break;
               }
@@ -1155,11 +1113,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             // Also store by variant's value_id as fallback (in case we can't match by name)
             if (variantColorValueId != null) {
               final variantColorIdKey = 'COLOR_ID_$variantColorValueId';
-              if (!colorAvailabilityMap.containsKey(variantColorIdKey)) {
-                colorAvailabilityMap[variantColorIdKey] = isInStock;
-              } else if (isInStock) {
-                colorAvailabilityMap[variantColorIdKey] = true;
-              }
+              // Always enable if color exists in any variant
+              colorAvailabilityMap[variantColorIdKey] = true;
             }
           }
         }
@@ -1189,19 +1144,20 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
         
-        // Try multiple matching strategies (works for both English and Arabic)
+        // UX IMPROVEMENT: Enable colors liberally - check if color exists in ANY variant
+        // Stock validation happens at cart level
         final normalizedColorName = normalize(colorNameForMatching);
         bool isAvailable = false;
         
         // Strategy 1: Direct name match (normalized)
-        isAvailable = colorAvailabilityMap[normalizedColorName] ?? false;
+        isAvailable = colorAvailabilityMap.containsKey(normalizedColorName);
         if (isAvailable) {
           debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via direct name match "$normalizedColorName"');
         }
         
         // Strategy 2: ID-based matching for COLOR_ID_X (CRITICAL for Arabic)
         if (!isAvailable && color.name.startsWith('COLOR_ID_')) {
-          isAvailable = colorAvailabilityMap[color.name] ?? false;
+          isAvailable = colorAvailabilityMap.containsKey(color.name);
           if (isAvailable) {
             debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via ID key "${color.name}"');
           }
@@ -1210,7 +1166,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         // Strategy 3: Match by displayName (Arabic) if name is COLOR_ID_X
         if (!isAvailable && color.name.startsWith('COLOR_ID_') && color.displayName != null) {
           final normalizedDisplayName = normalize(color.displayName!);
-          isAvailable = colorAvailabilityMap[normalizedDisplayName] ?? false;
+          isAvailable = colorAvailabilityMap.containsKey(normalizedDisplayName);
           if (isAvailable) {
             debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName match "$normalizedDisplayName"');
           }
@@ -1226,11 +1182,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             if (normalizedColorName == normalizedMapColor ||
                 normalizedColorName.contains(normalizedMapColor) ||
                 normalizedMapColor.contains(normalizedColorName)) {
-              isAvailable = entry.value;
-              if (isAvailable) {
-                debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via flexible matching "$normalizedColorName" ~= "$normalizedMapColor"');
-                break;
-              }
+              isAvailable = true; // Enable if color exists in any variant
+              debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via flexible matching "$normalizedColorName" ~= "$normalizedMapColor"');
+              break;
             }
           }
         }
@@ -1244,19 +1198,35 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             if (normalizedDisplayName == normalizedMapColor ||
                 normalizedDisplayName.contains(normalizedMapColor) ||
                 normalizedMapColor.contains(normalizedDisplayName)) {
-              isAvailable = entry.value;
-              if (isAvailable) {
-                debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName flexible matching "$normalizedDisplayName" ~= "$normalizedMapColor"');
+              isAvailable = true; // Enable if color exists in any variant
+              debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found via displayName flexible matching "$normalizedDisplayName" ~= "$normalizedMapColor"');
+              break;
+            }
+          }
+        }
+        
+        // Fallback: Check if color exists in ANY variant (most permissive)
+        if (!isAvailable) {
+          for (final v in currentProduct.variantCombinations) {
+            final variantColor = getVariantColorValue(v);
+            if (variantColor != null && variantColor.isNotEmpty) {
+              final normalizedVariantColor = normalize(variantColor);
+              if (normalizedVariantColor == normalizedColorName ||
+                  (color.displayName != null && normalize(color.displayName!) == normalizedVariantColor) ||
+                  (color.name.startsWith('COLOR_ID_') && v.attributes.any((a) => 
+                    a.attributeName.toLowerCase().contains('color') && 
+                    a.valueId == color.id.toString()))) {
+                isAvailable = true;
+                debugPrint('🎨 Color "${color.displayNameOrName}" (ID: ${color.id}): Found in variant (fallback check)');
                 break;
               }
             }
           }
         }
         
-        // CRITICAL: Only mark as selected if it's available AND matches newSelectedColor
-        // Unavailable colors should NEVER be selected
-        final bool isSelected = isAvailable && 
-                               newSelectedColor.isNotEmpty &&
+        // UX IMPROVEMENT: Allow selecting any color (even if not available for current size)
+        // Stock validation happens at cart level - CTA will show "Out of Stock" when needed
+        final bool isSelected = newSelectedColor.isNotEmpty &&
                                normalize(colorNameForMatching) == normalize(newSelectedColor);
         
         return ColorOption(
@@ -1270,57 +1240,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         );
       }).toList();
       
-      debugPrint('🔍 Updated ${updatedColorOptions.length} color options for size "$selectedSizeForMatching"');
+      debugPrint('🔍 Updated ${updatedColorOptions.length} color options (all colors enabled for interaction)');
       
-      // If current selected color is unavailable, find first available color
-      if (newSelectedColor.isNotEmpty) {
-        final normalizedCurrentColor = normalize(newSelectedColor);
-        bool currentColorIsAvailable = false;
-        for (final colorOpt in updatedColorOptions) {
-          final colorNameFromOpt = colorOpt.name;
-          if (normalize(colorNameFromOpt) == normalizedCurrentColor && colorOpt.isAvailable) {
-            currentColorIsAvailable = true;
-            break;
-          }
-        }
-        
-        if (!currentColorIsAvailable) {
-          debugPrint('⚠️ Current color "$newSelectedColor" is not available for size "$selectedSizeForMatching", finding first available color...');
-          final firstAvailable = updatedColorOptions.firstWhere(
-            (c) => c.isAvailable,
-            orElse: () => updatedColorOptions.first,
-          );
-          if (firstAvailable.isAvailable) {
-            // Get the English name for the first available color
-            String? firstAvailableColorName = firstAvailable.name;
-            if (firstAvailableColorName.startsWith('COLOR_ID_')) {
-              // Try to get from variantAttributeOptions
-              for (final opt in recomputedOptions) {
-                final attrNameLower = opt.attributeName.toLowerCase();
-                if (attrNameLower == 'color name' || attrNameLower == 'color' || attrNameLower == 'colour' || attrNameLower == 'اللون') {
-                  try {
-                    final matchedValue = opt.values.firstWhere((v) => v.id == firstAvailable.id);
-                    firstAvailableColorName = matchedValue.name;
-                    break;
-                  } catch (e) {
-                    // ID not found, continue
-                  }
-                }
-              }
-            }
-            if (firstAvailableColorName != null && firstAvailableColorName.isNotEmpty) {
-              newSelectedColor = firstAvailableColorName;
-              debugPrint('✅ Switched to first available color: "$newSelectedColor"');
-            } else {
-              newSelectedColor = '';
-              debugPrint('⚠️ Could not determine color name for first available color');
-            }
-          } else {
-            newSelectedColor = ''; // No available colors
-            debugPrint('⚠️ No available colors found for size "$selectedSizeForMatching"');
-          }
-        }
-      }
+      // UX IMPROVEMENT: Preserve user's color selection - don't auto-switch
+      // Stock validation happens at cart level - CTA will show "Out of Stock" when needed
     }
 
     // CRITICAL: Sync selectedHeelHeightCm and selectedMaterial from recomputedOptions.
@@ -2781,24 +2704,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 );
               }
         } else {
-              // Current selection is not available - find first available
-              final firstAvailable = opt.values.firstWhere(
-                (v) => v.isAvailable,
-                orElse: () => opt.values.first,
-              );
-              if (firstAvailable.isAvailable) {
-                nextSelectedMaterial = firstAvailable.name;
-                // Update selectedValue in the option
-                recomputedOptions[i] = VariantAttributeOption(
-                  attributeName: opt.attributeName,
-                  values: opt.values,
-                  selectedValue: firstAvailable.name,
-                  apiAttributeName: opt.apiAttributeName,
-                  attributeId: opt.attributeId,
+              // CRITICAL FIX: Preserve current selection even if not available
+              // Don't auto-switch to a different material - user's selection should be preserved
+              // The UI will show "Out of stock" if no variant matches, but selection stays
+              debugPrint('⚠️ Material "$currentMaterial" is not available for new color, but preserving selection (no auto-switch)');
+              // Keep the current selection - mark it as selected even if not available
+              final preservedValues = opt.values.map((v) {
+                final isSelected = normalize(v.name) == normalize(currentMaterial);
+                return VariantAttributeValue(
+                  id: v.id,
+                  name: v.name,
+                  isAvailable: v.isAvailable,
+                  isSelected: isSelected, // Preserve selection even if not available
                 );
-              } else {
-                nextSelectedMaterial = null;
-              }
+              }).toList();
+              
+              recomputedOptions[i] = VariantAttributeOption(
+                attributeName: opt.attributeName,
+                values: preservedValues,
+                selectedValue: currentMaterial, // Preserve current selection
+                apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
+              );
+              // Keep nextSelectedMaterial unchanged - don't auto-switch
             }
           } else if (opt.values.isNotEmpty) {
             // No current selection - use first available
@@ -2846,48 +2774,29 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
                 );
               }
             } else {
-              // Current selection is not available - find first available
-              final firstAvailable = opt.values.firstWhere(
-                (v) => v.isAvailable,
-                orElse: () => opt.values.first,
-              );
-              if (firstAvailable.isAvailable) {
-                final newHeight = double.tryParse(firstAvailable.name);
-                if (newHeight != null) {
-                  nextSelectedHeelHeight = newHeight;
-                  recomputedOptions[i] = VariantAttributeOption(
-                    attributeName: opt.attributeName,
-                    values: opt.values,
-                    selectedValue: firstAvailable.name,
-                    apiAttributeName: opt.apiAttributeName,
-                    attributeId: opt.attributeId,
-                  );
-                } else {
-                  nextSelectedHeelHeight = null;
-                }
-              } else {
-                // PRESERVE: No height marked available - keep current selection (heightAttrValue
-                // was found via numeric match). Prevents deselecting when availability logic
-                // has edge cases (e.g. color/format mismatch).
-                final preservedValues = opt.values.map((v) {
-                  final matches = double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), '')) != null &&
-                      (double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), ''))! - currentHeight).abs() < 0.01;
-                  return VariantAttributeValue(
-                    id: v.id,
-                    name: v.name,
-                    isAvailable: v.isAvailable,
-                    isSelected: matches,
-                  );
-                }).toList();
-                recomputedOptions[i] = VariantAttributeOption(
-                  attributeName: opt.attributeName,
-                  values: preservedValues,
-                  selectedValue: heightAttrValue.name,
-                  apiAttributeName: opt.apiAttributeName,
-                  attributeId: opt.attributeId,
+              // CRITICAL FIX: Preserve current height selection even if not available
+              // Don't auto-switch to a different height - user's selection should be preserved
+              debugPrint('⚠️ Height "$heightStr" is not available for new color, but preserving selection (no auto-switch)');
+              // Keep the current selection - mark it as selected even if not available
+              final preservedValues = opt.values.map((v) {
+                final vNum = double.tryParse(v.name.replaceAll(RegExp(r'[^0-9.]'), ''));
+                final matches = vNum != null && (vNum - currentHeight).abs() < 0.01;
+                return VariantAttributeValue(
+                  id: v.id,
+                  name: v.name,
+                  isAvailable: v.isAvailable,
+                  isSelected: matches, // Preserve selection even if not available
                 );
-                // nextSelectedHeelHeight stays as currentHeight (already set from currentProduct)
-              }
+              }).toList();
+              
+              recomputedOptions[i] = VariantAttributeOption(
+                attributeName: opt.attributeName,
+                values: preservedValues,
+                selectedValue: heightStr, // Preserve current selection
+                apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
+              );
+              // Keep nextSelectedHeelHeight unchanged - don't auto-switch
             }
           } else if (opt.values.isNotEmpty) {
             // No current selection - use first available
@@ -3620,34 +3529,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         return matching.first;
       }
       
-      // If no exact match, try partial match (at least size and color)
-      if (selectedSizeValue != null && selectedColorValue != null) {
-        final sizeValue = selectedSizeValue;
-        final colorValue = selectedColorValue;
-        final partialMatch = pd.variantCombinations.where((combo) {
-          final comboSize = _getComboValueForAttribute(pd, combo, 'SIZE');
-          final comboColor = _getComboValueForAttribute(pd, combo, 'COLOR NAME');
-          final sizeMatch = comboSize != null && normalize(comboSize) == normalize(sizeValue);
-          final colorMatch = _colorValuesMatch(pd, comboColor, colorValue);
-          return sizeMatch && colorMatch;
-        }).toList();
-        
-        if (partialMatch.isNotEmpty) {
-          // Sort by highest stock when multiple partial matches
-          partialMatch.sort((a, b) {
-            final qtyA = a.quantityAvailable ?? 0;
-            final qtyB = b.quantityAvailable ?? 0;
-            return qtyB.compareTo(qtyA); // Sort descending by stock
-          });
-          debugPrint('🔍 Partial match found, selected one with highest stock: variantId=${partialMatch.first.variantId}, quantityAvailable=${partialMatch.first.quantityAvailable}');
-          return partialMatch.first;
-        }
-      }
-      
-      // Last resort: return first variant if available
-      if (pd.variantCombinations.isNotEmpty) {
-        return pd.variantCombinations.first;
-      }
+      // CRITICAL FIX: No partial matching - only match ALL selected attributes
+      // This prevents auto-switching to different variants when user changes one attribute
+      // If no exact match exists, return null (out of stock) but preserve all user selections
+      debugPrint('⚠️ No exact variant match found for all selected attributes. Returning null (out of stock).');
+      debugPrint('   Selected attributes: $selectedByAttribute');
+      debugPrint('   This is expected behavior - user selections are preserved, variant is marked as out of stock.');
       
       return null;
     } catch (e) {
@@ -4083,35 +3970,47 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
   ) {
     if (state is ProductDetailsLoaded) {
       final s = state as ProductDetailsLoaded;
-      final pd = s.productDetails;
       
-      // Use the same variant resolution as the add-to-cart bottom sheet
-      // (getFirstInStockVariantForColor first, then _findSelectedVariant)
-      // so increment respects the same available stock shown in the UI.
-      VariantCombination? selectedVariant;
-      if (pd.selectedColor.isNotEmpty && pd.variantCombinations.isNotEmpty) {
-        selectedVariant = pd.getFirstInStockVariantForColor(pd.selectedColor);
-      }
-      selectedVariant ??= _findSelectedVariant(pd);
+      // CRITICAL: Use maxAvailable from event (from DynamicVariantController) if provided
+      // This ensures we use the controller's current variant selection, not stale BLoC state
+      int? maxAvailable;
+      String? variantId;
+      
+      if (event.maxAvailable != null && event.variantId != null) {
+        // Use controller's values (most accurate)
+        maxAvailable = event.maxAvailable;
+        variantId = event.variantId;
+        debugPrint('✅ Using controller values: maxAvailable=$maxAvailable, variantId=$variantId');
+      } else {
+        // Fallback to old logic (for backward compatibility)
+        final pd = s.productDetails;
+        VariantCombination? selectedVariant;
+        if (pd.selectedColor.isNotEmpty && pd.variantCombinations.isNotEmpty) {
+          selectedVariant = pd.getFirstInStockVariantForColor(pd.selectedColor);
+        }
+        selectedVariant ??= _findSelectedVariant(pd);
 
-      if (selectedVariant == null) {
-        debugPrint('⚠️ Cannot find selected variant, allowing increment');
-        final newQuantity = s.quantity + 1;
-        emit(s.copyWith(quantity: newQuantity));
-        return;
-      }
-      
-      // Get available quantity for this variant
-      final quantityAvailable = selectedVariant.quantityAvailable ?? double.infinity;
-      if (quantityAvailable == 0) {
-        debugPrint('⚠️ Product is out of stock, cannot increment');
-        return;
+        if (selectedVariant == null) {
+          debugPrint('⚠️ Cannot find selected variant, allowing increment');
+          final newQuantity = s.quantity + 1;
+          emit(s.copyWith(quantity: newQuantity));
+          return;
+        }
+        
+        final quantityAvailable = selectedVariant.quantityAvailable ?? double.infinity;
+        if (quantityAvailable == 0) {
+          debugPrint('⚠️ Product is out of stock, cannot increment');
+          return;
+        }
+        
+        maxAvailable = quantityAvailable.toInt();
+        variantId = selectedVariant.variantId;
+        debugPrint('⚠️ Using fallback logic: maxAvailable=$maxAvailable, variantId=$variantId');
       }
       
       // Check if there's already an item in cart with this variant ID
       int existingCartQuantity = 0;
-      final variantId = selectedVariant.variantId;
-      if (cartBloc.state is CartLoaded) {
+      if (variantId != null && cartBloc.state is CartLoaded) {
         final cartState = cartBloc.state as CartLoaded;
         try {
           final existingItem = cartState.cartItems.firstWhere(
@@ -4125,8 +4024,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       }
       
       // Available = total stock minus what's already in cart (same as bottom sheet)
-      final maxAllowed = quantityAvailable.toInt();
-      final available = maxAllowed - existingCartQuantity;
+      final available = (maxAvailable ?? 0) - existingCartQuantity;
       
       // If current quantity exceeds available (e.g. after variant change), clamp and emit
       if (s.quantity > available && available > 0) {
@@ -4164,6 +4062,17 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       } else {
         debugPrint('⚠️ Cannot decrement quantity below 1 (current: ${s.quantity})');
       }
+    }
+  }
+
+  void _onResetQuantity(
+    ResetQuantityEvent event,
+    Emitter<ProductDetailsState> emit,
+  ) {
+    if (state is ProductDetailsLoaded) {
+      final s = state as ProductDetailsLoaded;
+      debugPrint('🔄 Resetting quantity from ${s.quantity} to ${event.quantity}');
+      emit(s.copyWith(quantity: event.quantity));
     }
   }
 }

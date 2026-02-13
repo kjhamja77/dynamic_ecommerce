@@ -358,93 +358,86 @@ class ProductCard extends StatelessWidget {
         isCompact ? ResponsiveConstants.xsPadding : ResponsiveConstants.smPadding,
       ),
       child: Column(
-        crossAxisAlignment: useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment:
+            useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Top section - Brand and Product name
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                          // Brand name
-                          Directionality(
-                            textDirection: brandTextDirection,
-                            child: Text(
-                              product.brand,
-                              style: AppFonts.getTextStyle(fontSize: _getResponsiveBrandFontSize(),
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                height: 1.0,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: brandTextDirection == TextDirection.rtl ? TextAlign.right : TextAlign.left,
-                            ),
-                          ),
+        children: [
+          // Brand name
+          Directionality(
+            textDirection: brandTextDirection,
+            child: Text(
+              product.brand,
+              style: AppFonts.getTextStyle(
+                fontSize: _getResponsiveBrandFontSize(),
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+                height: 1.0,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: brandTextDirection == TextDirection.rtl
+                  ? TextAlign.right
+                  : TextAlign.left,
+            ),
+          ),
 
-                          SizedBox(height: _getResponsiveSpacing()),
+          SizedBox(height: _getResponsiveSpacing()),
 
-                          // Product name (clean name without variant details); 1 line in compact to reduce height
-                          Directionality(
-                            textDirection: nameTextDirection,
-                            child: Text(
-                              _getCleanProductName(product.name),
-                              style: AppFonts.getTextStyle(fontSize: _getResponsiveProductNameFontSize(),
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                height: 1.0,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: nameTextDirection == TextDirection.rtl ? TextAlign.right : TextAlign.left,
-                            ),
-                          ),
+          // Product name (clean name without variant details)
+          Directionality(
+            textDirection: nameTextDirection,
+            child: Text(
+              _getCleanProductName(product.name),
+              style: AppFonts.getTextStyle(
+                fontSize: _getResponsiveProductNameFontSize(),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.7),
+                height: 1.0,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: nameTextDirection == TextDirection.rtl
+                  ? TextAlign.right
+                  : TextAlign.left,
+            ),
+          ),
 
-                          SizedBox(height: _getResponsiveSpacing()),
+          SizedBox(height: _getResponsiveSpacing() * 1.5),
 
-                          // Rating removed
-                          const SizedBox.shrink(),
-                          ],
-                        ),
-                      ),
+          // Price block – anchored directly under text for tighter, more
+          // balanced layout within the card height.
+          Builder(
+            builder: (context) {
+              final formattedPrice = currencyProvider.formatPrice(
+                product.price,
+                locale: Localizations.localeOf(context),
+              );
+              final formattedOriginalPrice = product.originalPrice != null
+                  ? currencyProvider.formatPrice(
+                      product.originalPrice!,
+                      locale: Localizations.localeOf(context),
+                    )
+                  : null;
 
-                      // Bottom section - Price
-                      // Wrapped in Flexible so the overall Column can shrink
-                      // without causing a bottom overflow in tight grid tiles.
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Builder(
-                          builder: (context) {
-                            final formattedPrice = currencyProvider.formatPrice(
-                              product.price,
-                              locale: Localizations.localeOf(context),
-                            );
-                            final formattedOriginalPrice = product.originalPrice != null
-                                ? currencyProvider.formatPrice(
-                                    product.originalPrice!,
-                                    locale: Localizations.localeOf(context),
-                                  )
-                                : null;
+              debugPrint(
+                '💰 ProductCard: Price=${product.price} → Formatted="$formattedPrice", Currency=${currencyProvider.currency}',
+              );
 
-                            debugPrint(
-                              '💰 ProductCard: Price=${product.price} → Formatted="$formattedPrice", Currency=${currencyProvider.currency}',
-                            );
-
-                            return _PriceBlock(
-                              priceText: formattedPrice,
-                              originalText: formattedOriginalPrice,
-                              discountPercent: product.hasDiscount
-                                  ? product.discountPercentage.toInt()
-                                  : null,
-                              isRtl: useRtlValue,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+              return _PriceBlock(
+                priceText: formattedPrice,
+                originalText: formattedOriginalPrice,
+                discountPercent: product.hasDiscount
+                    ? product.discountPercentage.toInt()
+                    : null,
+                isRtl: useRtlValue,
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 

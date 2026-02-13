@@ -135,6 +135,16 @@ class _CatalogPageState extends State<CatalogPage> {
                             floating: true,
                             pinned: false,
                             snap: true,
+                            leading: Navigator.of(context).canPop()
+                                ? IconButton(
+                                    tooltip: null,
+                                    icon: Icon(
+                                      Icons.arrow_back,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                    onPressed: () => Navigator.of(context).pop(),
+                                  )
+                                : null,
                             title: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,8 +192,8 @@ class _CatalogPageState extends State<CatalogPage> {
                         ],
                       ),
                       actions: [
-                        // Removed tooltip to avoid Tooltip layout assertion inside SliverAppBar
                         IconButton(
+                          tooltip: null,
                           icon: Icon(
                             Icons.sort,
                             color: Theme.of(context).colorScheme.onSurface,
@@ -197,8 +207,8 @@ class _CatalogPageState extends State<CatalogPage> {
                             }
                           },
                         ),
-                        // Removed tooltip to avoid Tooltip layout assertion inside SliverAppBar
                         IconButton(
+                          tooltip: null,
                           icon: Icon(
                             Icons.tune,
                             color: Theme.of(context).colorScheme.onSurface,

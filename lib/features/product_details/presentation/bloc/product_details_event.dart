@@ -26,9 +26,29 @@ class ToggleFavoriteEvent extends ProductDetailsEvent {
   List<Object?> get props => [productId];
 }
 
-class IncrementQuantityEvent extends ProductDetailsEvent {}
+class IncrementQuantityEvent extends ProductDetailsEvent {
+  final int? maxAvailable;
+  final String? variantId;
+
+  const IncrementQuantityEvent({
+    this.maxAvailable,
+    this.variantId,
+  });
+
+  @override
+  List<Object?> get props => [maxAvailable, variantId];
+}
 
 class DecrementQuantityEvent extends ProductDetailsEvent {}
+
+class ResetQuantityEvent extends ProductDetailsEvent {
+  final int quantity;
+
+  const ResetQuantityEvent({this.quantity = 1});
+
+  @override
+  List<Object?> get props => [quantity];
+}
 
 class ResetAddingStateEvent extends ProductDetailsEvent {}
 

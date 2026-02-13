@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/image_cache_utils.dart';
 import '../../domain/entities/product_details.dart';
 import '../bloc/product_details_bloc.dart';
+import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../l10n/app_localizations.dart';
 
@@ -62,27 +64,39 @@ class ColorSelectionSection extends StatelessWidget {
         SizedBox(height: ResponsiveConstants.mdSpacing),
         
         // Color options - Single line with horizontal scrolling
-        BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-          builder: (context, state) {
-            // Get the latest product details from state
-            final currentProductDetails = state is ProductDetailsLoaded 
-                ? state.productDetails 
-                : productDetails;
-            
-            return SizedBox(
-              height: 140, // Reduced height - no "out of stock" text, just icon overlay
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: currentProductDetails.colorOptions.length,
-                separatorBuilder: (context, index) => SizedBox(width: ResponsiveConstants.mdSpacing),
-                itemBuilder: (context, index) {
-                  final colorOption = currentProductDetails.colorOptions[index];
-                  return _ColorOptionCard(
-                    colorOption: colorOption,
-                    productDetails: currentProductDetails,
-                  );
-                },
-              ),
+        Consumer<DynamicVariantController>(
+          builder: (context, variantController, _) {
+            return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+              builder: (context, state) {
+                // Get the latest product details from state
+                final currentProductDetails = state is ProductDetailsLoaded 
+                    ? state.productDetails 
+                    : productDetails;
+                
+                debugPrint('🎨 ColorSelectionSection: Rendering ${currentProductDetails.colorOptions.length} colors');
+                
+                if (currentProductDetails.colorOptions.isEmpty) {
+                  debugPrint('⚠️ ColorSelectionSection: No color options available');
+                  return const SizedBox.shrink();
+                }
+                
+                return SizedBox(
+                  height: 140, // Reduced height - no "out of stock" text, just icon overlay
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: currentProductDetails.colorOptions.length,
+                    separatorBuilder: (context, index) => SizedBox(width: ResponsiveConstants.mdSpacing),
+                    itemBuilder: (context, index) {
+                      final colorOption = currentProductDetails.colorOptions[index];
+                      debugPrint('🎨 ColorSelectionSection: Building color card ${index + 1}/${currentProductDetails.colorOptions.length}: "${colorOption.displayNameOrName}" (id: ${colorOption.id})');
+                      return _ColorOptionCard(
+                        colorOption: colorOption,
+                        productDetails: currentProductDetails,
+                      );
+                    },
+                  ),
+                );
+              },
             );
           },
         ),
@@ -471,33 +485,69 @@ class _ColorOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = colorOption.isSelected;
-    // Use availability from BLoC (now properly updated when size/color changes)
-    // The BLoC recalculates color availability based on selected size in both _onSelectSize and _onSelectColor
-    final isAvailable = colorOption.isAvailable;
-    final bool isDisabled = !isAvailable;
-    final imageUrl = _getColorImageUrl();
-    
-    debugPrint('🎨 ColorSelection Widget: "${colorOption.displayNameOrName}" - isAvailable from BLoC: $isAvailable');
-
-    // Unclickable when: only one color, or only one available (no meaningful choice)
-    final availableCount =
-        productDetails.colorOptions.where((c) => c.isAvailable).length;
-    final hasMultipleChoices =
-        productDetails.colorOptions.length > 1 && availableCount > 1;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: hasMultipleChoices
-          ? () {
-              debugPrint('🎨 ColorSelectionSection: Tapped color "${colorOption.displayNameOrName}" (ID: ${colorOption.id})');
-              context.read<ProductDetailsBloc>().add(
-                    SelectColorEvent(
-                      productId: productDetails.id,
-                      colorId: colorOption.id,
-                    ),
-                  );
+    return Consumer<DynamicVariantController>(
+      builder: (context, variantController, _) {
+        // Find color attribute_id from variantAttributeOptions
+        int? colorAttributeId;
+        for (final opt in productDetails.variantAttributeOptions) {
+          final attrNameLower = opt.attributeName.toLowerCase();
+          if (attrNameLower == 'color name' || 
+              attrNameLower == 'color' || 
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون') {
+            final attrId = int.tryParse(opt.attributeId ?? '');
+            if (attrId != null) {
+              colorAttributeId = attrId;
+              break;
             }
-          : null,
+          }
+        }
+
+        // Get value_id from colorOption.id
+        final colorValueId = int.tryParse(colorOption.id);
+        
+        // Get selected value_id for color attribute
+        final selectedColorValueId = colorAttributeId != null 
+            ? variantController.selectedAttributes[colorAttributeId] 
+            : null;
+        
+        // Check availability using dynamic variant controller
+        final isAvailable = colorAttributeId != null && colorValueId != null
+            ? variantController.getValueState(colorAttributeId, colorValueId) == ValueState.fullyAvailable
+            : true; // Default to available if we can't determine
+        
+        final isSelected = selectedColorValueId == colorValueId;
+        final bool isDisabled = !isAvailable;
+        final imageUrl = _getColorImageUrl();
+        
+        debugPrint('🎨 ColorSelection: "${colorOption.displayNameOrName}" (value_id: $colorValueId)');
+        debugPrint('   Available: $isAvailable, Selected: $isSelected');
+        debugPrint('   Selected value_id in controller: $selectedColorValueId');
+        debugPrint('   Controller selectedAttributes: ${variantController.selectedAttributes}');
+
+        // Unclickable when: only one color, or only one available (no meaningful choice)
+        final availableCount = productDetails.colorOptions.where((c) {
+          final cValueId = int.tryParse(c.id);
+          return cValueId != null && colorAttributeId != null
+              ? variantController.getValueState(colorAttributeId, cValueId) == ValueState.fullyAvailable
+              : true;
+        }).length;
+        final hasMultipleChoices =
+            productDetails.colorOptions.length > 1 && availableCount > 1;
+        
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: hasMultipleChoices && colorAttributeId != null && colorValueId != null
+              ? () {
+                  debugPrint('🎨 ColorSelectionSection (Bottom): Tapped color "${colorOption.displayNameOrName}" (value_id: $colorValueId, attribute_id: $colorAttributeId)');
+                  // Update controller (single source of truth)
+                  // This immediately updates selection and triggers Consumer rebuilds
+                  variantController.selectAttributeValue(colorAttributeId!, colorValueId!);
+                  
+                  // Note: BLoC event removed to prevent double-click issue
+                  // Controller handles selection, images update via controller.currentImages
+                }
+              : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
@@ -632,15 +682,16 @@ class _ColorOptionCard extends StatelessWidget {
                           ),
                         ],
                         
-                        // Selected indicator
-                        if (isSelected && isAvailable)
+                        // Selected indicator - show checkmark when selected (regardless of availability)
+                        // This ensures visual consistency: if selected, show checkmark
+                        if (isSelected)
                           Positioned(
                             top: 8,
                             right: 8,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary,
+                                color: isAvailable ? colorScheme.primary : Colors.grey.shade600,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
@@ -651,8 +702,8 @@ class _ColorOptionCard extends StatelessWidget {
                                 ],
                               ),
                               child: Icon(
-                                Icons.check,
-                                color: colorScheme.onPrimary,
+                                isAvailable ? Icons.check : Icons.block,
+                                color: Colors.white,
                                 size: 16,
                               ),
                             ),
@@ -687,6 +738,8 @@ class _ColorOptionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+      },
     );
   }
 }

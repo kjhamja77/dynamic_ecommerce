@@ -20,15 +20,13 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use BlocBuilder to get latest product details, but widget rebuilds when variantImageUrls prop changes
+    // (which happens when controller updates via Consumer in parent)
     return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
       buildWhen: (previous, current) {
-        if (current is! ProductDetailsLoaded) return false;
-        if (previous is! ProductDetailsLoaded) return true;
-        final prev = previous as ProductDetailsLoaded;
-        final curr = current as ProductDetailsLoaded;
-        // Rebuild when selection or images change so main gallery updates on color tap
-        return prev.productDetails.images != curr.productDetails.images ||
-            prev.productDetails.selectedColor != curr.productDetails.selectedColor;
+        // Always rebuild to get latest product details
+        // The actual image updates come from variantImageUrls prop (from controller)
+        return true;
       },
       builder: (context, state) {
         // Always use the latest product details from the bloc when available
@@ -37,15 +35,15 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
         return Stack(
           children: [
             // Main Product Image (reacts to color/variant changes)
-            // Key forces rebuild when images or selection change so color thumbnail tap updates gallery
+            // Use variant images from controller if available, otherwise use BLoC images
             ProductImageSectionWidget(
-              key: ValueKey('img_${currentProduct.selectedColor}_${currentProduct.images.length}_${currentProduct.images.isNotEmpty ? currentProduct.images.first : ""}'),
+              key: ValueKey('img_${variantImageUrls?.length ?? currentProduct.images.length}_${(variantImageUrls != null && variantImageUrls!.isNotEmpty) ? variantImageUrls!.first : (currentProduct.images.isNotEmpty ? currentProduct.images.first : "")}'),
               productDetails: currentProduct,
               pageController: pageController,
-              overrideImages: null,
+              overrideImages: variantImageUrls, // Use controller's variant images
             ),
 
-            // Color Selection - Top left (kept in sync with state)
+            // Color Selection - Top left (kept in sync with controller)
             ColorSelectionWidget(
               productDetails: currentProduct,
             ),
@@ -54,7 +52,7 @@ class CollapsibleImageSectionWidget extends StatelessWidget {
             PageIndicatorWidget(
               productDetails: currentProduct,
               pageController: pageController,
-              overrideImages: null,
+              overrideImages: variantImageUrls, // Use controller's variant images for indicator too
             ),
           ],
         );

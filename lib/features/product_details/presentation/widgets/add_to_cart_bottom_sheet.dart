@@ -8,6 +8,7 @@ import '../../../../core/services/haptic_service.dart';
 
 import '../../domain/entities/product_details.dart';
 import '../bloc/product_details_bloc.dart';
+import '../controllers/dynamic_variant_controller.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/providers/currency_provider.dart';
@@ -17,20 +18,38 @@ import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../../../core/navigation/navigation_service.dart';
 
 class AddToCartBottomSheet extends StatelessWidget {
-  final ProductDetails productDetails;
   final ProductDetailsBloc bloc;
 
   const AddToCartBottomSheet({
     super.key,
-    required this.productDetails,
     required this.bloc,
   });
 
   static Future<void> show(
     BuildContext context,
-    ProductDetails productDetails,
     ProductDetailsBloc bloc,
+    DynamicVariantController variantController,
   ) {
+    // Log current controller state for debugging
+    debugPrint('📦 AddToCartBottomSheet.show() called');
+    debugPrint('   Controller variantId: ${variantController.variantId}');
+    debugPrint('   Controller quantityAvailable: ${variantController.quantityAvailable}');
+    debugPrint('   Controller selectedAttributes: ${variantController.selectedAttributes}');
+    debugPrint('   Controller currentPrice: ${variantController.currentPrice}');
+    debugPrint('   Controller inStock: ${variantController.inStock}');
+    
+    // Always reset quantity to 1 when opening the bottom sheet
+    // This ensures fresh state for each variant selection
+    final currentState = bloc.state;
+    if (currentState is ProductDetailsLoaded) {
+      // Always reset to 1 for a fresh start
+      if (currentState.quantity != 1) {
+        final availableQty = variantController.quantityAvailable;
+        debugPrint('🔄 Resetting quantity from ${currentState.quantity} to 1 (available: $availableQty)');
+        bloc.add(ResetQuantityEvent(quantity: 1));
+      }
+    }
+    
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -41,9 +60,12 @@ class AddToCartBottomSheet extends StatelessWidget {
         maxHeight:
             MediaQuery.of(context).size.height * 0.8, // Responsive max height
       ),
-      builder: (context) => BlocProvider.value(
-        value: bloc,
-        child: AddToCartBottomSheet(productDetails: productDetails, bloc: bloc),
+      builder: (context) => MultiProvider(
+        providers: [
+          BlocProvider.value(value: bloc),
+          ChangeNotifierProvider.value(value: variantController),
+        ],
+        child: AddToCartBottomSheet(bloc: bloc),
       ),
     ).then((_) {
       // Reset the isAdding state when the bottom sheet is closed
@@ -121,84 +143,96 @@ class AddToCartBottomSheet extends StatelessWidget {
                 color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
               ),
             ),
-            child: Row(
-              children: [
-                // Product Image
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveConstants.smRadius,
-                  ),
-                  child: CachedNetworkImage(
-                    imageUrl: productDetails.images.first,
-                    width: ResponsiveConstants.xlDimension,
-                    height: ResponsiveConstants.xlDimension,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => Container(
-                      width: ResponsiveConstants.xlDimension,
-                      height: ResponsiveConstants.xlDimension,
-                      color: Theme.of(context).colorScheme.surface,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+            child: Consumer<DynamicVariantController>(
+              builder: (context, variantController, _) {
+                // Get current productDetails from controller (always fresh)
+                final pd = variantController.productDetails;
+                if (pd == null) {
+                  return const SizedBox.shrink();
+                }
+                
+                // Get current images from controller
+                final currentImages = variantController.currentImages.isNotEmpty
+                    ? variantController.currentImages
+                    : pd.images;
+                
+                // Get selected attribute values from controller
+                final selectedAttrValues = _getSelectedAttributeValues(
+                  variantController,
+                  pd,
+                );
+                
+                return Row(
+                  children: [
+                    // Product Image - Use controller's current images
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveConstants.smRadius,
                       ),
+                      child: currentImages.isEmpty
+                          ? Container(
+                              width: ResponsiveConstants.xlDimension,
+                              height: ResponsiveConstants.xlDimension,
+                              color: Theme.of(context).colorScheme.surface,
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.4),
+                                size: 28,
+                              ),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: currentImages.first,
+                              width: ResponsiveConstants.xlDimension,
+                              height: ResponsiveConstants.xlDimension,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => Container(
+                                width: ResponsiveConstants.xlDimension,
+                                height: ResponsiveConstants.xlDimension,
+                                color: Theme.of(context).colorScheme.surface,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                width: ResponsiveConstants.xlDimension,
+                                height: ResponsiveConstants.xlDimension,
+                                color: Theme.of(context).colorScheme.surface,
+                                child: Icon(
+                                  Icons.error,
+                                  color:
+                                      Theme.of(context).colorScheme.error,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      width: ResponsiveConstants.xlDimension,
-                      height: ResponsiveConstants.xlDimension,
-                      color: Theme.of(context).colorScheme.surface,
-                      child: Icon(
-                        Icons.error,
-                        color: Theme.of(context).colorScheme.error,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: ResponsiveConstants.mdSpacing),
+                    SizedBox(width: ResponsiveConstants.mdSpacing),
 
-                // Product Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        productDetails.brand,
-                        style: AppFonts.getTextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                        builder: (context, state) {
-                          final pd = state is ProductDetailsLoaded
-                              ? state.productDetails
-                              : productDetails;
-                          // Compose selected attributes summary
-                          final List<String> parts = [];
-                          if (pd.variantAttributeOptions.isNotEmpty) {
-                            for (final opt in pd.variantAttributeOptions) {
-                              if (opt.selectedValue.isNotEmpty) {
-                                parts.add(
-                                  '${opt.attributeName}: ${opt.selectedValue}',
-                                );
-                              }
-                            }
-                          }
-                          // Fallback include primary selected size if not covered
-                          if (parts.isEmpty && pd.selectedSize.isNotEmpty) {
-                            parts.add(
-                              '${pd.primaryVariantLabel}: ${pd.selectedSize}',
-                            );
-                          }
-                          final String subtitle = parts.isNotEmpty
-                              ? ' (${parts.join(', ')})'
-                              : '';
-                          return Text(
-                            pd.name + subtitle,
+                    // Product Details - Use controller's selected attributes
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pd.brand,
+                            style: AppFonts.getTextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            pd.name + (selectedAttrValues.isNotEmpty
+                                ? ' (${selectedAttrValues.join(', ')})'
+                                : ''),
                             style: AppFonts.getTextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -206,140 +240,133 @@ class AddToCartBottomSheet extends StatelessWidget {
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Consumer<CurrencyProvider>(
-                            builder: (context, currencyProvider, child) {
-                              return Text(
-                                currencyProvider.formatPrice(
-                                  productDetails.price,
-                                  locale: Localizations.localeOf(context),
-                                ),
-                                style: AppFonts.getTextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                ),
-                              );
-                            },
                           ),
-                          if (productDetails.originalPrice != null &&
-                              productDetails.originalPrice! >
-                                  productDetails.price) ...[
-                            const SizedBox(width: 8),
-                            Consumer<CurrencyProvider>(
-                              builder: (context, currencyProvider, child) {
-                                return Text(
-                                  currencyProvider.formatPrice(
-                                    productDetails.originalPrice!,
-                                    locale: Localizations.localeOf(context),
-                                  ),
-                                  style: AppFonts.getTextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              // Use variant-specific price if available, otherwise fallback to template price
+                              Consumer<CurrencyProvider>(
+                                builder: (context, currencyProvider, child) {
+                                  final unitPrice = variantController.currentPrice > 0 
+                                      ? variantController.currentPrice 
+                                      : pd.price;
+                                  
+                                  return Row(
+                                    children: [
+                                      Text(
+                                        currencyProvider.formatPrice(
+                                          unitPrice,
+                                          locale: Localizations.localeOf(context),
+                                        ),
+                                        style: AppFonts.getTextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      if (pd.originalPrice != null &&
+                                          pd.originalPrice! >
+                                              unitPrice) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          currencyProvider.formatPrice(
+                                            pd.originalPrice!,
+                                            locale: Localizations.localeOf(context),
+                                          ),
+                                          style: AppFonts.getTextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                            decoration: TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 
           SizedBox(height: ResponsiveConstants.lgPadding),
 
-          // Selected Options (dynamic attribute header)
-          ...(() {
-            final hasRealColors = productDetails.colorOptions
-                .where((c) => c.name.toLowerCase() != 'default')
-                .isNotEmpty;
-            final hasSizes = productDetails.sizeOptions.isNotEmpty;
-            final showSelected =
-                (hasRealColors && productDetails.selectedColor.isNotEmpty) ||
-                (hasSizes && productDetails.selectedSize.isNotEmpty);
-            if (!showSelected) return <Widget>[];
-
-            return [
-              Padding(
+          // Selected Options (dynamic attribute header) - Use controller's selected attributes
+          Consumer<DynamicVariantController>(
+            builder: (context, variantController, _) {
+              final pd = variantController.productDetails;
+              if (pd == null) return const SizedBox.shrink();
+              
+              final selectedAttrValues = _getSelectedAttributeValues(
+                variantController,
+                pd,
+              );
+              
+              if (selectedAttrValues.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              
+              return Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResponsiveConstants.lgPadding,
                 ),
-                child: Row(
-                  children: [
-                    Text(
-                      '${AppLocalizations.of(context)!.selected}: ',
-                      style: AppFonts.getTextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.7),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Text(
+                        '${AppLocalizations.of(context)!.selected}: ',
+                        style: AppFonts.getTextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7),
+                        ),
                       ),
-                    ),
-                    if (hasRealColors &&
-                        productDetails.selectedColor.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${AppLocalizations.of(context)!.color}: ${productDetails.selectedColor}',
-                          style: AppFonts.getTextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context).colorScheme.onSurface,
+                      ...selectedAttrValues.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final attrText = entry.value;
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            left: index > 0 ? 8 : 0,
                           ),
-                        ),
-                      ),
-                    ],
-                    if (hasSizes &&
-                        productDetails.selectedSize.isNotEmpty &&
-                        productDetails.primaryVariantLabel.isNotEmpty) ...[
-                      if (hasRealColors &&
-                          productDetails.selectedColor.isNotEmpty)
-                        const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${productDetails.primaryVariantLabel}: ${productDetails.selectedSize}',
-                          style: AppFonts.getTextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              attrText,
+                              style: AppFonts.getTextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              SizedBox(height: ResponsiveConstants.lgPadding),
-            ];
-          })(),
+              );
+            },
+          ),
+          
+          SizedBox(height: ResponsiveConstants.lgPadding),
 
           // Quantity Selector
           Padding(
@@ -400,119 +427,140 @@ class AddToCartBottomSheet extends StatelessWidget {
                           ),
                         ),
                         child:
-                            BlocBuilder<
-                              ProductDetailsBloc,
-                              ProductDetailsState
-                            >(
-                              builder: (context, state) {
-                                if (state is! ProductDetailsLoaded) {
-                                  return Text(
-                                    '1',
-                                    style: AppFonts.getTextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  );
-                                }
-
-                                final pd = state.productDetails;
-                                int displayedQty = state.quantity;
-
-                                // Clamp quantity to the selected variant's available
-                                // stock for display, using the same loop-based logic
-                                // as attributes/badge.
-                                try {
-                                  final cartState =
-                                      context.read<CartBloc>().state;
-                                  final available = _getAvailableQuantityForSelection(
-                                    pd,
-                                    cartState,
-                                  );
-                                  if (available != null) {
-                                    int maxAvailable = available;
-
-                                    if (maxAvailable > 0) {
-                                      if (displayedQty > maxAvailable) {
-                                        displayedQty = maxAvailable;
-                                      }
-                                    } else {
-                                      displayedQty = 1;
+                            Consumer<DynamicVariantController>(
+                              builder: (context, variantController, _) {
+                                return BlocBuilder<
+                                  ProductDetailsBloc,
+                                  ProductDetailsState
+                                >(
+                                  builder: (context, state) {
+                                    if (state is! ProductDetailsLoaded) {
+                                      return Text(
+                                        '1',
+                                        style: AppFonts.getTextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                        ),
+                                      );
                                     }
-                                  }
-                                } catch (e) {
-                                  developer.log(
-                                      '⚠️ Error clamping quantity: $e');
-                                }
 
-                                return Text(
-                                  '$displayedQty',
-                                  style: AppFonts.getTextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface,
-                                  ),
+                                    int displayedQty = state.quantity;
+
+                                    // Clamp quantity to the selected variant's available stock
+                                    try {
+                                      final cartState =
+                                          context.read<CartBloc>().state;
+                                      int maxAvailable = variantController.quantityAvailable;
+                                      
+                                      // Subtract what is already in the cart
+                                      if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
+                                        try {
+                                          final existingItem = cartState.cartItems.firstWhere(
+                                            (item) => item.product.id == variantController.variantId,
+                                          );
+                                          maxAvailable = maxAvailable - existingItem.quantity;
+                                          if (maxAvailable < 0) maxAvailable = 0;
+                                        } catch (_) {
+                                          // Item not in cart
+                                        }
+                                      }
+
+                                      if (maxAvailable > 0) {
+                                        if (displayedQty > maxAvailable) {
+                                          displayedQty = maxAvailable;
+                                        }
+                                      } else {
+                                        displayedQty = 1;
+                                      }
+                                    } catch (e) {
+                                      developer.log(
+                                          '⚠️ Error clamping quantity: $e');
+                                    }
+
+                                    return Text(
+                                      '$displayedQty',
+                                      style: AppFonts.getTextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
                       ),
-                      BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                        buildWhen: (previous, current) {
-                          return current is ProductDetailsLoaded;
-                        },
-                        builder: (context, state) {
-                          return BlocBuilder<CartBloc, CartState>(
+                      Consumer<DynamicVariantController>(
+                        builder: (context, variantController, _) {
+                          return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
                             buildWhen: (previous, current) {
-                              return true; // Rebuild when cart changes
+                              return current is ProductDetailsLoaded;
                             },
-                            builder: (context, cartState) {
-                              if (state is! ProductDetailsLoaded) {
-                                return _buildQuantityButton(
-                                  context,
-                                  icon: Icons.add,
-                                  onPressed: () {
-                                    context.read<ProductDetailsBloc>().add(
-                                      IncrementQuantityEvent(),
+                            builder: (context, state) {
+                              return BlocBuilder<CartBloc, CartState>(
+                                buildWhen: (previous, current) {
+                                  return true; // Rebuild when cart changes
+                                },
+                                builder: (context, cartState) {
+                                  if (state is! ProductDetailsLoaded) {
+                                    // Fallback: try to get controller values even if state isn't loaded
+                                    final maxAvailable = variantController.quantityAvailable;
+                                    final variantId = variantController.variantId;
+                                    return _buildQuantityButton(
+                                      context,
+                                      icon: Icons.add,
+                                      onPressed: () {
+                                        context.read<ProductDetailsBloc>().add(
+                                          IncrementQuantityEvent(
+                                            maxAvailable: maxAvailable > 0 ? maxAvailable : null,
+                                            variantId: variantId.isNotEmpty ? variantId : null,
+                                          ),
+                                        );
+                                      },
                                     );
-                                  },
-                                );
-                              }
-                              
-                              final pd = state.productDetails;
-                              final currentQty = state.quantity;
-                              
-                              // Find available quantity using the same loop-based
-                              // logic as attributes/badge and remaining stock label.
-                              int maxAvailable = 999; // Fallback high value
-                              try {
-                                final available = _getAvailableQuantityForSelection(
-                                  pd,
-                                  cartState,
-                                );
-                                if (available != null) {
-                                  maxAvailable = available;
-                                }
-                              } catch (e) {
-                                developer.log(
-                                    '⚠️ Error calculating max available: $e');
-                              }
+                                  }
+                                  
+                                  final currentQty = state.quantity;
+                                  
+                                  // Get available quantity from controller
+                                  int maxAvailable = variantController.quantityAvailable;
+                                  
+                                  // Subtract what is already in the cart
+                                  if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
+                                    try {
+                                      final existingItem = cartState.cartItems.firstWhere(
+                                        (item) => item.product.id == variantController.variantId,
+                                      );
+                                      maxAvailable = maxAvailable - existingItem.quantity;
+                                      if (maxAvailable < 0) maxAvailable = 0;
+                                    } catch (_) {
+                                      // Item not in cart
+                                    }
+                                  }
 
-                              // Always limit increment to available stock
-                              final isAtMax = currentQty >= maxAvailable;
-                              
-                              return _buildQuantityButton(
-                                context,
-                                icon: Icons.add,
-                                onPressed: isAtMax ? null : () {
-                                  context.read<ProductDetailsBloc>().add(
-                                    IncrementQuantityEvent(),
+                                  // Always limit increment to available stock
+                                  final isAtMax = currentQty >= maxAvailable;
+                                  
+                                  return _buildQuantityButton(
+                                    context,
+                                    icon: Icons.add,
+                                    onPressed: isAtMax ? null : () {
+                                      // Pass controller's current variant info to BLoC
+                                      context.read<ProductDetailsBloc>().add(
+                                        IncrementQuantityEvent(
+                                          maxAvailable: maxAvailable,
+                                          variantId: variantController.variantId,
+                                        ),
+                                      );
+                                    },
+                                    enabled: !isAtMax,
                                   );
                                 },
-                                enabled: !isAtMax,
                               );
                             },
                           );
@@ -525,38 +573,38 @@ class AddToCartBottomSheet extends StatelessWidget {
             ),
           ),
 
-          // Show remaining quantity - listen to both ProductDetailsBloc and CartBloc
-          BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-            buildWhen: (previous, current) {
-              // Rebuild when product details change (variant selection, stock update)
-              return current is ProductDetailsLoaded;
-            },
-            builder: (context, state) {
+          // Show remaining quantity - use DynamicVariantController for accurate quantity
+          Consumer<DynamicVariantController>(
+            builder: (context, variantController, _) {
               return BlocBuilder<CartBloc, CartState>(
                 buildWhen: (previous, current) {
                   // Rebuild when cart changes (items added/removed)
                   return true;
                 },
                 builder: (context, cartState) {
-                  if (state is! ProductDetailsLoaded) {
-                    return const SizedBox.shrink();
+                  // Get quantity from controller
+                  int remainingQty = variantController.quantityAvailable;
+                  
+                  // Subtract what is already in the cart for this variant
+                  if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
+                    try {
+                      final existingItem = cartState.cartItems.firstWhere(
+                        (item) => item.product.id == variantController.variantId,
+                      );
+                      remainingQty = remainingQty - existingItem.quantity;
+                      if (remainingQty < 0) remainingQty = 0;
+                    } catch (_) {
+                      // Item not in cart → keep full available quantity
+                    }
                   }
                   
-                  final pd = state.productDetails;
-                  int remainingQty = 999; // Default
-                  bool hasStockInfo = false;
-
-                  try {
-                    final available =
-                        _getAvailableQuantityForSelection(pd, cartState);
-                    if (available != null) {
-                      remainingQty = available;
-                      hasStockInfo = true;
-                    }
-                  } catch (e) {
-                    developer.log(
-                        '⚠️ Error calculating remaining quantity: $e');
-                  }
+                  bool hasStockInfo = variantController.variantId.isNotEmpty;
+                  
+                  debugPrint('📊 AddToCartBottomSheet: Available quantity');
+                  debugPrint('   Controller qty: ${variantController.quantityAvailable}');
+                  debugPrint('   After cart deduction: $remainingQty');
+                  debugPrint('   Variant ID: ${variantController.variantId}');
+                  debugPrint('   In stock: ${variantController.inStock}');
 
                   // Only show stock info if low stock (≤5) or out of stock
                   if (!hasStockInfo || (remainingQty > 5 && remainingQty > 0)) {
@@ -617,27 +665,33 @@ class AddToCartBottomSheet extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                  builder: (context, state) {
-                    final quantity = state is ProductDetailsLoaded
-                        ? state.quantity
-                        : 1;
-                    final currentPd = state is ProductDetailsLoaded
-                        ? state.productDetails
-                        : productDetails;
-                    final totalPrice = currentPd.price * quantity;
-                    return Consumer<CurrencyProvider>(
-                      builder: (context, currencyProvider, child) {
-                        return Text(
-                          currencyProvider.formatPrice(
-                            totalPrice,
-                            locale: Localizations.localeOf(context),
-                          ),
-                          style: AppFonts.getTextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                Consumer<DynamicVariantController>(
+                  builder: (context, variantController, _) {
+                    return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+                      builder: (context, state) {
+                        final quantity = state is ProductDetailsLoaded
+                            ? state.quantity
+                            : 1;
+                        // Use variant-specific price if available, otherwise fallback to template price
+                        final pd = variantController.productDetails;
+                        final unitPrice = variantController.currentPrice > 0 
+                            ? variantController.currentPrice 
+                            : (pd?.price ?? 0.0);
+                        final totalPrice = unitPrice * quantity;
+                        return Consumer<CurrencyProvider>(
+                          builder: (context, currencyProvider, child) {
+                            return Text(
+                              currencyProvider.formatPrice(
+                                totalPrice,
+                                locale: Localizations.localeOf(context),
+                              ),
+                              style: AppFonts.getTextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            );
+                          },
                         );
                       },
                     );
@@ -660,165 +714,89 @@ class AddToCartBottomSheet extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               height: ResponsiveConstants.lgButtonHeight,
-              child: BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                buildWhen: (previous, current) => current is ProductDetailsLoaded,
-                builder: (context, state) {
-                  return BlocBuilder<CartBloc, CartState>(
-                    builder: (context, cartState) {
-                      final isAdding =
-                          state is ProductDetailsLoaded && state.isAdding;
-                      final currentPd = state is ProductDetailsLoaded
-                          ? state.productDetails
-                          : productDetails;
+              child: Consumer<DynamicVariantController>(
+                builder: (context, variantController, _) {
+                  return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+                    buildWhen: (previous, current) => current is ProductDetailsLoaded,
+                    builder: (context, state) {
+                      return BlocBuilder<CartBloc, CartState>(
+                        builder: (context, cartState) {
+                          final isAdding =
+                              state is ProductDetailsLoaded && state.isAdding;
+                          
+                          // Get stock status from controller
+                          int availableQty = variantController.quantityAvailable;
+                          
+                          // Subtract what is already in the cart
+                          if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
+                            try {
+                              final existingItem = cartState.cartItems.firstWhere(
+                                (item) => item.product.id == variantController.variantId,
+                              );
+                              availableQty = availableQty - existingItem.quantity;
+                              if (availableQty < 0) availableQty = 0;
+                            } catch (_) {
+                              // Item not in cart
+                            }
+                          }
+                          
+                          // Check if all required attributes are selected
+                          final pd = variantController.productDetails;
+                          if (pd == null) {
+                            return const SizedBox.shrink();
+                          }
+                          
+                          // Count how many attributes need to be selected
+                          final totalAttributes = pd.variantAttributeOptions.length;
+                          final selectedAttributesCount = variantController.selectedAttributes.length;
+                          final bool hasAllAttributesSelected = selectedAttributesCount >= totalAttributes && variantController.variantId.isNotEmpty;
+                          
+                          final bool variantInStock = variantController.inStock && availableQty > 0;
+                          final bool isOutOfStock = !variantInStock || availableQty == 0;
+                          final bool canAdd = hasAllAttributesSelected && variantInStock && availableQty > 0 && !isAdding;
 
-                      String _normalize(String s) => s
-                          .toLowerCase()
-                          .trim()
-                          .replaceAll(RegExp(r"[^\p{L}\p{N}]", unicode: true), '')
-                          .replaceAll(RegExp(r"\s+"), '');
-                      bool normalizeEqual(String a, String b) => _normalize(a) == _normalize(b);
-                      final bool hasColorRequirement = currentPd.colorOptions
-                          .where((c) => c.name.toLowerCase() != 'default')
-                          .isNotEmpty;
-                      final bool colorSelected =
-                          !hasColorRequirement ||
-                          (currentPd.selectedColor.isNotEmpty &&
-                              currentPd.selectedColor.toLowerCase() != 'default');
-
-                      // Primary attribute (dynamic) selection check
-                      final primaryOpt = currentPd.variantAttributeOptions
-                          .firstWhere(
-                            (o) =>
-                                o.attributeName.toLowerCase() ==
-                                    currentPd.primaryVariantLabel.toLowerCase() ||
-                                o.attributeName.toLowerCase() == 'size',
-                            orElse: () => const VariantAttributeOption(
-                              attributeName: '',
-                              values: [],
-                              selectedValue: '',
-                            ),
+                          developer.log(
+                            '🔘 Button state check -> availableQty=$availableQty, '
+                            'variantInStock=$variantInStock, isOutOfStock=$isOutOfStock, canAdd=$canAdd, '
+                            'variantId=${variantController.variantId}, hasAllSelected=$hasAllAttributesSelected '
+                            '($selectedAttributesCount/$totalAttributes attributes)',
                           );
-                      final bool hasPrimaryRequirement =
-                          primaryOpt.attributeName.isNotEmpty;
-                      final bool primarySelected =
-                          !hasPrimaryRequirement ||
-                          (primaryOpt.selectedValue.isNotEmpty || currentPd.selectedSize.isNotEmpty);
-
-                      bool variantCombinationSelected = true;
-                      if ((hasColorRequirement || hasPrimaryRequirement) &&
-                          colorSelected &&
-                          primarySelected &&
-                          currentPd.variantCombinations.isNotEmpty) {
-                        final String selColor = currentPd.selectedColor;
-                        final String selPrimary =
-                            primaryOpt.selectedValue.isNotEmpty
-                            ? primaryOpt.selectedValue
-                            : currentPd.selectedSize;
-                        variantCombinationSelected = currentPd.variantCombinations
-                            .any((v) {
-                              String? _getAttr(List<String> keys) {
-                                for (final k in keys) {
-                                  final val = v.getAttributeValue(k);
-                                  if (val != null && val.isNotEmpty) return val;
-                                }
-                                return null;
-                              }
-
-                              // Try common color keys in both EN/AR with case variants
-                              final colorVal = _getAttr([
-                                'color', 'Color', 'colour', 'Colour', 'COLOR', 'COLOR NAME', 'اللون', 'لون', 'لون المنتج'
-                              ]);
-                              final bool colorMatch = !hasColorRequirement || (
-                                colorVal != null && (
-                                  normalizeEqual(colorVal, selColor) ||
-                                  _normalize(colorVal).contains(_normalize(selColor)) ||
-                                  _normalize(selColor).contains(_normalize(colorVal))
-                                )
-                              );
-                              final bool primaryMatch = !hasPrimaryRequirement || (
-                                (
-                                  v.getAttributeValue(currentPd.primaryVariantLabel) != null &&
-                                  normalizeEqual(
-                                    v.getAttributeValue(currentPd.primaryVariantLabel)!,
-                                    selPrimary,
-                                  )
-                                ) || (
-                                  v.getAttributeValue('size') != null &&
-                                  normalizeEqual(
-                                    v.getAttributeValue('size')!,
-                                    selPrimary,
-                                  )
-                                ) || (
-                                  v.getAttributeValue('SIZE') != null &&
-                                  normalizeEqual(
-                                    v.getAttributeValue('SIZE')!,
-                                    selPrimary,
-                                  )
-                                ) || (
-                                  v.getAttributeValue('المقاس') != null &&
-                                  normalizeEqual(
-                                    v.getAttributeValue('المقاس')!,
-                                    selPrimary,
-                                  )
-                                )
-                              );
-                              return colorMatch && primaryMatch;
-                            });
-                      }
-
-                      // Use the same quantity we show in the UI (from _getAvailableQuantityForSelection)
-                      // as the source of truth for the Add to Cart button. This keeps button and "(X available)"
-                      // in sync.
-                      final int? availableQty =
-                          _getAvailableQuantityForSelection(currentPd, cartState);
-                      final bool variantInStock =
-                          availableQty != null && availableQty > 0;
-                      final bool isOutOfStock = !variantInStock;
-                      final bool canAdd = variantInStock && !isAdding;
-
-                      developer.log(
-                        '🔘 Button stock check -> availableQty=$availableQty, '
-                        'variantInStock=$variantInStock, isOutOfStock=$isOutOfStock, canAdd=$canAdd',
-                      );
-                      developer.log('🧩 Selection check -> hasColorReq=$hasColorRequirement, colorSelected=$colorSelected, hasPrimaryReq=$hasPrimaryRequirement, primarySelected=$primarySelected, variantOk=$variantCombinationSelected');
-                      return ElevatedButton(
-                    onPressed: canAdd && !isOutOfStock
-                        ? () async {
+                          
+                          // Determine button state and text
+                          String buttonText;
+                          bool buttonEnabled;
+                          
+                          if (!hasAllAttributesSelected) {
+                            // Case: Not all attributes selected
+                            buttonText = AppLocalizations.of(context)!.selectOptions;
+                            buttonEnabled = false;
+                          } else if (isOutOfStock) {
+                            // Case: All selected but out of stock
+                            buttonText = AppLocalizations.of(context)!.outOfStock;
+                            buttonEnabled = false;
+                          } else {
+                            // Case: All selected and in stock
+                            buttonText = AppLocalizations.of(context)!.addToCart;
+                            buttonEnabled = canAdd;
+                          }
+                          
+                          return ElevatedButton(
+                            onPressed: buttonEnabled
+                                ? () async {
                             await HapticService.heavyImpact();
                             developer.log('🔘 Add to Cart button pressed!');
-                            final latest =
-                                context.read<ProductDetailsBloc>().state
-                                    is ProductDetailsLoaded
-                                ? (context.read<ProductDetailsBloc>().state
-                                          as ProductDetailsLoaded)
-                                      .productDetails
-                                : productDetails;
-                            developer.log('📱 Product ID Label: ${latest.id}');
-                            developer.log(
-                              '🎨 Selected Color: ${latest.selectedColor}',
-                            );
-                            // Prefer primary attribute selection from variantAttributeOptions
-                            final latestPrimary = latest.variantAttributeOptions
-                                .firstWhere(
-                                  (o) =>
-                                      o.attributeName.toLowerCase() ==
-                                          latest.primaryVariantLabel
-                                              .toLowerCase() ||
-                                      o.attributeName.toLowerCase() == 'size',
-                                  orElse: () => const VariantAttributeOption(
-                                    attributeName: '',
-                                    values: [],
-                                    selectedValue: '',
-                                  ),
-                                );
-                            final String latestPrimaryValue =
-                                latestPrimary.selectedValue.isNotEmpty
-                                ? latestPrimary.selectedValue
-                                : latest.selectedSize;
-                            developer.log(
-                              '📏 Selected ${latest.primaryVariantLabel}: $latestPrimaryValue',
-                            );
-
+                            
+                            // Get the controller to extract colorId and sizeId from selectedAttributes
+                            final controller = context.read<DynamicVariantController>();
+                            final latestPd = controller.productDetails;
+                            
+                            if (latestPd == null) {
+                              developer.log('⚠️ Controller has no productDetails');
+                              return;
+                            }
+                            
+                            developer.log('📱 Product ID Label: ${latestPd.id}');
+                            
                             final currentState = context
                                 .read<ProductDetailsBloc>()
                                 .state;
@@ -832,36 +810,46 @@ class AddToCartBottomSheet extends StatelessWidget {
                               );
                               developer.log('🚀 Dispatching AddToCartEvent...');
 
-                              // Resolve selected option IDs from the latest bloc state (avoid stale snapshot)
-                              final blocState =
-                                  context.read<ProductDetailsBloc>().state
-                                      as ProductDetailsLoaded;
-                              final latestPd = blocState.productDetails;
-
                               String selectedColorId = '';
                               String selectedSizeId = '';
-                              // Map selected color to its id if applicable
-                              if (latestPd.colorOptions.isNotEmpty) {
-                                final selectedColor = latestPd.colorOptions
-                                    .firstWhere(
-                                      (c) => c.isSelected,
-                                      orElse: () => latestPd.colorOptions.first,
-                                    );
-                                selectedColorId =
-                                    selectedColor.name.toLowerCase() ==
-                                        'default'
-                                    ? ''
-                                    : selectedColor.id;
+                              
+                              // Find color and size attribute IDs from variantAttributeOptions
+                              int? colorAttributeId;
+                              int? sizeAttributeId;
+                              
+                              for (final opt in latestPd.variantAttributeOptions) {
+                                final attrNameLower = opt.attributeName.toLowerCase().trim();
+                                final apiAttrNameLower = opt.apiAttributeName?.toLowerCase().trim() ?? '';
+                                
+                                if ((attrNameLower.contains('color') || 
+                                     attrNameLower.contains('لون') ||
+                                     attrNameLower == 'اللون' ||
+                                     apiAttrNameLower.contains('color') ||
+                                     apiAttrNameLower.contains('لون')) &&
+                                    opt.attributeId != null && opt.attributeId!.isNotEmpty) {
+                                  colorAttributeId = int.tryParse(opt.attributeId!);
+                                } else if ((attrNameLower.contains('size') || 
+                                           attrNameLower.contains('مقاس') ||
+                                           attrNameLower == 'المقاس' ||
+                                           apiAttrNameLower.contains('size') ||
+                                           apiAttrNameLower.contains('مقاس')) &&
+                                          opt.attributeId != null && opt.attributeId!.isNotEmpty) {
+                                  sizeAttributeId = int.tryParse(opt.attributeId!);
+                                }
                               }
-
-                              // Map selected size to its id if applicable
-                              if (latestPd.sizeOptions.isNotEmpty) {
-                                final selectedSize = latestPd.sizeOptions.firstWhere(
-                                  (s) => s.isSelected,
-                                  orElse: () => latestPd.sizeOptions.first,
-                                );
-                                selectedSizeId = selectedSize.id;
+                              
+                              // Extract value_ids from controller's selectedAttributes
+                              if (colorAttributeId != null && controller.selectedAttributes.containsKey(colorAttributeId)) {
+                                selectedColorId = controller.selectedAttributes[colorAttributeId]!.toString();
+                                developer.log('🎨 Color ID from controller: $selectedColorId (attr_id: $colorAttributeId)');
                               }
+                              
+                              if (sizeAttributeId != null && controller.selectedAttributes.containsKey(sizeAttributeId)) {
+                                selectedSizeId = controller.selectedAttributes[sizeAttributeId]!.toString();
+                                developer.log('📏 Size ID from controller: $selectedSizeId (attr_id: $sizeAttributeId)');
+                              }
+                              
+                              developer.log('📦 AddToCartEvent params: productId=${latestPd.id}, colorId=$selectedColorId, sizeId=$selectedSizeId, quantity=${currentState.quantity}');
 
                               context.read<ProductDetailsBloc>().add(
                                 AddToCartEvent(
@@ -914,43 +902,43 @@ class AddToCartBottomSheet extends StatelessWidget {
                               );
                             }
                           }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isOutOfStock
-                          ? Theme.of(context)
-                              .colorScheme
-                              .surface
-                              .withValues(alpha: 0.5)
-                          : Theme.of(context).colorScheme.primary,
-                      foregroundColor: isOutOfStock
-                          ? Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6)
-                          : Theme.of(context).colorScheme.onPrimary,
-                      disabledBackgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surface
-                          .withValues(alpha: 0.5),
-                      disabledForegroundColor: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          ResponsiveConstants.mdRadius,
-                        ),
-                      ),
-                      elevation: isOutOfStock ? 0 : 0,
-                      shadowColor: isOutOfStock
-                          ? Colors.transparent
-                          : Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.2),
-                    ),
-                        child: isAdding
-                            ? SizedBox(
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: buttonEnabled
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surface
+                                      .withValues(alpha: 0.5),
+                              foregroundColor: buttonEnabled
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.6),
+                              disabledBackgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .surface
+                                  .withValues(alpha: 0.5),
+                              disabledForegroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  ResponsiveConstants.mdRadius,
+                                ),
+                              ),
+                              elevation: buttonEnabled ? 0 : 0,
+                              shadowColor: buttonEnabled
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                            ),
+                            child: isAdding
+                                ? SizedBox(
                                 height: 24,
                                 width: 24,
                                 child: CircularProgressIndicator(
@@ -960,46 +948,43 @@ class AddToCartBottomSheet extends StatelessWidget {
                                   ),
                                 ),
                               )
-                            : Row(
+                                : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    isOutOfStock
+                                    !hasAllAttributesSelected || isOutOfStock
                                         ? Icons.block
                                         : Icons.shopping_cart_outlined,
                                     size: 20,
-                                    color: isOutOfStock
+                                    color: buttonEnabled
                                         ? Theme.of(context)
                                             .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.6)
+                                            .onPrimary
                                         : Theme.of(context)
                                             .colorScheme
-                                            .onPrimary,
+                                            .onSurface
+                                            .withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    isOutOfStock
-                                        ? AppLocalizations.of(context)!.outOfStock
-                                        : (canAdd
-                                            ? AppLocalizations.of(context)!.addToCart
-                                            : AppLocalizations.of(context)!
-                                                .selectOptions),
+                                    buttonText,
                                     style: AppFonts.getTextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: isOutOfStock
+                                      color: buttonEnabled
                                           ? Theme.of(context)
                                               .colorScheme
-                                              .onSurface
-                                              .withValues(alpha: 0.6)
+                                              .onPrimary
                                           : Theme.of(context)
                                               .colorScheme
-                                              .onPrimary,
+                                              .onSurface
+                                              .withValues(alpha: 0.6),
                                     ),
                                   ),
                                 ],
                               ),
+                          );
+                        },
                       );
                     },
                   );
@@ -1249,5 +1234,92 @@ class AddToCartBottomSheet extends StatelessWidget {
       developer.log('⚠️ Error in _getAvailableQuantityForSelection: $e');
       return null;
     }
+  }
+
+  /// Get selected attribute values as display strings from the controller
+  /// Returns a list of strings like ["اللون: اخضر", "المقاس: 40", "الخامة: شمواه"]
+  List<String> _getSelectedAttributeValues(
+    DynamicVariantController controller,
+    ProductDetails productDetails,
+  ) {
+    final List<String> parts = [];
+    
+    if (controller.productDetails == null || controller.selectedVariant == null) return parts;
+    
+    final pd = controller.productDetails!;
+    final selectedVariant = controller.selectedVariant!;
+    
+    // Get attribute values directly from the selected variant's attributes
+    // This ensures we get the actual value_name (e.g., "اخضر") instead of "COLOR_ID_300"
+    final Map<String, String> attributeDisplayMap = {};
+    
+    // Build a map of attribute names to their display names
+    for (final opt in pd.variantAttributeOptions) {
+      final attrDisplayName = opt.apiAttributeName?.isNotEmpty == true
+          ? opt.apiAttributeName!
+          : opt.attributeName;
+      
+      if (opt.attributeId != null && opt.attributeId!.isNotEmpty) {
+        final attrId = opt.attributeId!;
+        attributeDisplayMap[attrId] = attrDisplayName;
+      }
+    }
+    
+    // Extract values from the selected variant's attributes
+    for (final variantAttr in selectedVariant.attributes) {
+      final attrId = variantAttr.attributeId;
+      final valueName = variantAttr.valueName;
+      
+      if (attrId == null || valueName.isEmpty) continue;
+      
+      // Get the display name for this attribute
+      final attrDisplayName = attributeDisplayMap[attrId] ?? variantAttr.attributeName;
+      
+      // For colors, try to get the localized name from ColorOption if available
+      String displayValueName = valueName;
+      
+      // Check if this is a color attribute and try to get localized name
+      final attrNameLower = variantAttr.attributeName.toLowerCase();
+      if (attrNameLower.contains('color') || attrNameLower.contains('لون')) {
+        // Try to find the color in ColorOption by matching value_id
+        final valueId = variantAttr.valueId;
+        if (valueId != null) {
+          try {
+            final colorOption = pd.colorOptions.firstWhere(
+              (c) => c.id == valueId || c.id == valueId.toString(),
+            );
+            // Use displayName if available (Arabic), otherwise use name
+            displayValueName = colorOption.displayName ?? colorOption.name;
+          } catch (_) {
+            // Color not found in ColorOption, use value_name from variant
+            displayValueName = valueName;
+          }
+        }
+      }
+      
+      // Skip if value name is still COLOR_ID_X format (fallback)
+      if (displayValueName.startsWith('COLOR_ID_')) {
+        // Try one more time to get from ColorOption by value_id
+        final valueId = variantAttr.valueId;
+        if (valueId != null) {
+          try {
+            final colorOption = pd.colorOptions.firstWhere(
+              (c) {
+                final cId = int.tryParse(c.id);
+                final vId = int.tryParse(valueId);
+                return cId != null && vId != null && cId == vId;
+              },
+            );
+            displayValueName = colorOption.displayName ?? colorOption.name;
+          } catch (_) {
+            // Keep COLOR_ID_X if we can't find it
+          }
+        }
+      }
+      
+      parts.add('$attrDisplayName: $displayValueName');
+    }
+    
+    return parts;
   }
 }

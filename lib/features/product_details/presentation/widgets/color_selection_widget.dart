@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../bloc/product_details_bloc.dart';
+import '../controllers/dynamic_variant_controller.dart';
 import '../../domain/entities/product_details.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
@@ -41,51 +43,76 @@ class ColorSelectionWidget extends StatelessWidget {
   }
 
   Widget _buildColorLabel(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    // Prefer the currently selected ColorOption (using localized display name),
-    // fall back to matching by selectedColor string, then to the first option.
-    ColorOption selectedOpt = productDetails.colorOptions
-        .firstWhere((c) => c.isSelected, orElse: () => productDetails.colorOptions.first);
-
-    // If selectedColor is set but the current option is not marked selected (edge cases),
-    // try to find a ColorOption whose English or display name matches it.
-    if (productDetails.selectedColor.isNotEmpty && !selectedOpt.isSelected) {
-      final sel = productDetails.selectedColor.toLowerCase().trim();
-      for (final c in productDetails.colorOptions) {
-        final candidateNames = <String>[
-          c.name.toLowerCase().trim(),
-          c.displayNameOrName.toLowerCase().trim(),
-        ];
-        if (candidateNames.any((n) => n == sel || n.contains(sel) || sel.contains(n))) {
-          selectedOpt = c;
-          break;
+    return Consumer<DynamicVariantController>(
+      builder: (context, variantController, _) {
+        final l10n = AppLocalizations.of(context)!;
+        
+        // Find color attribute_id from variantAttributeOptions
+        int? colorAttributeId;
+        for (final opt in productDetails.variantAttributeOptions) {
+          final attrNameLower = opt.attributeName.toLowerCase();
+          if (attrNameLower == 'color name' || 
+              attrNameLower == 'color' || 
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون') {
+            final attrId = int.tryParse(opt.attributeId ?? '');
+            if (attrId != null) {
+              colorAttributeId = attrId;
+              break;
+            }
+          }
         }
-      }
-    }
-
-    final label = selectedOpt.displayNameOrName;
-    
-    return Text(
-      '${l10n.color}: ${label.toLowerCase()}',
-      style: AppFonts.getTextStyle(
-        fontSize: 14.sp,
-        fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.onSurface,
-        shadows: [
-          Shadow(
-            offset: Offset(0, 1.h),
-            blurRadius: 4.r,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.black.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.9),
+        
+        // Get selected value_id from controller
+        final selectedColorValueId = colorAttributeId != null 
+            ? variantController.selectedAttributes[colorAttributeId] 
+            : null;
+        
+        // Find the ColorOption that matches the selected value_id
+        ColorOption? selectedOpt;
+        if (selectedColorValueId != null) {
+          selectedOpt = productDetails.colorOptions.firstWhere(
+            (c) => int.tryParse(c.id) == selectedColorValueId,
+            orElse: () => productDetails.colorOptions.first,
+          );
+        } else {
+          // Fallback to first color if no selection
+          selectedOpt = productDetails.colorOptions.isNotEmpty 
+              ? productDetails.colorOptions.first 
+              : null;
+        }
+        
+        if (selectedOpt == null) {
+          return const SizedBox.shrink();
+        }
+        
+        final label = selectedOpt.displayNameOrName;
+        
+        debugPrint('🎨 ColorSelectionWidget._buildColorLabel: Selected color "${label}" (value_id: $selectedColorValueId)');
+        
+        return Text(
+          '${l10n.color}: ${label.toLowerCase()}',
+          style: AppFonts.getTextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface,
+            shadows: [
+              Shadow(
+                offset: Offset(0, 1.h),
+                blurRadius: 4.r,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black.withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.9),
+              ),
+              Shadow(
+                offset: Offset(0, 1.h),
+                blurRadius: 2.r,
+                color: Colors.black.withValues(alpha: 0.3),
+              ),
+            ],
           ),
-          Shadow(
-            offset: Offset(0, 1.h),
-            blurRadius: 2.r,
-            color: Colors.black.withValues(alpha: 0.3),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -168,102 +195,131 @@ class ColorSelectionWidget extends StatelessWidget {
   }
 
   Widget _buildColorThumbnail(BuildContext context, ColorOption color) {
-    // Prefer a variant-based image (grouped by variantId), then color-level images, then product-level images.
-    String thumbUrl = _firstVariantImageForColor(color);
-    if (thumbUrl.isEmpty) {
-      // Use images we already grouped per color in the model
-      if (color.images.isNotEmpty) {
-        thumbUrl = ImageCacheUtils.normalizeImageUrl(color.images.first);
-      } else if (productDetails.images.isNotEmpty) {
-        thumbUrl = ImageCacheUtils.normalizeImageUrl(productDetails.images.first);
-      } else {
-        thumbUrl = '';
-      }
-    }
+    return Consumer<DynamicVariantController>(
+      builder: (context, variantController, _) {
+        // Prefer a variant-based image (grouped by variantId), then color-level images, then product-level images.
+        String thumbUrl = _firstVariantImageForColor(color);
+        if (thumbUrl.isEmpty) {
+          // Use images we already grouped per color in the model
+          if (color.images.isNotEmpty) {
+            thumbUrl = ImageCacheUtils.normalizeImageUrl(color.images.first);
+          } else if (productDetails.images.isNotEmpty) {
+            thumbUrl = ImageCacheUtils.normalizeImageUrl(productDetails.images.first);
+          } else {
+            thumbUrl = '';
+          }
+        }
 
-    final isSelected = color.isSelected;
-    debugPrint('product id when selecting colors ${productDetails.id}');
-    debugPrint('product color id when selecting colors ${color.id}');
-
-    // When only one color exists, no action - nothing to choose
-    final hasMultipleColors = productDetails.colorOptions.length > 1;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
-      onTap: hasMultipleColors
-          ? () async {
-              debugPrint('🎨 ColorSelectionWidget: Tapped color "${productDetails.id}" (ID: ${color.id})');
-              await HapticService.buttonClick();
-              // SelectColor alone updates selection + main images; no SelectVariantById to avoid overwriting.
-              context.read<ProductDetailsBloc>().add(
-                SelectColorEvent(
-                  productId: productDetails.id,
-                  colorId: color.id,
-                ),
-              );
+        // Find color attribute_id from variantAttributeOptions
+        int? colorAttributeId;
+        for (final opt in productDetails.variantAttributeOptions) {
+          final attrNameLower = opt.attributeName.toLowerCase();
+          if (attrNameLower == 'color name' || 
+              attrNameLower == 'color' || 
+              attrNameLower == 'colour' ||
+              attrNameLower == 'اللون') {
+            final attrId = int.tryParse(opt.attributeId ?? '');
+            if (attrId != null) {
+              colorAttributeId = attrId;
+              break;
             }
-      : null,
-      child: Container(
-        margin: EdgeInsets.only(right: ResponsiveConstants.productDetailsColorThumbnailSpacing),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.transparent,
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
-              : Theme.of(context).colorScheme.surface,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-          child: SizedBox(
-            width: ResponsiveConstants.productDetailsColorThumbnailSize,
-            height: ResponsiveConstants.productDetailsColorThumbnailSize,
-            child: (thumbUrl.isNotEmpty)
-                ? CachedNetworkImage(
-                    imageUrl: thumbUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Theme.of(context).colorScheme.primary,
+          }
+        }
+
+        // Get value_id from colorOption.id
+        final colorValueId = int.tryParse(color.id);
+        
+        // Get selected value_id for color attribute from controller
+        final selectedColorValueId = colorAttributeId != null 
+            ? variantController.selectedAttributes[colorAttributeId] 
+            : null;
+        
+        // Check if this color is selected using controller state
+        final isSelected = selectedColorValueId == colorValueId;
+        
+        debugPrint('🎨 ColorSelectionWidget (Top): Color "${color.displayNameOrName}" (value_id: $colorValueId)');
+        debugPrint('   Selected value_id: $selectedColorValueId, isSelected: $isSelected');
+
+        // When only one color exists, no action - nothing to choose
+        final hasMultipleColors = productDetails.colorOptions.length > 1;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque, // Ensure taps are captured even on transparent areas
+          onTap: hasMultipleColors && colorAttributeId != null && colorValueId != null
+              ? () async {
+                  debugPrint('🎨 ColorSelectionWidget (Top): Tapped color "${color.displayNameOrName}" (value_id: $colorValueId, attribute_id: $colorAttributeId)');
+                  await HapticService.buttonClick();
+                  // Use DynamicVariantController as single source of truth
+                  // This immediately updates selection and triggers Consumer rebuilds
+                  variantController.selectAttributeValue(colorAttributeId!, colorValueId!);
+                  
+                  // Note: BLoC event removed to prevent double-click issue
+                  // Controller handles selection, images update via controller.currentImages
+                }
+          : null,
+          child: Container(
+            margin: EdgeInsets.only(right: ResponsiveConstants.productDetailsColorThumbnailSpacing),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
+                width: isSelected ? 3 : 1,
+              ),
+              borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
+                  : Theme.of(context).colorScheme.surface,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+              child: SizedBox(
+                width: ResponsiveConstants.productDetailsColorThumbnailSize,
+                height: ResponsiveConstants.productDetailsColorThumbnailSize,
+                child: (thumbUrl.isNotEmpty)
+                    ? CachedNetworkImage(
+                        imageUrl: thumbUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => Container(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
                           ),
                         ),
+                        errorWidget: (context, url, error) {
+                          final colorScheme = Theme.of(context).colorScheme;
+                          return Container(
+                            color: colorScheme.surface,
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                              size: 20.w,
+                            ),
+                          );
+                        },
+                      )
+                    : Builder(
+                        builder: (context) {
+                          final colorScheme = Theme.of(context).colorScheme;
+                          return Container(
+                            color: colorScheme.surface,
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                              size: 20.w,
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                    errorWidget: (context, url, error) {
-                      final colorScheme = Theme.of(context).colorScheme;
-                      return Container(
-                        color: colorScheme.surface,
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: colorScheme.onSurface.withValues(alpha: 0.4),
-                          size: 20.w,
-                        ),
-                      );
-                    },
-                  )
-                : Builder(
-                    builder: (context) {
-                      final colorScheme = Theme.of(context).colorScheme;
-                      return Container(
-                        color: colorScheme.surface,
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: colorScheme.onSurface.withValues(alpha: 0.4),
-                          size: 20.w,
-                        ),
-                      );
-                    },
-                  ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

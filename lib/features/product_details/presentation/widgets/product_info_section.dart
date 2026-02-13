@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../domain/entities/product_details.dart';
 import '../bloc/product_details_bloc.dart';
+import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
+import '../widgets/dynamic_variant_selector.dart';
 import 'about_product_section.dart';
 import 'package:zalando_clone_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:zalando_clone_app/features/home/presentation/widgets/common/product_card.dart';
@@ -107,67 +109,76 @@ class ProductInfoSection extends StatelessWidget {
 
                   SizedBox(height: ResponsiveConstants.mdSpacing),
 
-                  // Price Section
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          currencyProvider.formatPrice(
-                            productDetails.price,
-                            locale: Localizations.localeOf(context),
-                          ),
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.xlFontSize,
-                            fontWeight: FontWeight.w700,
-                            color: primary,
-                          ),
-                        ),
-                      ),
-                      if (productDetails.originalPrice != null) ...[
-                        SizedBox(width: ResponsiveConstants.smSpacing),
-                        Flexible(
-                          child: Text(
-                            currencyProvider.formatPrice(
-                              productDetails.originalPrice!,
-                              locale: Localizations.localeOf(context),
-                            ),
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.mdFontSize,
-                              color: Colors.grey.shade600,
-                              decoration: TextDecoration.lineThrough,
+                  // Price Section - Use DynamicVariantController for variant-specific price
+                  Consumer<DynamicVariantController>(
+                    builder: (context, variantController, _) {
+                      // Use variant-specific price if available, otherwise fallback to template price
+                      final displayPrice = variantController.currentPrice > 0 
+                          ? variantController.currentPrice 
+                          : productDetails.price;
+                      
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              currencyProvider.formatPrice(
+                                displayPrice,
+                                locale: Localizations.localeOf(context),
+                              ),
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.xlFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: primary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                      if (productDetails.originalPrice != null &&
-                          productDetails.originalPrice! >
-                              productDetails.price &&
-                          (productDetails.discountPercentage ?? 0) > 0) ...[
-                        SizedBox(width: ResponsiveConstants.smSpacing),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveConstants.smPadding,
-                            vertical: ResponsiveConstants.xsPadding,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveConstants.xsRadius,
+                          if (productDetails.originalPrice != null) ...[
+                            SizedBox(width: ResponsiveConstants.smSpacing),
+                            Flexible(
+                              child: Text(
+                                currencyProvider.formatPrice(
+                                  productDetails.originalPrice!,
+                                  locale: Localizations.localeOf(context),
+                                ),
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.mdFontSize,
+                                  color: Colors.grey.shade600,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
                             ),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Text(
-                            '-${productDetails.discountPercentage}%',
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.smFontSize,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.red.shade700,
+                          ],
+                          if (productDetails.originalPrice != null &&
+                              productDetails.originalPrice! >
+                                  displayPrice &&
+                              (productDetails.discountPercentage ?? 0) > 0) ...[
+                            SizedBox(width: ResponsiveConstants.smSpacing),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ResponsiveConstants.smPadding,
+                                vertical: ResponsiveConstants.xsPadding,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(
+                                  ResponsiveConstants.xsRadius,
+                                ),
+                                border: Border.all(color: Colors.red.shade200),
+                              ),
+                              child: Text(
+                                '-${productDetails.discountPercentage}%',
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.smFontSize,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ],
+                          ],
+                        ],
+                      );
+                    },
                   ),
 
                   if (productDetails.originalPrice != null) ...[
@@ -186,121 +197,73 @@ class ProductInfoSection extends StatelessWidget {
 
             SizedBox(height: ResponsiveConstants.mdSpacing),
 
-            // Variant Attributes Card (Size, Material, Height, Width, etc.) - All Dynamic
-            // Attributes are dynamically loaded from variant_attributes API response.
-            // When a user selects an attribute value, it's stored in variantAttributeOptions.selectedValue
-            // and used to filter variants via filterVariantsBySelectedAttributes() function.
-            // Example: Selecting SIZE=36, COLOR=BLACK, MATERIALS=Synthetic Leather will filter
-            // variant_combinations to find matching variants.
-            if (productDetails.variantAttributeOptions.where((attrOption) {
-              final name = attrOption.attributeName.toLowerCase();
-              return name != 'color' && name != 'colour' && name != 'اللون';
-            }).isNotEmpty)
-              Container(
-                margin: EdgeInsets.symmetric(
-                  horizontal: ResponsiveConstants.smPadding,
-                ),
-                padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveConstants.mdRadius,
+            // Dynamic Variant Attributes Card - Uses DynamicVariantSelector
+            // This handles ALL attributes dynamically using attribute_id and value_id
+            // No hardcoded logic - works with unlimited attributes
+            Consumer<DynamicVariantController>(
+              builder: (context, variantController, _) {
+                // Filter out color attributes (handled separately with visual swatches)
+                final nonColorAttributes = productDetails.variantAttributeOptions
+                    .where((attrOption) {
+                      final name = attrOption.attributeName.toLowerCase();
+                      return name != 'color' &&
+                          name != 'colour' &&
+                          name != 'اللون' &&
+                          name != 'color name';
+                    })
+                    .toList();
+
+                if (nonColorAttributes.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return Container(
+                  margin: EdgeInsets.symmetric(
+                    horizontal: ResponsiveConstants.smPadding,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.35 : 0.06,
-                      ),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                  padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(
+                      ResponsiveConstants.mdRadius,
                     ),
-                  ],
-                ),
-                child: isVariantFilterLoading
-                    ? Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: ResponsiveConstants.lgSpacing,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.35 : 0.06,
                         ),
-                        child: Center(
-                          child: SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                primary,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: isVariantFilterLoading
+                      ? Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: ResponsiveConstants.lgSpacing,
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  primary,
+                                ),
                               ),
                             ),
                           ),
+                        )
+                      : _DynamicVariantAttributesSection(
+                          productDetails: productDetails,
+                          variantController: variantController,
                         ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: productDetails.variantAttributeOptions
-                            .where((attrOption) {
-                              final name =
-                                  attrOption.attributeName.toLowerCase();
-                              return name != 'color' &&
-                                  name != 'colour' &&
-                                  name != 'اللون' &&
-                                  name != 'color name';
-                            })
-                            .map((attrOption) {
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: attrOption ==
-                                          productDetails
-                                              .variantAttributeOptions
-                                              .where((a) {
-                                                final n = a.attributeName
-                                                    .toLowerCase();
-                                                return n != 'color' &&
-                                                    n != 'colour' &&
-                                                    n != 'اللون' &&
-                                                    n != 'color name';
-                                              })
-                                              .last
-                                      ? 0
-                                      : ResponsiveConstants.mdSpacing,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      attrOption.attributeName,
-                                      style: AppFonts.getTextStyle(
-                                        fontSize:
-                                            ResponsiveConstants.mdFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                        height:
-                                            ResponsiveConstants.smSpacing),
-                                    _buildFullWidthAttributeButtons(
-                                      context: context,
-                                      values: attrOption.values,
-                                      primary: primary,
-                                      productDetails: productDetails,
-                                      attributeName: attrOption.attributeName,
-                                    ),
-                                  ],
-                                ),
-                              );
-                            })
-                            .toList(),
-                      ),
-              ),
+                );
+              },
+            ),
 
-            if (productDetails.variantAttributeOptions.where((attrOption) {
-              final name = attrOption.attributeName.toLowerCase();
-              return name != 'color' &&
-                  name != 'colour' &&
-                  name != 'اللون' &&
-                  name != 'color name';
-            }).isNotEmpty)
-              SizedBox(height: ResponsiveConstants.mdSpacing),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
 
             // Color Selection Card (visual swatches)
             if (productDetails.colorOptions.isNotEmpty) ...[
@@ -714,6 +677,185 @@ class ProductInfoSection extends StatelessWidget {
   // _sizeHint helper removed along with size recommendation UI
 }
 
+/// Dynamic variant attributes section that uses attribute_id and value_id
+/// Works with unlimited attributes - no hardcoded logic
+class _DynamicVariantAttributesSection extends StatelessWidget {
+  final ProductDetails productDetails;
+  final DynamicVariantController variantController;
+
+  const _DynamicVariantAttributesSection({
+    required this.productDetails,
+    required this.variantController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final primary = colorScheme.primary;
+
+    // Filter out color attributes (handled separately)
+    final nonColorAttributes = productDetails.variantAttributeOptions
+        .where((attrOption) {
+          final name = attrOption.attributeName.toLowerCase();
+          return name != 'color' &&
+              name != 'colour' &&
+              name != 'اللون' &&
+              name != 'color name';
+        })
+        .toList();
+
+    if (nonColorAttributes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: nonColorAttributes.map((attrOption) {
+        final attributeId = int.tryParse(attrOption.attributeId ?? '');
+        
+        if (attributeId == null) {
+          debugPrint('⚠️ _DynamicVariantAttributesSection: Skipping attribute "${attrOption.attributeName}" - no valid attribute_id');
+          return const SizedBox.shrink();
+        }
+
+        // Get currently selected value for this attribute from controller
+        final selectedValueId = variantController.selectedAttributes[attributeId];
+        
+        debugPrint('🎨 _DynamicVariantAttributesSection: Attribute "${attrOption.attributeName}" (id: $attributeId)');
+        debugPrint('   Selected value_id: $selectedValueId');
+
+        return Container(
+          margin: EdgeInsets.only(
+            bottom: attrOption == nonColorAttributes.last
+                ? 0
+                : ResponsiveConstants.mdSpacing,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                attrOption.attributeName,
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.mdFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              SizedBox(height: ResponsiveConstants.smSpacing),
+              Wrap(
+                spacing: ResponsiveConstants.smSpacing,
+                runSpacing: ResponsiveConstants.smSpacing,
+                children: attrOption.values.map((value) {
+                  final valueId = int.tryParse(value.id);
+                  
+                  if (valueId == null) {
+                    debugPrint('⚠️ _DynamicVariantAttributesSection: Skipping value "${value.name}" - no valid value_id');
+                    return const SizedBox.shrink();
+                  }
+                  
+                  final isSelected = selectedValueId == valueId;
+                  
+                  // Get the state of this value (three-state logic)
+                  final valueState = variantController.getValueState(attributeId, valueId);
+                  
+                  // Determine button properties based on state
+                  final isFullyAvailable = valueState == ValueState.fullyAvailable;
+                  final existsButIncompatible = valueState == ValueState.existsButIncompatible;
+                  final doesNotExist = valueState == ValueState.doesNotExist;
+                  
+                  // Button is enabled if:
+                  // - Not selected AND (fully available OR exists but incompatible)
+                  // - Only disabled if value does not exist at all
+                  final isEnabled = !isSelected && !doesNotExist;
+                  
+                  // Determine colors and styles based on state
+                  Color backgroundColor;
+                  Color borderColor;
+                  Color textColor;
+                  double borderWidth;
+                  double textOpacity;
+                  
+                  // STANDARDIZED BUTTON STATES - Only 3 clear states:
+                  // 1. Selected: Orange background + White text
+                  // 2. Available (Not Selected): White background + Orange border + Orange text
+                  // 3. Unavailable: Light gray background + Gray text + Not clickable
+                  
+                  if (isSelected) {
+                    // ✅ STATE 1: Selected State
+                    // Orange background, white text, no ambiguity
+                    backgroundColor = primary;
+                    borderColor = primary;
+                    textColor = colorScheme.onPrimary; // White text
+                    borderWidth = 2;
+                    textOpacity = 1.0;
+                  } else if (doesNotExist) {
+                    // ✅ STATE 3: Unavailable / Hidden State
+                    // Light gray background, gray text, not clickable
+                    backgroundColor = Colors.grey.shade200; // Light gray background
+                    borderColor = Colors.grey.shade400; // Light gray border
+                    textColor = Colors.grey.shade600; // Gray text
+                    borderWidth = 1;
+                    textOpacity = 1.0; // Full opacity but gray color
+                  } else {
+                    // ✅ STATE 2: Available (Not Selected) State
+                    // Transparent background, orange border, orange text, clickable
+                    // This applies to both fullyAvailable and existsButIncompatible
+                    // User can click to change selection even if incompatible
+                    backgroundColor = Colors.transparent; // Transparent background
+                    borderColor = primary; // Orange border
+                    textColor = primary; // Orange text
+                    borderWidth = 1;
+                    textOpacity = 1.0;
+                  }
+                  
+                  return GestureDetector(
+                    onTap: isEnabled
+                        ? () {
+                            debugPrint('🎯 Selecting attribute $attributeId → value $valueId (${value.name})');
+                            debugPrint('   State: $valueState');
+                            variantController.selectAttributeValue(attributeId, valueId);
+                          }
+                        : null,
+                    behavior: isEnabled ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+                    child: Opacity(
+                      opacity: textOpacity,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ResponsiveConstants.mdPadding,
+                          vertical: ResponsiveConstants.smPadding,
+                        ),
+                        decoration: BoxDecoration(
+                          color: backgroundColor,
+                          border: Border.all(
+                            color: borderColor,
+                            width: borderWidth,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            ResponsiveConstants.smRadius,
+                          ),
+                        ),
+                        child: Text(
+                          value.name,
+                          style: AppFonts.getTextStyle(
+                            fontSize: ResponsiveConstants.mdFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
 // Removed card wrapper (requested) – kept simple typography + spacing paddings above
 
 Widget _buildFullWidthAttributeButtons({
@@ -747,67 +889,144 @@ Widget _buildFullWidthAttributeButtons({
       attrNameLower != 'color name' &&
       attrNameLower != 'اللون';
 
-  // CRITICAL: Get all enabled attribute values for the selected color
-  // This filters variants by color + stock conditions and collects all attribute values
-  final Map<String, Set<String>> enabledAttributesForColor = 
-      productDetails.variantCombinations.isNotEmpty &&
-      productDetails.selectedColor.isNotEmpty
-      ? productDetails.getEnabledAttributeValuesForColor(productDetails.selectedColor)
-      : <String, Set<String>>{};
+  // CRITICAL: Build enabled values based on the **current selection** across all
+  // attributes (color, size, material, height, etc.), not only by color.
+  //
+  // This uses ProductDetails.getEnabledValuesForCurrentSelection(), which:
+  // - Filters variant_combinations by the current selection
+  // - Keeps only in‑stock variants
+  // - Collects all attribute/value pairs from those variants
+  //
+  // This prevents us from "guessing" combinations and ensures that a button is
+  // enabled if and only if there exists at least one in‑stock variant that is
+  // compatible with the current selection and contains this value.
+  final Map<String, Set<String>> enabledAttributesForSelection =
+      productDetails.getEnabledValuesForCurrentSelection();
+
+  // Check if we have any selections beyond just color
+  bool hasNonColorSelections = productDetails.selectedSize.isNotEmpty ||
+      productDetails.variantAttributeOptions.any((opt) {
+        final attrLower = opt.attributeName.toLowerCase();
+        final isColorAttr = attrLower.contains('color') ||
+            attrLower == 'colour' ||
+            attrLower == 'اللون';
+        return !isColorAttr && opt.selectedValue.isNotEmpty;
+      });
+
+  // Fallback (only for truly initial state with NO selections): when nothing
+  // is selected except maybe color, use color‑based logic. However, if we have
+  // any non-color selections (size, material, height, etc.), we should NOT use
+  // the color fallback even if enabledAttributesForSelection is empty, because
+  // that means the current combination has no stock and we should rely on
+  // val.isAvailable fallback instead (handled later in effectiveIsAvailable).
+  final Map<String, Set<String>> enabledAttributesForColor =
+      (enabledAttributesForSelection.isEmpty &&
+              productDetails.variantCombinations.isNotEmpty &&
+              productDetails.selectedColor.isNotEmpty &&
+              !hasNonColorSelections) // Only use color fallback if NO non-color selections exist
+          ? productDetails
+              .getEnabledAttributeValuesForColor(productDetails.selectedColor)
+          : const <String, Set<String>>{};
 
   // Get the enabled values for this specific attribute
   // Try multiple attribute name variations to match (case-insensitive)
   Set<String> enabledValuesForThisAttribute = {};
   String norm(String s) => s.toLowerCase().trim();
   final normalizedAttrName = norm(attributeName);
-  
-  for (final entry in enabledAttributesForColor.entries) {
+
+  // 1) Prefer the full‑selection map (color + size + material + height, etc.)
+  for (final entry in enabledAttributesForSelection.entries) {
     final normalizedEntryName = norm(entry.key);
-    // Match by exact name or if attribute name contains the entry key or vice versa
-    // Also handle common variations like "MATERIAL NAME" vs "MATERIALS", "MATERIAL" vs "MATERIAL NAME"
-    final bool nameMatches = normalizedEntryName == normalizedAttrName ||
-        normalizedEntryName.contains(normalizedAttrName) ||
-        normalizedAttrName.contains(normalizedEntryName);
-    
-    // Special handling for material attributes
-    final bool isMaterialMatch = 
-        (normalizedEntryName.contains('material') && normalizedAttrName.contains('material')) ||
-        (normalizedEntryName == 'materials' && normalizedAttrName == 'material name') ||
-        (normalizedEntryName == 'material name' && normalizedAttrName == 'materials');
-    
-    if (nameMatches || isMaterialMatch) {
-      // Normalize all values for comparison
-      enabledValuesForThisAttribute = entry.value.map((v) => norm(v)).toSet();
-      debugPrint('✅ Matched attribute "${entry.key}" with UI attribute "$attributeName" → enabled values: ${enabledValuesForThisAttribute.toList()}');
+    if (normalizedEntryName == normalizedAttrName) {
+      enabledValuesForThisAttribute =
+          entry.value.map((v) => norm(v)).toSet();
+      debugPrint(
+          '✅ Matched attribute "${entry.key}" with UI attribute "$attributeName" from full selection → enabled values: ${enabledValuesForThisAttribute.toList()}');
       break;
     }
   }
 
-  // Auto-select first enabled value if no value is currently selected
-  // This happens when color changes and we need to select from available options
-  String? valueToAutoSelect;
-  if (enabledValuesForThisAttribute.isNotEmpty) {
-    // Check if current selection is still enabled
-    String? currentSelectedValue;
-    for (final opt in productDetails.variantAttributeOptions) {
-      if (norm(opt.attributeName) == normalizedAttrName && opt.selectedValue.isNotEmpty) {
-        currentSelectedValue = opt.selectedValue;
+  // 2) If nothing found yet, fall back to color‑based enabled map
+  if (enabledValuesForThisAttribute.isEmpty &&
+      enabledAttributesForColor.isNotEmpty) {
+    for (final entry in enabledAttributesForColor.entries) {
+      final normalizedEntryName = norm(entry.key);
+      // Match by exact name or if attribute name contains the entry key or vice versa
+      // Also handle common variations like "MATERIAL NAME" vs "MATERIALS", "MATERIAL" vs "MATERIAL NAME"
+      final bool nameMatches = normalizedEntryName == normalizedAttrName ||
+          normalizedEntryName.contains(normalizedAttrName) ||
+          normalizedAttrName.contains(normalizedEntryName);
+      
+      // Special handling for material attributes
+      final bool isMaterialMatch = 
+          (normalizedEntryName.contains('material') && normalizedAttrName.contains('material')) ||
+          (normalizedEntryName == 'materials' && normalizedAttrName == 'material name') ||
+          (normalizedEntryName == 'material name' && normalizedAttrName == 'materials');
+      
+      if (nameMatches || isMaterialMatch) {
+        // Normalize all values for comparison
+        enabledValuesForThisAttribute = entry.value.map((v) => norm(v)).toSet();
+        debugPrint(
+            '✅ Matched attribute "${entry.key}" with UI attribute "$attributeName" from color map → enabled values: ${enabledValuesForThisAttribute.toList()}');
         break;
       }
     }
+  }
+
+  // Auto-select ONLY when there is **no prior user selection** for this attribute.
+  // If the user already picked a value (e.g. SIZE=36) we always preserve it,
+  // even if it becomes "not available" for the newly selected color. In that
+  // case the chip will stay visually selected but disabled, and the CTA will
+  // show "Out of stock" for the current combination.
+  String? valueToAutoSelect;
+  
+  // First, check if there's a current selection in variantAttributeOptions
+  String? currentSelectedValue;
+  for (final opt in productDetails.variantAttributeOptions) {
+    final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+        ? opt.apiAttributeName! 
+        : opt.attributeName;
+    final optAttrNameNormalized = norm(optAttrName);
     
-    // If current selection is enabled, keep it; otherwise select first enabled value
-    if (currentSelectedValue != null && 
-        enabledValuesForThisAttribute.contains(norm(currentSelectedValue))) {
-      valueToAutoSelect = currentSelectedValue;
-    } else {
-      // Find first value from the values list that is enabled
-      for (final val in values) {
-        final valObj = val as VariantAttributeValue;
-        if (enabledValuesForThisAttribute.contains(norm(valObj.name))) {
-          valueToAutoSelect = valObj.name;
-          break;
-        }
+    // Match by exact name or if attribute name contains the entry key or vice versa
+    final bool nameMatches = optAttrNameNormalized == normalizedAttrName ||
+        optAttrNameNormalized.contains(normalizedAttrName) ||
+        normalizedAttrName.contains(optAttrNameNormalized);
+    
+    // Special handling for material attributes
+    final bool isMaterialMatch = 
+        (optAttrNameNormalized.contains('material') && normalizedAttrName.contains('material')) ||
+        (optAttrNameNormalized == 'materials' && normalizedAttrName == 'material name') ||
+        (optAttrNameNormalized == 'material name' && normalizedAttrName == 'materials');
+    
+    if ((nameMatches || isMaterialMatch) && opt.selectedValue.isNotEmpty) {
+      currentSelectedValue = opt.selectedValue;
+      debugPrint('📌 Found selectedValue for "$attributeName" (matched with "$optAttrName"): "$currentSelectedValue"');
+      break;
+    }
+  }
+  
+  if (currentSelectedValue != null) {
+    // Always respect the user's current selection, even if it is not part of
+    // enabledValuesForThisAttribute. Availability will be reflected separately
+    // via `effectiveIsAvailable` (disabled style + Out of stock CTA).
+    valueToAutoSelect = currentSelectedValue;
+    debugPrint(
+      '✅ Preserving user selection "$currentSelectedValue" for "$attributeName" '
+      '(availability will be handled visually).',
+    );
+  } else if (enabledValuesForThisAttribute.isNotEmpty) {
+    // No previous selection for this attribute: auto‑select the first enabled
+    // value as a sensible default.
+    for (final val in values) {
+      final valObj = val as VariantAttributeValue;
+      if (enabledValuesForThisAttribute.contains(norm(valObj.name))) {
+        valueToAutoSelect = valObj.name;
+        debugPrint(
+          '✅ Auto‑selecting first enabled value "${valObj.name}" for "$attributeName" '
+          '(no prior user selection).',
+        );
+        break;
       }
     }
   }
@@ -826,62 +1045,87 @@ Widget _buildFullWidthAttributeButtons({
             attrNameLower == productDetails.primaryVariantLabel.toLowerCase() ||
             attrNameLower.contains('size');
 
-        // CRITICAL: Enable only values that are in the enabled set for this color.
-        // The enabled set comes from filtering variants by color + stock conditions.
-        bool effectiveIsAvailable = false;
-        if (productDetails.selectedColor.isNotEmpty &&
-            enabledValuesForThisAttribute.isNotEmpty) {
-          // Check if this value is in the enabled set (normalized comparison)
-          effectiveIsAvailable =
-              enabledValuesForThisAttribute.contains(norm(val.name));
-        } else if (productDetails.selectedColor.isEmpty) {
-          // No color selected - fallback to original availability
-          effectiveIsAvailable = val.isAvailable;
-        }
-        // If color is selected but there are no enabled values at all,
-        // effectiveIsAvailable stays false → all buttons disabled.
+        // UX IMPROVEMENT: Enable buttons liberally - let users interact with all options.
+        // Only disable if the value doesn't exist in ANY variant. Stock validation happens at cart level.
+        // This allows users to explore combinations freely, and we show "Out of Stock" CTA when needed.
+        bool effectiveIsAvailable = val.isAvailable;
+        
+        // If value exists in any variant, always enable it (even if not compatible with current selection)
+        // The "Out of Stock" CTA will handle stock validation at the cart level
 
         // Selection rule:
-        // - CRITICAL: Prioritize valueToAutoSelect (from loop) for ALL attributes.
-        //   This ensures values from the matched variant are always selected.
-        // - For SIZE: fall back to current selectedSize if valueToAutoSelect is not set.
-        // - For other attributes: fall back to BLoC's selection if valueToAutoSelect is not set.
+        // - NEVER override the user's explicit selection to "fix" stock.
+        // - valueToAutoSelect is only used when there was **no prior selection**
+        //   for this attribute (initial/default state).
+        // - Availability is handled separately via `effectiveIsAvailable` and
+        //   drives disabled styling / CTA state.
         bool isSelected = false;
+        
+        // Normalize the value name once for use in both Priority 1 and Priority 2
+        final normalizedValName = norm(val.name);
         
         // Priority 1: If valueToAutoSelect is set and this value matches it, select it
         if (valueToAutoSelect != null) {
           final normalizedAutoSelect = norm(valueToAutoSelect!);
-          final normalizedValName = norm(val.name);
-          if (normalizedValName == normalizedAutoSelect &&
-              enabledValuesForThisAttribute.contains(normalizedAutoSelect)) {
+          if (normalizedValName == normalizedAutoSelect) {
             isSelected = true;
-            debugPrint('✅ Auto-selecting "$normalizedValName" for attribute "$attributeName" (from loop)');
+            debugPrint(
+              '✅ Auto‑selecting "$normalizedValName" for attribute "$attributeName" '
+              '(no prior user selection).',
+            );
           }
         }
         
         // Priority 2: If not auto-selected, check current selection
         if (!isSelected) {
           if (isSizeAttribute) {
-            // For SIZE: Use current selectedSize if still enabled
+            // For SIZE: Use current selectedSize regardless of availability.
+            // We want the chip to stay selected when the user picked 36 and
+            // then changed color to RED, even if 36+RED is out of stock.
             if (productDetails.selectedSize.isNotEmpty &&
-                enabledValuesForThisAttribute
-                    .contains(norm(productDetails.selectedSize)) &&
                 norm(val.name) == norm(productDetails.selectedSize)) {
               isSelected = true;
             }
           } else {
-            // For non-SIZE: Use BLoC's selection if still enabled
-            if ((val.isSelected || shouldForceSelectedForSingleOption) &&
-                effectiveIsAvailable) {
+            // For non-SIZE: Check variantAttributeOptions.selectedValue first (most reliable)
+            String? currentSelectedValue;
+            for (final opt in productDetails.variantAttributeOptions) {
+              final optAttrName = opt.apiAttributeName?.isNotEmpty == true 
+                  ? opt.apiAttributeName! 
+                  : opt.attributeName;
+              final optAttrNameNormalized = norm(optAttrName);
+              
+              // Match by exact name or if attribute name contains the entry key or vice versa
+              final bool nameMatches = optAttrNameNormalized == normalizedAttrName ||
+                  optAttrNameNormalized.contains(normalizedAttrName) ||
+                  normalizedAttrName.contains(optAttrNameNormalized);
+              
+              // Special handling for material attributes
+              final bool isMaterialMatch = 
+                  (optAttrNameNormalized.contains('material') && normalizedAttrName.contains('material')) ||
+                  (optAttrNameNormalized == 'materials' && normalizedAttrName == 'material name') ||
+                  (optAttrNameNormalized == 'material name' && normalizedAttrName == 'materials');
+              
+              if ((nameMatches || isMaterialMatch) && opt.selectedValue.isNotEmpty) {
+                currentSelectedValue = opt.selectedValue;
+                break;
+              }
+            }
+            
+            // Check if this value matches the selectedValue from variantAttributeOptions
+            if (currentSelectedValue != null &&
+                norm(val.name) == norm(currentSelectedValue)) {
+              isSelected = true;
+              debugPrint(
+                '✅ Marking "$normalizedValName" as selected for attribute "$attributeName" '
+                '(from variantAttributeOptions.selectedValue="$currentSelectedValue")',
+              );
+            }
+            // Fallback to BLoC's selection if still enabled
+            else if (val.isSelected || shouldForceSelectedForSingleOption) {
               isSelected = true;
             }
           }
-        }
-
-        // If this value is not enabled for the current color, it must NOT
-        // appear as selected even if BLoC still marks it selected.
-        if (!effectiveIsAvailable) {
-          isSelected = false;
         }
 
         // Interaction rule:
@@ -892,7 +1136,8 @@ Widget _buildFullWidthAttributeButtons({
 
         // Grey disabled look purely based on effective availability.
         // If a value is not part of the enabled set for this color, it is
-        // fully disabled even if BLoC had it selected before.
+        // fully disabled (unclickable) even if it is currently selected –
+        // this visually communicates "you chose this, but it's out of stock".
         final bool showDisabledVisual = !effectiveIsAvailable;
         final bool isEnabledChoice =
             !showDisabledVisual && effectiveIsAvailable == true;
@@ -989,118 +1234,31 @@ class _StockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // CRITICAL: Use the matched variant from the loop for stock badge.
-    // When a color is selected, get the first in-stock variant for that color
-    // and use its stock info directly.
-    bool inStock = productDetails.inStock;
-    int? q = productDetails.selectedVariantQuantityAvailable;
-    
-    // If color is selected, use the matched variant from the loop
-    if (productDetails.selectedColor.isNotEmpty &&
-        productDetails.variantCombinations.isNotEmpty) {
-      final matchedVariant =
-          productDetails.getFirstInStockVariantForColor(productDetails.selectedColor);
-      if (matchedVariant != null) {
-        // Use stock info from the matched variant
-        inStock = matchedVariant.inStock;
-        final double? qty = matchedVariant.quantityAvailable;
-        if (qty != null) {
-          q = qty.toInt();
-          // If quantity is 0, mark as out of stock
-          if (q <= 0) {
-            inStock = false;
-          }
+    return Consumer<DynamicVariantController>(
+      builder: (context, variantController, _) {
+        // Use dynamic variant controller for stock status
+        final inStock = variantController.inStock;
+        final q = variantController.quantityAvailable;
+        
+        final bool low = q > 0 && q <= 5;
+
+        final Color bg = inStock
+            ? (low ? Colors.orange.shade600 : Colors.green.shade600)
+            : Colors.red.shade600;
+        
+        // Build label with quantity if available
+        String label;
+        if (!inStock) {
+          label = AppLocalizations.of(context)!.outOfStock;
+        } else if (low) {
+          label = '${AppLocalizations.of(context)!.lowStock} ($q)';
         } else {
-          // If quantity is null but inStock is true, consider it available
-          inStock = matchedVariant.inStock;
+          label = '${AppLocalizations.of(context)!.inStock} ($q)';
         }
-      } else {
-        // No matching variant found for this color → out of stock
-        inStock = false;
-        q = 0;
-      }
-    } else {
-      // Fallback to BLoC-computed values when no color is selected
-      if (q != null && q <= 0) {
-        inStock = false;
-      }
-    }
-    // Fallback: when bloc didn't set quantity, if the variant matching this product id has 0 stock, show Out of stock
-    if (q == null && productDetails.variantCombinations.isNotEmpty && productDetails.id.isNotEmpty) {
-      try {
-        final variantForProduct = productDetails.variantCombinations.firstWhere(
-          (c) => c.variantId == productDetails.id,
-        );
-        if ((variantForProduct.quantityAvailable != null && variantForProduct.quantityAvailable! <= 0) ||
-            !variantForProduct.inStock) {
-          inStock = false;
-        }
-      } catch (_) {}
-    }
-    bool low = false;
-    if (q != null) {
-      low = q > 0 && q <= 5;
-    } else if (productDetails.variantCombinations.isNotEmpty) {
-      // Fallback: resolve variant for low stock when bloc didn't set quantity
-      String normalize(String s) => s.toLowerCase().trim();
-      String? selectedSize;
-      for (final opt in productDetails.variantAttributeOptions) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        if ((attrNameLower == 'size' || attrNameLower == productDetails.primaryVariantLabel.toLowerCase()) &&
-            opt.selectedValue.isNotEmpty) {
-          selectedSize = opt.selectedValue;
-          break;
-        }
-      }
-      selectedSize ??= productDetails.selectedSize.isNotEmpty ? productDetails.selectedSize : null;
-      String? selectedColor;
-      for (final opt in productDetails.variantAttributeOptions) {
-        final attrNameLower = opt.attributeName.toLowerCase();
-        if ((attrNameLower == 'color name' || attrNameLower == 'color' || attrNameLower == 'colour' || attrNameLower == 'اللون') &&
-            opt.selectedValue.isNotEmpty) {
-          selectedColor = opt.selectedValue;
-          break;
-        }
-      }
-      selectedColor ??= productDetails.selectedColor.isNotEmpty ? productDetails.selectedColor : null;
-      String? getVariantColorValue(VariantCombination v) {
-        for (final attrName in ['COLOR NAME', 'color name', 'Color Name', 'color', 'Color', 'COLOR', 'colour', 'Colour', 'اللون', 'لون']) {
-          final value = v.getAttributeValue(attrName);
-          if (value != null && value.isNotEmpty) return value;
-        }
-        return null;
-      }
-      if (selectedSize != null && selectedColor != null) {
-        final flexibleMatch = productDetails.variantCombinations.where((combo) {
-          final sizeMatch = combo.hasAttributeValue('SIZE', selectedSize!) ||
-              combo.hasAttributeValue('size', selectedSize) ||
-              combo.hasAttributeValue(productDetails.primaryVariantLabel, selectedSize);
-          final variantColorName = getVariantColorValue(combo);
-          if (variantColorName == null) return false;
-          final nv = normalize(variantColorName);
-          final ns = normalize(selectedColor!);
-          final colorMatch = nv == ns || nv.contains(ns) || ns.contains(nv);
-          return sizeMatch && colorMatch;
-        }).toList();
-        if (flexibleMatch.isNotEmpty) {
-          flexibleMatch.sort((a, b) => (b.quantityAvailable ?? 0).compareTo(a.quantityAvailable ?? 0));
-          final qa = flexibleMatch.first.quantityAvailable;
-          low = qa != null && qa > 0 && qa <= 5;
-        }
-      }
-    }
 
-    final Color bg = inStock
-        ? (low ? Colors.orange.shade600 : Colors.green.shade600)
-        : Colors.red.shade600;
-    final String label = inStock
-        ? (low
-              ? AppLocalizations.of(context)!.lowStock
-              : AppLocalizations.of(context)!.inStock)
-        : AppLocalizations.of(context)!.outOfStock;
-    // No product count display; only show stock status label
+        debugPrint('📊 _StockBadge: inStock=$inStock, qty=$q, label="$label"');
 
-    return Container(
+        return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveConstants.mdPadding,
         vertical: ResponsiveConstants.xsPadding,
@@ -1128,6 +1286,8 @@ class _StockBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

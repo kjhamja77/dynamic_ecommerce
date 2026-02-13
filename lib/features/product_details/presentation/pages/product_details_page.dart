@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../bloc/product_details_bloc.dart';
 import '../../domain/entities/product_details.dart';
@@ -7,6 +8,7 @@ import '../widgets/collapsible_image_section_widget.dart';
 import '../widgets/product_info_section.dart';
 import '../widgets/product_details_shimmer.dart';
 import '../widgets/add_to_cart_bottom_sheet.dart';
+import '../controllers/dynamic_variant_controller.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../favorites/presentation/widgets/favorite_button.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -41,15 +43,16 @@ class ProductDetailsPage extends StatefulWidget {
 class _ProductDetailsPageState extends State<ProductDetailsPage> {
   late PageController _pageController;
   late ScrollController _scrollController;
+  late DynamicVariantController _variantController;
   String? _lastLanguageCode;
-  List<String> _matchedVariantIds = [];
-  List<String> _variantImageUrls = [];
+  bool _isControllerInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
     _scrollController = ScrollController();
+    _variantController = DynamicVariantController();
     
     final localizationService = AppLocalizationService();
     _lastLanguageCode = localizationService.currentLocale.languageCode;
@@ -112,6 +115,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     AppLocalizationService().removeListener(_onLanguageChanged);
     _pageController.dispose();
     _scrollController.dispose();
+    _variantController.dispose();
     super.dispose();
   }
 
@@ -121,13 +125,28 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     final primary = theme.colorScheme.primary;
     final colorScheme = theme.colorScheme;
     
-    return Scaffold(
-      backgroundColor: colorScheme.background,
-      body: BlocConsumer<ProductDetailsBloc, ProductDetailsState>(
+    return ChangeNotifierProvider<DynamicVariantController>.value(
+      value: _variantController,
+      child: Scaffold(
+        backgroundColor: colorScheme.background,
+        body: BlocConsumer<ProductDetailsBloc, ProductDetailsState>(
         listener: (context, state) {
-          // Update variant images whenever product details change
-          if (state is ProductDetailsLoaded) {
-            _updateVariantImagesForCurrentSelection(state.productDetails);
+          // Initialize dynamic variant controller ONLY on first load
+          // Don't re-initialize on every state change (like color selection) to avoid resetting selection
+          if (state is ProductDetailsLoaded && !_isControllerInitialized) {
+            debugPrint('🔄 ProductDetailsPage: Initializing variant controller with product details (first load)');
+            _variantController.initialize(state.productDetails);
+            _isControllerInitialized = true;
+            debugPrint('✅ ProductDetailsPage: Variant controller initialized');
+            debugPrint('   Selected attributes: ${_variantController.selectedAttributes}');
+            debugPrint('   Variant ID: ${_variantController.variantId}');
+            debugPrint('   In Stock: ${_variantController.inStock}');
+            debugPrint('   Quantity: ${_variantController.quantityAvailable}');
+          } else if (state is ProductDetailsLoaded && _isControllerInitialized) {
+            // On subsequent state changes (like color selection), update product details
+            // but preserve user's current selection
+            debugPrint('🔄 ProductDetailsPage: Product details updated, syncing controller (preserving selection)');
+            _variantController.updateProductDetails(state.productDetails);
           }
           
           if (state is ProductDetailsError) {
@@ -208,48 +227,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           }
 
           if (state is ProductDetailsLoaded) {
-            _debugCheckVariantImageMatches(state.productDetails);
-            _updateVariantImagesForCurrentSelection(state.productDetails);
             // If requested via route args, open add-to-cart once after load
             if (widget.openAddToCart) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                AddToCartBottomSheet.show(context, state.productDetails, context.read<ProductDetailsBloc>());
+                final variantController = context.read<DynamicVariantController>();
+                AddToCartBottomSheet.show(
+                  context, 
+                  context.read<ProductDetailsBloc>(),
+                  variantController,
+                );
               });
             }
-            // return SizedBox();
             return _buildProductDetails(state.productDetails);
           }
 
           return const ProductDetailsShimmer();
         },
       ),
-      bottomNavigationBar: BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-        builder: (context, state) {
-          if (state is ProductDetailsLoaded) {
-            final pd = state.productDetails;
-            final bool isAvailable = _isProductInStock(pd);
-            final hasMatchingVariantId = _matchedVariantIds.isNotEmpty;
-            debugPrint(
-                '🧪 ProductDetailsPage bottom bar → variantIds=${pd.variantCombinations.map((v) => v.variantId).toList()}');
-            debugPrint(
-              '🧪 ProductDetailsPage bottom bar → hasMatchingVariantId=$hasMatchingVariantId '
-              'for productId=${widget.productId}, matchedVariantIds=$_matchedVariantIds',
-            );
+      bottomNavigationBar: Consumer<DynamicVariantController>(
+        builder: (context, variantController, _) {
+          return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+            builder: (context, state) {
+              if (state is ProductDetailsLoaded) {
+                // Use dynamic variant controller for stock status
+                final bool isOutOfStock = !variantController.inStock;
 
-            // Derive stock for the currently selected color using the same loop
-            // logic used by the badge / bottom sheet.
-            bool variantInStock = isAvailable;
-            if (pd.selectedColor.isNotEmpty &&
-                pd.variantCombinations.isNotEmpty) {
-              final matchedVariant =
-                  pd.getFirstInStockVariantForColor(pd.selectedColor);
-              // getFirstInStockVariantForColor only returns variants with
-              // inStock == true && quantityAvailable > 0. If null → out of stock.
-              variantInStock = matchedVariant != null;
-            }
-            final bool isOutOfStock = !variantInStock;
-
-            return Container(
+                return Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
                 vertical: ResponsiveConstants.mdPadding,
@@ -280,8 +283,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             await HapticService.buttonClick();
                             AddToCartBottomSheet.show(
                               context,
-                              pd,
                               context.read<ProductDetailsBloc>(),
+                              variantController,
                             );
                           },
                     style: ElevatedButton.styleFrom(
@@ -321,9 +324,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
             );
-          }
-          return const SizedBox.shrink();
+              }
+              return const SizedBox.shrink();
+            },
+          );
         },
+      ),
       ),
     );
   }
@@ -411,12 +417,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
             ),
           ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: CollapsibleImageSectionWidget(
-              productDetails: productDetails,
-              pageController: _pageController,
-              variantImageUrls: _variantImageUrls,
-            ),
+          flexibleSpace: Consumer<DynamicVariantController>(
+            builder: (context, variantController, _) {
+              return FlexibleSpaceBar(
+                background: CollapsibleImageSectionWidget(
+                  productDetails: productDetails,
+                  pageController: _pageController,
+                  variantImageUrls: variantController.currentImages,
+                ),
+              );
+            },
           ),
         ),
         
@@ -477,64 +487,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  void _debugCheckVariantImageMatches(ProductDetails productDetails) {
-    // If we already have a currently matched variant (from selection),
-    // prefer that; otherwise fall back to the initial productId.
-    final targetVariantId =
-        _matchedVariantIds.isNotEmpty ? _matchedVariantIds.first : widget.productId;
-    final allVariantIds = productDetails.variantCombinations
-        .map((v) => v.variantId.toString())
-        .toList();
-    final matchedIds =
-        allVariantIds.where((id) => id == targetVariantId).toList();
-
-    _matchedVariantIds = matchedIds;
-
-    debugPrint(
-        'product id we passed from to product details page ${widget.productId}');
-    debugPrint(
-        '🧩 ProductDetailsPage: variantIds from variantCombinations: $allVariantIds');
-    debugPrint(
-        '✅ ProductDetailsPage: variantIds matching current productId ($targetVariantId): $_matchedVariantIds');
-    debugPrint(
-        '🖼 ProductDetailsPage: images currently used for this product: ${productDetails.images}');
-  }
-
-  /// Build the list of images from variantImagesMap using only the selected color.
-  /// Images update only when color changes; size/material/height do not change images.
-  /// Uses variant_id from the first variant matching selected color to get multiple images from response.
-  void _updateVariantImagesForCurrentSelection(ProductDetails productDetails) {
-    debugPrint(
-      '🧪 _updateVariantImagesForCurrentSelection → variantImagesMap keys: ${productDetails.variantImagesMap.keys.toList()}',
-    );
-
-    // Resolve variant id by selected color only (ignore size/material/height)
-    final variantId = productDetails.variantIdForImagesByColor;
-
-    if (variantId != null && variantId.isNotEmpty) {
-      // Get all images for this variant from variantImagesMap (multiple images per variant_id)
-      _variantImageUrls = productDetails.imagesForVariant(variantId);
-
-      debugPrint(
-        '🧪 ProductDetailsPage._updateVariantImagesForCurrentSelection → '
-        'variantIdByColor=$variantId, count=${_variantImageUrls.length}, images=$_variantImageUrls',
-      );
-      _matchedVariantIds = [variantId];
-    } else {
-      // No variant for this color – use product-level images
-      _variantImageUrls = productDetails.images;
-      debugPrint(
-        '⚠️ ProductDetailsPage: no variant for color "${productDetails.selectedColor}"; using product images',
-      );
-    }
-  }
-
-  bool _isProductInStock(ProductDetails productDetails) {
-    // Use the bloc-computed inStock flag for the currently selected variant
-    // (size, color, material, etc.). This keeps the Add to Cart button in sync
-    // with the "Out of Stock" badge.
-    return productDetails.inStock;
-  }
 
 
   Widget _buildShareButton() {

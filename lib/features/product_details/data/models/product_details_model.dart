@@ -43,6 +43,7 @@ class ProductDetailsModel extends ProductDetails {
     super.selectedVariantQuantityAvailable,
     super.tags = const [],
     super.variantImagesMap = const {},
+    super.attributeValueCombinations = const {},
   });
 
   factory ProductDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -284,9 +285,11 @@ class ProductDetailsModel extends ProductDetails {
                 if (isAvailable) break;
               }
               
+              // Ensure we never add a color value with empty name (causes "value="" disabled in BLoC)
+              final nameForOption = englishName.isEmpty ? 'COLOR_ID_$valueId' : englishName;
               colorValues.add(VariantAttributeValueModel(
                 id: valueId,
-                name: englishName, // Always use English name for variantAttributeOptions
+                name: nameForOption, // Always use English name for variantAttributeOptions
                 isAvailable: isAvailable,
                 isSelected: false,
               ));
@@ -324,114 +327,52 @@ class ProductDetailsModel extends ProductDetails {
             continue; // Skip to next attribute
           }
           
-          // Process non-color attributes - ensure English names for matching
-          // CRITICAL: Always use English names from variant combinations for internal logic
-          // Display names can be Arabic, but matching must use English
-          
+          // Process non-color attributes: map dynamically from variant_attributes only
           final attrValues = (attr['values'] as List<dynamic>? ?? []);
           final List<VariantAttributeValueModel> values = [];
-          
-          // Build a map of value ID to English name from variant combinations
-          final Map<String, String> valueIdToEnglishName = {};
-          for (final variant in variantCombinations) {
-            final attrs = (variant['attributes'] as List<dynamic>? ?? const []);
-            for (final a in attrs) {
-              if (a is Map) {
-                final variantAttrName = (a['attribute_name'] ?? '').toString();
-                final variantValueId = (a['value_id'] ?? '').toString();
-                final variantValueName = (a['value_name'] ?? '').toString();
-                
-                // Match by attribute name (case-insensitive, handle Arabic)
-                final attrNameLower = attrName.toLowerCase();
-                final variantAttrNameLower = variantAttrName.toLowerCase();
-                final isMatchingAttribute = variantAttrNameLower == attrNameLower ||
-                                          variantAttrNameLower.contains(attrNameLower) ||
-                                          attrNameLower.contains(variantAttrNameLower);
-                
-                if (isMatchingAttribute && !_containsArabic(variantValueName)) {
-                  // Found English name in variant combination - use it
-                  valueIdToEnglishName[variantValueId] = variantValueName;
-                }
-              }
-            }
-          }
-          
-          // For each value, check availability and use English name
+
+          // Value synchronization: use variant_attributes[].values[].name as the single
+          // source of truth for labels. Do not substitute with value_name from
+          // variant_combinations (which can cause "ghosting" e.g. showing 4.5 when only 9 exists).
           for (final value in attrValues) {
             final valueId = (value['id'] ?? '').toString();
-            final localizedName = (value['name'] ?? '').toString();
-            
-            // Get English name from our map, or use localized name if not Arabic
-            String englishName = valueIdToEnglishName[valueId] ?? localizedName;
-            
-            // If we don't have English name yet and localized name is Arabic, try to find it
-            if (_containsArabic(localizedName) && (englishName == localizedName || _containsArabic(englishName))) {
-              // Try to find English name by matching ID across all variant combinations
-              for (final variant in variantCombinations) {
-                final attrs = (variant['attributes'] as List<dynamic>? ?? const []);
-                for (final a in attrs) {
-                  if (a is Map) {
-                    final variantAttrName = (a['attribute_name'] ?? '').toString();
-                    final variantValueId = (a['value_id'] ?? '').toString();
-                    final variantValueName = (a['value_name'] ?? '').toString();
-                    
-                    final attrNameLower = attrName.toLowerCase();
-                    final variantAttrNameLower = variantAttrName.toLowerCase();
-                    final isMatchingAttribute = variantAttrNameLower == attrNameLower ||
-                                              variantAttrNameLower.contains(attrNameLower) ||
-                                              attrNameLower.contains(variantAttrNameLower);
-                    
-                    if (isMatchingAttribute && variantValueId == valueId && !_containsArabic(variantValueName)) {
-                      englishName = variantValueName;
-                      valueIdToEnglishName[valueId] = variantValueName;
-                      break;
-                    }
-                  }
-                }
-                if (englishName != localizedName && !_containsArabic(englishName)) break;
-              }
-            }
-            
-            // If still no English name found, use localized name (fallback)
-            if (englishName.isEmpty || (_containsArabic(localizedName) && _containsArabic(englishName))) {
-              englishName = localizedName; // Last resort
-            }
-            
-            // Check if this value is available in any variant using English name for matching
+            final localizedName = (value['name'] ?? '').toString().trim();
+            if (localizedName.isEmpty) continue;
+
+            // Canonical name from API: always use the name from variant_attributes
+            final String canonicalName = localizedName;
+
+            // Stock validation: cross-reference variant_combinations; only in_stock variants count
             bool isAvailable = false;
             for (final variant in variantCombinations) {
+              if (variant is! Map) continue;
+              final inStock = (variant['in_stock'] ?? false) as bool;
+              if (!inStock) continue;
               final attrs = (variant['attributes'] as List<dynamic>? ?? const []);
               for (final a in attrs) {
                 if (a is Map) {
                   final variantAttrName = (a['attribute_name'] ?? '').toString();
-                  final variantValueName = (a['value_name'] ?? '').toString();
-                  
-                  // Match by attribute name (flexible)
+                  final variantValueId = (a['value_id'] ?? '').toString();
+                  final variantValueName = (a['value_name'] ?? '').toString().trim();
                   final attrNameLower = attrName.toLowerCase();
                   final variantAttrNameLower = variantAttrName.toLowerCase();
                   final isMatchingAttribute = variantAttrNameLower == attrNameLower ||
                                             variantAttrNameLower.contains(attrNameLower) ||
                                             attrNameLower.contains(variantAttrNameLower);
-                  
-                  // Match by value name (use English name) or by ID
-                  final variantValueId = (a['value_id'] ?? '').toString();
-                  final valueMatch = variantValueName == englishName ||
-                                   variantValueName.toLowerCase() == englishName.toLowerCase() ||
-                                   (variantValueId == valueId && !_containsArabic(variantValueName));
-                  
+                  final valueMatch = variantValueId == valueId ||
+                      variantValueName.toLowerCase() == canonicalName.toLowerCase();
                   if (isMatchingAttribute && valueMatch) {
-                    isAvailable = (variant['in_stock'] ?? false) as bool;
+                    isAvailable = true;
                     break;
                   }
                 }
               }
               if (isAvailable) break;
             }
-            
-            // Always use English name for variantAttributeOptions (for internal matching)
+
             values.add(VariantAttributeValueModel(
               id: valueId,
-              name: englishName, // Always use English name for matching
+              name: canonicalName,
               isAvailable: isAvailable,
               isSelected: false,
             ));
@@ -504,6 +445,7 @@ class ProductDetailsModel extends ProductDetails {
       }
     }
 
+    // Preselect only values that exist in variant_attributes (no ghost values)
     if (initialVariant != null) {
       final List<dynamic> selAttrs =
           (initialVariant['attributes'] as List<dynamic>?) ?? const [];
@@ -511,7 +453,8 @@ class ProductDetailsModel extends ProductDetails {
         for (final sa in selAttrs) {
           if (sa is! Map) continue;
           final String attrName = (sa['attribute_name'] ?? '').toString();
-          final String valueName = (sa['value_name'] ?? '').toString();
+          final String valueName = (sa['value_name'] ?? '').toString().trim();
+          final String valueIdFromVariant = (sa['value_id'] ?? '').toString();
 
           // Capture numeric heel height when available
           if (attrName.toLowerCase() == 'height' ||
@@ -532,18 +475,28 @@ class ProductDetailsModel extends ProductDetails {
           );
           if (optIdx >= 0) {
             final opt = variantAttributeOptions[optIdx];
+            // Only use a selection that exists in this attribute's values (by id or name)
+            String? selectedValueToApply;
+            for (final v in opt.values) {
+              if (v.id == valueIdFromVariant ||
+                  v.name.toLowerCase().trim() == valueName.toLowerCase()) {
+                selectedValueToApply = v.name;
+                break;
+              }
+            }
+            if (selectedValueToApply == null) continue;
             final updatedValues = opt.values.map((v) {
               return VariantAttributeValueModel(
                 id: v.id,
                 name: v.name,
                 isAvailable: v.isAvailable,
-                isSelected: v.name.toLowerCase() == valueName.toLowerCase(),
+                isSelected: v.name == selectedValueToApply,
               );
             }).toList();
             variantAttributeOptions[optIdx] = VariantAttributeOptionModel(
               attributeName: opt.attributeName,
               values: updatedValues,
-              selectedValue: valueName,
+              selectedValue: selectedValueToApply,
               apiAttributeName: opt.apiAttributeName,
               attributeId: opt.attributeId,
             );
@@ -1043,11 +996,22 @@ class ProductDetailsModel extends ProductDetails {
         final bool hasQtyField = quantityAvailable != null;
         final double? quantityAvailableToStore = hasQtyField ? quantityAvailableDouble : null;
         
+        // Parse variant price (sales_price or price field)
+        final variantPrice = mv['sales_price'] ?? mv['price'];
+        final double? priceToStore = variantPrice != null 
+            ? (variantPrice is num 
+                ? variantPrice.toDouble() 
+                : (variantPrice is String 
+                    ? double.tryParse(variantPrice) 
+                    : null))
+            : null;
+        
         return VariantCombination(
           variantId: variantIdStr,
           inStock: inStock,
           attributes: attrs,
           quantityAvailable: quantityAvailableToStore,
+          price: priceToStore,
         );
       }).toList(),
       primaryVariantLabel: primaryVariantLabel.isNotEmpty ? primaryVariantLabel : 'Size',
@@ -1062,12 +1026,69 @@ class ProductDetailsModel extends ProductDetails {
         );
       }).toList(),
       variantImagesMap: variantImagesMap,
+      // Parse attribute_value_combinations for smart enable/disable logic
+      // Structure: { value_id: [available_combination_value_ids] }
+      attributeValueCombinations: _parseAttributeValueCombinations(json),
     );
     } catch (e) {
       print('❌ ProductDetailsModel: Error parsing API response: $e');
       print('❌ JSON data: $json');
       rethrow;
     }
+  }
+
+  /// Parse attribute_value_combinations from API response
+  /// Returns a map: value_id -> list of available combination value_ids
+  /// This is used for smart enable/disable logic in variant selection
+  static Map<String, List<String>> _parseAttributeValueCombinations(Map<String, dynamic> json) {
+    final Map<String, List<String>> combinations = {};
+    
+    try {
+      final attrValueCombos = json['attribute_value_combinations'] as Map<String, dynamic>?;
+      
+      if (attrValueCombos == null || attrValueCombos.isEmpty) {
+        print('⚠️ ProductDetailsModel: No attribute_value_combinations found in API response');
+        return combinations;
+      }
+      
+      print('🔍 ProductDetailsModel: Parsing attribute_value_combinations (${attrValueCombos.length} entries)');
+      
+      // Parse each entry: value_id -> list of available value_ids
+      attrValueCombos.forEach((valueId, availableValues) {
+        if (availableValues is List) {
+          final valueIds = availableValues
+              .map((v) => v.toString())
+              .where((id) => id.isNotEmpty)
+              .toList();
+          
+          if (valueIds.isNotEmpty) {
+            combinations[valueId.toString()] = valueIds;
+            print('   value_id=$valueId → ${valueIds.length} available combinations');
+          }
+        } else if (availableValues is Map) {
+          // Handle nested structure if API returns objects instead of IDs
+          final valueIds = <String>[];
+          for (final item in (availableValues['available_combination_values'] as List<dynamic>? ?? [])) {
+            if (item is Map) {
+              final id = (item['id'] ?? '').toString();
+              if (id.isNotEmpty) valueIds.add(id);
+            } else {
+              final id = item.toString();
+              if (id.isNotEmpty) valueIds.add(id);
+            }
+          }
+          if (valueIds.isNotEmpty) {
+            combinations[valueId.toString()] = valueIds;
+          }
+        }
+      });
+      
+      print('✅ ProductDetailsModel: Parsed ${combinations.length} attribute_value_combinations');
+    } catch (e) {
+      print('❌ ProductDetailsModel: Error parsing attribute_value_combinations: $e');
+    }
+    
+    return combinations;
   }
 
   // Helper methods for safe parsing
