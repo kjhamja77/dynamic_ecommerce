@@ -2720,6 +2720,12 @@ abstract class AppLocalizations {
   /// **'نطاق السعر'**
   String get priceRange;
 
+  /// Categories section header (e.g. list of subcategories)
+  ///
+  /// In ar, this message translates to:
+  /// **'الفئات'**
+  String get categories;
+
   /// Gender filter section header
   ///
   /// In ar, this message translates to:
@@ -2737,6 +2743,24 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'المادة'**
   String get material;
+
+  /// Product attribute label for height
+  ///
+  /// In ar, this message translates to:
+  /// **'الارتفاع'**
+  String get attributeHeight;
+
+  /// Product attribute label for width
+  ///
+  /// In ar, this message translates to:
+  /// **'العرض'**
+  String get attributeWidth;
+
+  /// Product attribute label for measurement
+  ///
+  /// In ar, this message translates to:
+  /// **'القياس'**
+  String get attributeMeasurement;
 
   /// Sizes filter section header
   ///

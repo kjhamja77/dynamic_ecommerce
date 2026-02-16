@@ -132,7 +132,7 @@ class ContactUsPage extends StatelessWidget {
 
             _SocialCardWithImage(
               imagePath: 'assets/images/instagram.jpg',
-              title: 'Instagram',
+              title: _tr(context, en: 'Instagram', ar: 'إنستغرام'),
               subtitle: '@bazar__iq',
               onTap: () => _launchUrl(context, instagramUrl),
             ),
@@ -140,7 +140,7 @@ class ContactUsPage extends StatelessWidget {
 
             _SocialCard(
               icon: Icons.facebook,
-              title: 'Facebook',
+              title: _tr(context, en: 'Facebook', ar: 'فيسبوك'),
               subtitle: '@bazar.iq.fb',
               color: Colors.blue.shade600,
               onTap: () => _launchUrl(context, facebookUrl),

@@ -176,45 +176,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 );
               },
             );
-          } else if (state is ProductDetailsQuantityClamped) {
-            // Show dialog when quantity was clamped
-            showDialog(
-              context: context,
-              barrierDismissible: true,
-              builder: (dialogContext) {
-                final loc = AppLocalizations.of(dialogContext)!;
-                return AlertDialog(
-                  title: Text(
-                    loc.ok,
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.lgFontSize,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  content: Text(
-                    state.message,
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.mdFontSize,
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-                      },
-                      child: Text(
-                        loc.ok,
-                        style: AppFonts.getTextStyle(
-                          fontSize: ResponsiveConstants.mdFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
           }
         },
         builder: (context, state) {

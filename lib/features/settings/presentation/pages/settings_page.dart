@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../bloc/settings_bloc.dart';
@@ -21,26 +21,12 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  String _appVersion = '1.0.0';
+  final String _appVersion = AppConstants.appVersion;
 
   @override
   void initState() {
     super.initState();
     context.read<SettingsBloc>().add(LoadSettings());
-    _loadAppVersion();
-  }
-
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = packageInfo.version;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading app version: $e');
-    }
   }
 
   @override

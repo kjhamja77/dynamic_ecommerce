@@ -78,7 +78,8 @@ class ProductDetailsRepositoryImpl implements ProductDetailsRepository {
 
   @override
   Future<Either<Failure, CartItem>> addToCart(String productId, String colorId, String sizeId, int quantity) async {
-    developer.log('🏪 Repository addToCart called with: productId=$productId, colorId=$colorId, sizeId=$sizeId, quantity=$quantity');
+    developer.log('🛒 [ADD_TO_CART_FLOW] Step 4 - Product Details Repository addToCart');
+    developer.log('   Received: productId=$productId, colorId=$colorId, sizeId=$sizeId, quantity=$quantity');
     
     try {
       // Get the product details from API to create cart item
@@ -166,8 +167,7 @@ class ProductDetailsRepositoryImpl implements ProductDetailsRepository {
         price: productDetails.price,
         addedAt: DateTime.now(),
       );
-      developer.log('✅ CartItem created with ID: ${cartItem.id}');
-      developer.log('📊 CartItem details: product=${cartItem.product.name}, quantity=${cartItem.quantity}, price=${cartItem.price}');
+      developer.log('🛒 [ADD_TO_CART_FLOW] CartItem created: id=${cartItem.id}, quantity=${cartItem.quantity}');
       
       // Use the real cart API to add the item
       developer.log('🚀 Calling real cart API to add item...');

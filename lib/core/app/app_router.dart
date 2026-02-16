@@ -13,7 +13,6 @@ import '../../features/cart/cart.dart';
 import '../../features/language_selection/presentation/pages/language_selection_page.dart';
 import '../../features/auth/presentation/pages/number_verification_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/biometric_bloc.dart';
 import '../../features/product_details/presentation/pages/product_details_page.dart';
 import '../../features/product_details/presentation/bloc/product_details_bloc.dart';
@@ -41,14 +40,11 @@ class AppRouter {
           settings: settings,
         );
       case '/sign-in':
-        // Sign in page - slide from right for forward navigation
+        // Sign in page - use app-level AuthBloc so login state is visible after navigating to /main
         return PageTransitions.slideFromRight(
           page: BlocProvider(
-            create: (context) => di.sl<AuthBloc>(),
-            child: BlocProvider(
-              create: (context) => di.sl<BiometricBloc>(),
-              child: const LoginPage(),
-            ),
+            create: (context) => di.sl<BiometricBloc>(),
+            child: const LoginPage(),
           ),
           settings: settings,
         );

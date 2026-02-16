@@ -11,6 +11,7 @@ import '../bloc/filters_bloc.dart';
 import '../bloc/filters_event.dart';
 import '../bloc/filters_state.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../product_details/presentation/utils/attribute_label_helper.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../core/services/haptic_service.dart';
@@ -1221,7 +1222,7 @@ class _FiltersPageState extends State<FiltersPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(attributeName),
+          _buildSectionHeader(localizedAttributeLabel(context, attributeName)),
           _buildExpandableColorChips(
             items: values,
             selectedItems: selectedValues,
@@ -1248,7 +1249,7 @@ class _FiltersPageState extends State<FiltersPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(attributeName),
+        _buildSectionHeader(localizedAttributeLabel(context, attributeName)),
         _buildExpandableChips(
           items: values,
           selectedItems: selectedValues,

@@ -27,12 +27,12 @@ class CartRepositoryImpl implements CartRepository {
         final cartResponse = await remoteDataSource.getCartItems();
         debugPrint('CartRepositoryImpl.getCartItems: API response lines: ${cartResponse.lines.length}');
         for (final line in cartResponse.lines) {
-          debugPrint('CartRepositoryImpl.getCartItems: Line - product_id: ${line.productId}, quantity: ${line.quantity}, product_name: ${line.productName}');
+          debugPrint('🛒 [CART_FLOW] getCartItems - Line: product_id=${line.productId}, quantity=${line.quantity}, product_name=${line.productName}');
         }
         // Convert cart lines to cart items for local storage
         final cartItems = <CartItemModel>[];
         final localCartItems = await localDataSource.getCart();
-        
+
         for (final line in cartResponse.lines) {
           final cartItemModel = line.toCartItemModel();
           // Try to get product details from local storage to preserve additional info
@@ -98,13 +98,13 @@ class CartRepositoryImpl implements CartRepository {
 
   @override
   Future<Either<Failure, CartItem>> addToCart(CartItem cartItem) async {
-    debugPrint('CartRepositoryImpl.addToCart: Adding item ${cartItem.product.name} with quantity ${cartItem.quantity}');
+    debugPrint('🛒 [ADD_TO_CART_FLOW] Step 5 - Cart Repository addToCart');
+    debugPrint('   cartItem.product.id=${cartItem.product.id}, cartItem.quantity=${cartItem.quantity}');
     
     if (await networkInfo.isConnected) {
       try {
-        // Use product ID as int for API
         final productId = int.tryParse(cartItem.product.id) ?? 0;
-        debugPrint('CartRepositoryImpl.addToCart: Calling API with productId=$productId, quantity=${cartItem.quantity}');
+        debugPrint('   Calling remoteDataSource.addToCart(productId=$productId, quantity=${cartItem.quantity})');
         
         final cartResponse = await remoteDataSource.addToCart(
           productId,
@@ -121,7 +121,9 @@ class CartRepositoryImpl implements CartRepository {
         );
         
         final addedCartItem = addedLine.toCartItemModel();
-        debugPrint('CartRepositoryImpl.addToCart: API returned quantity ${addedLine.quantity}, converted to CartItem with quantity ${addedCartItem.quantity}');
+        debugPrint('🛒 [ADD_TO_CART_FLOW] Step 7 - API response received');
+        debugPrint('   API returned quantity in response: ${addedLine.quantity}');
+        debugPrint('   CartItem quantity (displayed in cart): ${addedCartItem.quantity}');
         
         // The API returns the total quantity in cart (cumulative), not just what was added
         // This is correct behavior - if there were already items in cart, quantity will be higher
@@ -146,7 +148,15 @@ class CartRepositoryImpl implements CartRepository {
         
       } catch (e) {
         debugPrint('CartRepositoryImpl.addToCart: API error: $e');
-        return Left(ServerFailure('Failed to add item to cart: $e'));
+        // Extract clean API message for stock errors (e.g. "Some products are out of stock")
+        final errStr = e.toString();
+        final isStockError = errStr.toLowerCase().contains('stock') ||
+            errStr.toLowerCase().contains('available') ||
+            errStr.toLowerCase().contains('quantity');
+        final message = isStockError && errStr.contains('Exception:')
+            ? errStr.replaceFirst(RegExp(r'^.*Exception:\s*'), '').trim()
+            : 'Failed to add item to cart: $e';
+        return Left(ServerFailure(message));
       }
     } else {
       try {

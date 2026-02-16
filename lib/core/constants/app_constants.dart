@@ -22,7 +22,7 @@ class AppConstants {
   
   // App Info
   static const String appName = 'Kardosi'; // TODO: This should be localized in the app
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
 }
 
 class AppStrings {

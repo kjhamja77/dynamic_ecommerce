@@ -31,14 +31,10 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Always reload cart when page is opened to ensure fresh data
+    // Always reload cart when page is opened so we get fresh data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // Only load if we aren't already loaded/updating to avoid double-blink
-        final state = context.read<CartBloc>().state;
-        if (state is! CartLoaded && state is! CartUpdating) {
-          context.read<CartBloc>().add(const LoadCart());
-        }
+        context.read<CartBloc>().add(const LoadCart());
       }
     });
   }
@@ -64,6 +60,13 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     setState(() {
       _removingItems[cartItemId] = true;
     });
+  }
+
+  Future<void> _onRefreshCart() async {
+    final bloc = context.read<CartBloc>();
+    bloc.add(const LoadCart());
+    await bloc.stream.where((CartState s) =>
+        s is CartLoaded || s is CartError || s is CartStockError).first;
   }
 
   @override
@@ -144,9 +147,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
           if (state is CartStockError) {
             final items = state.cartItems;
             if (items.isEmpty) {
-              return EmptyCart(
-                onTabChanged: widget.onTabChanged,
-              );
+              return _buildEmptyCartWithRefresh();
             }
             // Convert to CartLoaded for rendering
             final loaded = CartLoaded(state.cartItems, cartResponse: state.cartResponse);
@@ -156,9 +157,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
           if (state is CartLoaded) {
             final items = state.cartItems;
             if (items.isEmpty) {
-              return EmptyCart(
-                onTabChanged: widget.onTabChanged,
-              );
+              return _buildEmptyCartWithRefresh();
             }
             return _buildCartContent(state);
           }
@@ -166,9 +165,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
           if (state is CartUpdating) {
             final items = state.cartItems;
             if (items.isEmpty) {
-              return EmptyCart(
-                onTabChanged: widget.onTabChanged,
-              );
+              return _buildEmptyCartWithRefresh();
             }
             final loaded = CartLoaded(state.cartItems, cartResponse: state.cartResponse);
             return _buildCartContent(loaded);
@@ -182,6 +179,22 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
 
   Widget _buildLoadingState() {
     return const CartShimmerLoading();
+  }
+
+  Widget _buildEmptyCartWithRefresh() {
+    return RefreshIndicator(
+      onRefresh: _onRefreshCart,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height -
+              (MediaQuery.of(context).padding.top + kToolbarHeight),
+          child: EmptyCart(
+            onTabChanged: widget.onTabChanged,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildErrorState(String message) {
@@ -254,7 +267,10 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     return Column(
       children: [
         Expanded(
-          child: _buildCartItemsList(state.cartItems),
+          child: RefreshIndicator(
+            onRefresh: _onRefreshCart,
+            child: _buildCartItemsList(state.cartItems),
+          ),
         ),
         CartSummary(cartItems: state.cartItems),
       ],
@@ -265,6 +281,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: cartItems.length,
       itemBuilder: (context, index) {
         final cartItem = cartItems[index];

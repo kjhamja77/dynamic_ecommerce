@@ -14,6 +14,7 @@ import 'package:zalando_clone_app/features/home/domain/entities/product.dart'
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../utils/attribute_label_helper.dart';
 import 'color_selection_section.dart';
 
 class ProductInfoSection extends StatelessWidget {
@@ -218,6 +219,7 @@ class ProductInfoSection extends StatelessWidget {
                 }
 
                 return Container(
+                  width: double.infinity,
                   margin: EdgeInsets.symmetric(
                     horizontal: ResponsiveConstants.smPadding,
                   ),
@@ -735,7 +737,9 @@ class _DynamicVariantAttributesSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                attrOption.attributeName,
+                localizedAttributeLabel(context, attrOption.apiAttributeName?.isNotEmpty == true
+                    ? attrOption.apiAttributeName!
+                    : attrOption.attributeName),
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
                   fontWeight: FontWeight.w600,
@@ -1256,7 +1260,7 @@ class _StockBadge extends StatelessWidget {
           label = '${AppLocalizations.of(context)!.inStock} ($q)';
         }
 
-        debugPrint('📊 _StockBadge: inStock=$inStock, qty=$q, label="$label"');
+        debugPrint('📊 _StockBadge: variant_id=${variantController.variantId}, inStock=$inStock, qty=$q, label="$label"');
 
         return Container(
       padding: EdgeInsets.symmetric(

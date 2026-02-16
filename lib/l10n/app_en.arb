@@ -2352,6 +2352,11 @@
   "@category": {
     "description": "Category filter section header"
   },
+
+  "categories": "Categories",
+  "@categories": {
+    "description": "Categories section header (e.g. list of subcategories)"
+  },
   
   "brand": "Brand",
   "@brand": {
@@ -2371,6 +2376,19 @@
   "material": "Material",
   "@material": {
     "description": "Material filter section header"
+  },
+
+  "attributeHeight": "Height",
+  "@attributeHeight": {
+    "description": "Product attribute label for height"
+  },
+  "attributeWidth": "Width",
+  "@attributeWidth": {
+    "description": "Product attribute label for width"
+  },
+  "attributeMeasurement": "Measurement",
+  "@attributeMeasurement": {
+    "description": "Product attribute label for measurement"
   },
   
   "sizes": "Sizes",

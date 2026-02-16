@@ -315,7 +315,7 @@ class _CategoryDetailsPageState extends State<CategoryDetailsPage> {
               ResponsiveConstants.smPadding,
             ),
             child: Text(
-              'Categories',
+              AppLocalizations.of(context)!.categories,
               style: AppFonts.getTextStyle(
                 fontSize: ResponsiveConstants.mdFontSize,
                 fontWeight: FontWeight.w700,

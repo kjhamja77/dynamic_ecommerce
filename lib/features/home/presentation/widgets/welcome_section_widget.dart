@@ -1,14 +1,32 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/welcome_bloc.dart';
 import '../constants/home_constants.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../profile/presentation/bloc/profile_bloc.dart';
 import '../../../profile/presentation/bloc/profile_event.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/bloc/profile_state.dart';
+import '../../../profile/domain/entities/user_profile.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/services/app_localization_service.dart';
+
+/// Names from API that should not be shown as the user's name (e.g. guest profile).
+const Set<String> _placeholderNames = {'guest', 'user', 'ضيف', 'المستخدم'};
+
+bool _isPlaceholderName(String name) {
+	final n = name.trim().toLowerCase();
+	if (n.isEmpty) return true;
+	return _placeholderNames.contains(n);
+}
+
+String _firstNameFromProfile(UserProfile profile) {
+	final full = profile.name.trim();
+	if (full.isEmpty || _isPlaceholderName(full)) return '';
+	return full.split(' ').first;
+}
 
 class WelcomeSectionWidget extends StatefulWidget {
 	const WelcomeSectionWidget({super.key});
@@ -24,23 +42,27 @@ class _WelcomeSectionWidgetState extends State<WelcomeSectionWidget> {
 	@override
 	void initState() {
 		super.initState();
-		
-		// Load welcome texts and profile sequentially with small delays
-		// to avoid overwhelming the server with simultaneous requests
+		debugPrint('WelcomeSection: initState');
+
 		WidgetsBinding.instance.addPostFrameCallback((_) async {
-			// Load welcome texts first
-		context.read<WelcomeBloc>().add(LoadWelcomeTexts());
-			
-			// Wait a bit before loading profile
+			context.read<WelcomeBloc>().add(LoadWelcomeTexts());
 			await Future.delayed(const Duration(milliseconds: 150));
-		
-		// Load user profile if not already loaded
-		final profileState = context.read<ProfileBloc>().state;
-		if (profileState is! ProfileLoaded) {
-			context.read<ProfileBloc>().add(LoadUserProfile());
-		}
+
+			final authState = context.read<AuthBloc>().state;
+			final profileState = context.read<ProfileBloc>().state;
+			final authUser = authState is Authenticated ? authState.user : null;
+			final isLoggedIn = authUser != null && !authUser.isGuest;
+
+			debugPrint('WelcomeSection: initState postFrame: authState=${authState.runtimeType} isLoggedIn=$isLoggedIn '
+				'profileState=${profileState.runtimeType}');
+
+			// Load profile only for logged-in (non-guest) users
+			if (isLoggedIn && profileState is! ProfileLoaded) {
+				debugPrint('WelcomeSection: initState dispatching LoadUserProfile (logged-in, profile not loaded)');
+				context.read<ProfileBloc>().add(LoadUserProfile());
+			}
 		});
-		
+
 		_timer = Timer.periodic(const Duration(seconds: 2), (_) {
 			final welcomeState = context.read<WelcomeBloc>().state;
 			if (welcomeState is WelcomeLoaded && welcomeState.messages.length > 1) {
@@ -58,24 +80,75 @@ class _WelcomeSectionWidgetState extends State<WelcomeSectionWidget> {
 
 	@override
 	Widget build(BuildContext context) {
-		return BlocBuilder<ProfileBloc, ProfileState>(
-			builder: (context, profileState) {
-				// Get user's name from profile
-				String userName = AppLocalizations.of(context)!.user; // Default fallback
-				if (profileState is ProfileLoaded) {
-					// Extract first name from full name
-					final fullName = profileState.profile.name.trim();
-					print('🔍 WelcomeSection: Profile loaded - Full name: "$fullName"');
-					if (fullName.isNotEmpty) {
-						final nameParts = fullName.split(' ');
-						userName = nameParts.first; // Get first name
-						print('🔍 WelcomeSection: Extracted first name: "$userName"');
-					}
-				} else {
-					print('🔍 WelcomeSection: Profile not loaded yet - State: ${profileState.runtimeType}');
+		final l10n = AppLocalizations.of(context)!;
+		return BlocListener<AuthBloc, AuthState>(
+			listener: (context, authState) {
+				final authUser = authState is Authenticated ? authState.user : null;
+				final isLoggedIn = authUser != null && !authUser.isGuest;
+				debugPrint('WelcomeSection: AuthBloc listener: authState=${authState.runtimeType} '
+					'isLoggedIn=$isLoggedIn isGuest=${authUser?.isGuest}');
+				if (isLoggedIn) {
+					debugPrint('WelcomeSection: AuthBloc listener → dispatching LoadUserProfile (e.g. guest→login)');
+					context.read<ProfileBloc>().add(LoadUserProfile());
 				}
+			},
+			child: BlocBuilder<AuthBloc, AuthState>(
+				builder: (context, authState) {
+					return BlocBuilder<ProfileBloc, ProfileState>(
+						builder: (context, profileState) {
+							final authUser = authState is Authenticated ? authState.user : null;
+							final isAuthenticated = authUser != null;
+							final isGuestUser = isAuthenticated && authUser!.isGuest;
 
-				return BlocBuilder<WelcomeBloc, WelcomeState>(
+							debugPrint('WelcomeSection: build authState=${authState.runtimeType} '
+								'isAuthenticated=$isAuthenticated isGuestUser=$isGuestUser '
+								'profileState=${profileState.runtimeType}');
+
+							// 1) First name from profile (ignore placeholder like "Guest")
+							UserProfile? profile;
+							if (profileState is ProfileLoaded) {
+								profile = profileState.profile;
+							} else if (profileState is ProfileUpdating) {
+								profile = profileState.profile;
+							} else if (profileState is ProfileUpdated) {
+								profile = profileState.profile;
+							}
+							final profileFirstName = profile != null ? _firstNameFromProfile(profile) : '';
+							debugPrint('WelcomeSection: profileFirstName="${profileFirstName}" '
+								'profile.name=${profile?.name ?? "null"}');
+
+							// 2) First name from auth user
+							String authFirstName = '';
+							if (authUser != null) {
+								authFirstName = authUser.firstName.trim();
+								if (authFirstName.isEmpty) {
+									final full = authUser.fullName.trim();
+									authFirstName = full.isNotEmpty ? full.split(' ').first : '';
+								}
+							}
+							debugPrint('WelcomeSection: authFirstName="$authFirstName" '
+								'authUser.firstName=${authUser?.firstName ?? "null"}');
+
+							// 3) Resolve label
+							String userName;
+							if (profileFirstName.isNotEmpty) {
+								userName = profileFirstName;
+								debugPrint('WelcomeSection: using profileFirstName → "$userName"');
+							} else if (authFirstName.isNotEmpty) {
+								userName = authFirstName;
+								debugPrint('WelcomeSection: using authFirstName → "$userName"');
+							} else if (!isAuthenticated) {
+								userName = l10n.guest;
+								debugPrint('WelcomeSection: not authenticated → Guest');
+							} else if (isGuestUser) {
+								userName = l10n.guest;
+								debugPrint('WelcomeSection: isGuestUser → Guest');
+							} else {
+								userName = l10n.user;
+								debugPrint('WelcomeSection: logged-in no name → User');
+							}
+
+							return BlocBuilder<WelcomeBloc, WelcomeState>(
 					builder: (context, welcomeState) {
 						// Loading: shimmer
 						if (welcomeState is WelcomeLoading) {
@@ -246,7 +319,10 @@ class _WelcomeSectionWidgetState extends State<WelcomeSectionWidget> {
 						);
 					},
 				);
-			},
+						},
+					);
+				},
+			),
 		);
 	}
 }

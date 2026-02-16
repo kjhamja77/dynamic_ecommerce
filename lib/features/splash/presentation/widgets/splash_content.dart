@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/theme/app_fonts.dart';
 
@@ -16,12 +16,11 @@ class _SplashContentState extends State<SplashContent>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  String _appVersion = '';
+  final String _appVersion = AppConstants.appVersion;
 
   @override
   void initState() {
     super.initState();
-    _loadAppVersion();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -44,19 +43,6 @@ class _SplashContentState extends State<SplashContent>
     ));
 
     _controller.forward();
-  }
-
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = packageInfo.version;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading app version: $e');
-    }
   }
 
   @override

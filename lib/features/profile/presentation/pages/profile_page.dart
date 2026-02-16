@@ -44,7 +44,6 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/navigation/navigation_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
 import '../../../home/presentation/bloc/welcome_bloc.dart';
 import '../../../search/presentation/bloc/search_bloc.dart';
@@ -61,7 +60,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage>
     with AutomaticKeepAliveClientMixin {
   bool _isGuest = false;
-  String _appVersion = '';
+  final String _appVersion = AppConstants.appVersion;
 
   @override
   bool get wantKeepAlive => true;
@@ -70,23 +69,9 @@ class _ProfilePageState extends State<ProfilePage>
   void initState() {
     super.initState();
     _checkGuest();
-    _loadAppVersion();
     final currentState = context.read<ProfileBloc>().state;
     if (currentState is! ProfileLoaded) {
       context.read<ProfileBloc>().add(LoadUserProfile());
-    }
-  }
-
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = packageInfo.version;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading app version: $e');
     }
   }
 

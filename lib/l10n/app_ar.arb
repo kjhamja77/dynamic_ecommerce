@@ -2337,6 +2337,11 @@
   "@category": {
     "description": "Category filter section header"
   },
+
+  "categories": "الفئات",
+  "@categories": {
+    "description": "Categories section header (e.g. list of subcategories)"
+  },
   
   "brand": "العلامة التجارية",
   "@brand": {
@@ -2356,6 +2361,19 @@
   "material": "المادة",
   "@material": {
     "description": "Material filter section header"
+  },
+
+  "attributeHeight": "الارتفاع",
+  "@attributeHeight": {
+    "description": "Product attribute label for height"
+  },
+  "attributeWidth": "العرض",
+  "@attributeWidth": {
+    "description": "Product attribute label for width"
+  },
+  "attributeMeasurement": "القياس",
+  "@attributeMeasurement": {
+    "description": "Product attribute label for measurement"
   },
   
   "sizes": "المقاسات",

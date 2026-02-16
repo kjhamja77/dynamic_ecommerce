@@ -29,12 +29,9 @@ class CartButtonWithBadge extends StatelessWidget {
         int itemCount = 0;
 
         if (state is CartLoaded) {
-          itemCount = state.totalItems;
+          itemCount = state.uniqueItemsCount;
         } else if (state is CartUpdating) {
-          itemCount = state.cartItems.fold(
-            0,
-            (sum, item) => sum + item.quantity,
-          );
+          itemCount = state.cartResponse?.lines.length ?? state.cartItems.length;
         }
 
         return Stack(

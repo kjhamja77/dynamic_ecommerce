@@ -1410,6 +1410,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get priceRange => 'Price Range';
 
   @override
+  String get categories => 'Categories';
+
+  @override
   String get gender => 'Gender';
 
   @override
@@ -1417,6 +1420,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get material => 'Material';
+
+  @override
+  String get attributeHeight => 'Height';
+
+  @override
+  String get attributeWidth => 'Width';
+
+  @override
+  String get attributeMeasurement => 'Measurement';
 
   @override
   String get sizes => 'Sizes';

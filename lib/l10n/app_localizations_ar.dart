@@ -1424,6 +1424,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get priceRange => 'نطاق السعر';
 
   @override
+  String get categories => 'الفئات';
+
+  @override
   String get gender => 'الجنس';
 
   @override
@@ -1431,6 +1434,15 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get material => 'المادة';
+
+  @override
+  String get attributeHeight => 'الارتفاع';
+
+  @override
+  String get attributeWidth => 'العرض';
+
+  @override
+  String get attributeMeasurement => 'القياس';
 
   @override
   String get sizes => 'المقاسات';

@@ -46,6 +46,9 @@ class CartRemoteDataSourceImpl implements CartRemoteDataSource {
   @override
   Future<CartResponseModel> addToCart(int productId, int quantity) async {
     try {
+      debugPrint('🛒 [ADD_TO_CART_FLOW] Step 6 - Cart Remote Data Source (API call)');
+      debugPrint('   Sending variant_id to add-to-cart endpoint: variant_id=$productId (product_id param)');
+      debugPrint('   params: {action: add, product_id: $productId (variant_id), quantity: $quantity}');
       final response = await apiClient.requestRpc(
         Endpoints.cart,
         method: 'POST',

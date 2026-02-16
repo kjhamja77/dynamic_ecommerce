@@ -13,6 +13,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../utils/attribute_label_helper.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../../../core/navigation/navigation_service.dart';
@@ -158,6 +159,7 @@ class AddToCartBottomSheet extends StatelessWidget {
                 
                 // Get selected attribute values from controller
                 final selectedAttrValues = _getSelectedAttributeValues(
+                  context,
                   variantController,
                   pd,
                 );
@@ -305,6 +307,7 @@ class AddToCartBottomSheet extends StatelessWidget {
               if (pd == null) return const SizedBox.shrink();
               
               final selectedAttrValues = _getSelectedAttributeValues(
+                context,
                 variantController,
                 pd,
               );
@@ -368,208 +371,150 @@ class AddToCartBottomSheet extends StatelessWidget {
           
           SizedBox(height: ResponsiveConstants.lgPadding),
 
-          // Quantity Selector
+          // Quantity Selector – max is available from controller (after attribute loop) minus cart
           Padding(
             padding: EdgeInsets.symmetric(
               horizontal: ResponsiveConstants.lgPadding,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.quantity,
-                  style: AppFonts.getTextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(
-                      ResponsiveConstants.smRadius,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.05,
-                        ),
-                        blurRadius: ResponsiveConstants.smElevation,
-                        offset: Offset(0, ResponsiveConstants.xsSpacing),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildQuantityButton(
-                        context,
-                        icon: Icons.remove,
-                        onPressed: () {
-                          context.read<ProductDetailsBloc>().add(
-                            DecrementQuantityEvent(),
-                          );
-                        },
-                      ),
-                      Container(
-                        width: ResponsiveConstants.xlDimension,
-                        height: ResponsiveConstants.xlDimension,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.background,
-                          border: Border.symmetric(
-                            horizontal: BorderSide(
-                              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-                            ),
+            child: Consumer<DynamicVariantController>(
+              builder: (context, variantController, _) {
+                return BlocBuilder<CartBloc, CartState>(
+                  builder: (context, cartState) {
+                    int maxAllowed = variantController.quantityAvailable;
+                    if (cartState is CartLoaded &&
+                        variantController.variantId.isNotEmpty) {
+                      try {
+                        final existingItem = cartState.cartItems.firstWhere(
+                          (item) =>
+                              item.product.id == variantController.variantId,
+                        );
+                        maxAllowed =
+                            maxAllowed - existingItem.quantity;
+                        if (maxAllowed < 0) maxAllowed = 0;
+                      } catch (_) {}
+                    }
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.quantity,
+                          style: AppFonts.getTextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                        child:
-                            Consumer<DynamicVariantController>(
-                              builder: (context, variantController, _) {
-                                return BlocBuilder<
-                                  ProductDetailsBloc,
-                                  ProductDetailsState
-                                >(
-                                  builder: (context, state) {
-                                    if (state is! ProductDetailsLoaded) {
-                                      return Text(
-                                        '1',
-                                        style: AppFonts.getTextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface,
-                                        ),
-                                      );
-                                    }
-
-                                    int displayedQty = state.quantity;
-
-                                    // Clamp quantity to the selected variant's available stock
-                                    try {
-                                      final cartState =
-                                          context.read<CartBloc>().state;
-                                      int maxAvailable = variantController.quantityAvailable;
-                                      
-                                      // Subtract what is already in the cart
-                                      if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
-                                        try {
-                                          final existingItem = cartState.cartItems.firstWhere(
-                                            (item) => item.product.id == variantController.variantId,
-                                          );
-                                          maxAvailable = maxAvailable - existingItem.quantity;
-                                          if (maxAvailable < 0) maxAvailable = 0;
-                                        } catch (_) {
-                                          // Item not in cart
-                                        }
-                                      }
-
-                                      if (maxAvailable > 0) {
-                                        if (displayedQty > maxAvailable) {
-                                          displayedQty = maxAvailable;
-                                        }
-                                      } else {
-                                        displayedQty = 1;
-                                      }
-                                    } catch (e) {
-                                      developer.log(
-                                          '⚠️ Error clamping quantity: $e');
-                                    }
-
-                                    return Text(
-                                      '$displayedQty',
-                                      style: AppFonts.getTextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outline
+                                  .withValues(alpha: 0.3),
                             ),
-                      ),
-                      Consumer<DynamicVariantController>(
-                        builder: (context, variantController, _) {
-                          return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                            buildWhen: (previous, current) {
-                              return current is ProductDetailsLoaded;
-                            },
-                            builder: (context, state) {
-                              return BlocBuilder<CartBloc, CartState>(
-                                buildWhen: (previous, current) {
-                                  return true; // Rebuild when cart changes
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? 0.3
+                                      : 0.05,
+                                ),
+                                blurRadius:
+                                    ResponsiveConstants.smElevation,
+                                offset: Offset(
+                                    0, ResponsiveConstants.xsSpacing),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              _buildQuantityButton(
+                                context,
+                                icon: Icons.remove,
+                                onPressed: () {
+                                  context.read<ProductDetailsBloc>().add(
+                                        DecrementQuantityEvent(),
+                                      );
                                 },
-                                builder: (context, cartState) {
-                                  if (state is! ProductDetailsLoaded) {
-                                    // Fallback: try to get controller values even if state isn't loaded
-                                    final maxAvailable = variantController.quantityAvailable;
-                                    final variantId = variantController.variantId;
-                                    return _buildQuantityButton(
-                                      context,
-                                      icon: Icons.add,
-                                      onPressed: () {
-                                        context.read<ProductDetailsBloc>().add(
-                                          IncrementQuantityEvent(
-                                            maxAvailable: maxAvailable > 0 ? maxAvailable : null,
-                                            variantId: variantId.isNotEmpty ? variantId : null,
+                              ),
+                              Container(
+                                width: ResponsiveConstants.xlDimension,
+                                height: ResponsiveConstants.xlDimension,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .background,
+                                  border: Border.symmetric(
+                                    horizontal: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outline
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                ),
+                                child:
+                                    BlocBuilder<ProductDetailsBloc,
+                                        ProductDetailsState>(
+                                      builder: (context, state) {
+                                        final qty = state
+                                                is ProductDetailsLoaded
+                                            ? state.quantity
+                                            : 1;
+                                        return Text(
+                                          '$qty',
+                                          style: AppFonts.getTextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           ),
                                         );
                                       },
-                                    );
-                                  }
-                                  
-                                  final currentQty = state.quantity;
-                                  
-                                  // Get available quantity from controller
-                                  int maxAvailable = variantController.quantityAvailable;
-                                  
-                                  // Subtract what is already in the cart
-                                  if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
-                                    try {
-                                      final existingItem = cartState.cartItems.firstWhere(
-                                        (item) => item.product.id == variantController.variantId,
-                                      );
-                                      maxAvailable = maxAvailable - existingItem.quantity;
-                                      if (maxAvailable < 0) maxAvailable = 0;
-                                    } catch (_) {
-                                      // Item not in cart
-                                    }
-                                  }
-
-                                  // Always limit increment to available stock
-                                  final isAtMax = currentQty >= maxAvailable;
-                                  
+                                    ),
+                              ),
+                              BlocBuilder<ProductDetailsBloc,
+                                  ProductDetailsState>(
+                                builder: (context, state) {
+                                  final currentQty =
+                                      state is ProductDetailsLoaded
+                                          ? state.quantity
+                                          : 1;
+                                  final atMax = maxAllowed <= 0 ||
+                                      currentQty >= maxAllowed;
                                   return _buildQuantityButton(
                                     context,
                                     icon: Icons.add,
-                                    onPressed: isAtMax ? null : () {
-                                      // Pass controller's current variant info to BLoC
-                                      context.read<ProductDetailsBloc>().add(
-                                        IncrementQuantityEvent(
-                                          maxAvailable: maxAvailable,
-                                          variantId: variantController.variantId,
-                                        ),
-                                      );
-                                    },
-                                    enabled: !isAtMax,
+                                    onPressed: atMax
+                                        ? null
+                                        : () {
+                                            context
+                                                .read<ProductDetailsBloc>()
+                                                .add(
+                                              IncrementQuantityEvent(
+                                                maxAvailable: maxAllowed,
+                                              ),
+                                            );
+                                          },
+                                    enabled: !atMax,
                                   );
                                 },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
 
@@ -719,26 +664,8 @@ class AddToCartBottomSheet extends StatelessWidget {
                   return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
                     buildWhen: (previous, current) => current is ProductDetailsLoaded,
                     builder: (context, state) {
-                      return BlocBuilder<CartBloc, CartState>(
-                        builder: (context, cartState) {
-                          final isAdding =
+                      final isAdding =
                               state is ProductDetailsLoaded && state.isAdding;
-                          
-                          // Get stock status from controller
-                          int availableQty = variantController.quantityAvailable;
-                          
-                          // Subtract what is already in the cart
-                          if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
-                            try {
-                              final existingItem = cartState.cartItems.firstWhere(
-                                (item) => item.product.id == variantController.variantId,
-                              );
-                              availableQty = availableQty - existingItem.quantity;
-                              if (availableQty < 0) availableQty = 0;
-                            } catch (_) {
-                              // Item not in cart
-                            }
-                          }
                           
                           // Check if all required attributes are selected
                           final pd = variantController.productDetails;
@@ -751,12 +678,12 @@ class AddToCartBottomSheet extends StatelessWidget {
                           final selectedAttributesCount = variantController.selectedAttributes.length;
                           final bool hasAllAttributesSelected = selectedAttributesCount >= totalAttributes && variantController.variantId.isNotEmpty;
                           
-                          final bool variantInStock = variantController.inStock && availableQty > 0;
-                          final bool isOutOfStock = !variantInStock || availableQty == 0;
-                          final bool canAdd = hasAllAttributesSelected && variantInStock && availableQty > 0 && !isAdding;
+                          final bool variantInStock = variantController.inStock && variantController.quantityAvailable > 0;
+                          final bool isOutOfStock = !variantInStock;
+                          final bool canAdd = hasAllAttributesSelected && variantInStock && !isAdding;
 
                           developer.log(
-                            '🔘 Button state check -> availableQty=$availableQty, '
+                            '🔘 Button state check -> quantityAvailable=${variantController.quantityAvailable}, '
                             'variantInStock=$variantInStock, isOutOfStock=$isOutOfStock, canAdd=$canAdd, '
                             'variantId=${variantController.variantId}, hasAllSelected=$hasAllAttributesSelected '
                             '($selectedAttributesCount/$totalAttributes attributes)',
@@ -805,10 +732,12 @@ class AddToCartBottomSheet extends StatelessWidget {
                             );
 
                             if (currentState is ProductDetailsLoaded) {
-                              developer.log(
-                                '✅ State is ProductDetailsLoaded, quantity: ${currentState.quantity}',
-                              );
-                              developer.log('🚀 Dispatching AddToCartEvent...');
+                              debugPrint('═══════════════════════════════════════════════════════');
+                              debugPrint('🛒 [ADD_TO_CART_FLOW] Step 1 - Add To Cart Bottom Sheet');
+                              debugPrint('   User clicked Add to Cart button');
+                              debugPrint('   currentState.quantity (from ProductDetailsBloc): ${currentState.quantity}');
+                              debugPrint('   Dispatching AddToCartEvent with quantity: ${currentState.quantity}');
+                              debugPrint('═══════════════════════════════════════════════════════');
 
                               String selectedColorId = '';
                               String selectedSizeId = '';
@@ -849,11 +778,15 @@ class AddToCartBottomSheet extends StatelessWidget {
                                 developer.log('📏 Size ID from controller: $selectedSizeId (attr_id: $sizeAttributeId)');
                               }
                               
-                              developer.log('📦 AddToCartEvent params: productId=${latestPd.id}, colorId=$selectedColorId, sizeId=$selectedSizeId, quantity=${currentState.quantity}');
+                              // Use variantId from controller (matches UI selection) as productId for API
+                              final productId = controller.variantId.isNotEmpty
+                                  ? controller.variantId
+                                  : latestPd.id;
+                              debugPrint('🛒 [ADD_TO_CART_FLOW] AddToCartEvent: productId=$productId (from controller.variantId), colorId=$selectedColorId, sizeId=$selectedSizeId, quantity=${currentState.quantity}');
 
                               context.read<ProductDetailsBloc>().add(
                                 AddToCartEvent(
-                                  productId: latestPd.id,
+                                  productId: productId,
                                   colorId: selectedColorId,
                                   sizeId: selectedSizeId,
                                   quantity: currentState.quantity,
@@ -984,8 +917,6 @@ class AddToCartBottomSheet extends StatelessWidget {
                                 ],
                               ),
                           );
-                        },
-                      );
                     },
                   );
                 },
@@ -1239,6 +1170,7 @@ class AddToCartBottomSheet extends StatelessWidget {
   /// Get selected attribute values as display strings from the controller
   /// Returns a list of strings like ["اللون: اخضر", "المقاس: 40", "الخامة: شمواه"]
   List<String> _getSelectedAttributeValues(
+    BuildContext context,
     DynamicVariantController controller,
     ProductDetails productDetails,
   ) {
@@ -1272,9 +1204,10 @@ class AddToCartBottomSheet extends StatelessWidget {
       
       if (attrId == null || valueName.isEmpty) continue;
       
-      // Get the display name for this attribute
-      final attrDisplayName = attributeDisplayMap[attrId] ?? variantAttr.attributeName;
-      
+      // Get the display name for this attribute (localized for known attributes)
+      final rawAttrName = attributeDisplayMap[attrId] ?? variantAttr.attributeName;
+      final attrDisplayName = localizedAttributeLabel(context, rawAttrName);
+
       // For colors, try to get the localized name from ColorOption if available
       String displayValueName = valueName;
       

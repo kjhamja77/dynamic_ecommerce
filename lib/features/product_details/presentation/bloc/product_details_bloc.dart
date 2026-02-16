@@ -3549,19 +3549,26 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     AddToCartEvent event,
     Emitter<ProductDetailsState> emit,
   ) async {
-    debugPrint('🛒 _onAddToCart called with event: ${event.toString()}');
+    debugPrint('═══════════════════════════════════════════════════════');
+    debugPrint('🛒 [ADD_TO_CART_FLOW] Step 2 - Product Details Bloc _onAddToCart');
+    debugPrint('   event.productId=${event.productId}, event.quantity=${event.quantity}');
     
     if (state is ProductDetailsLoaded) {
       final currentState = state as ProductDetailsLoaded;
-      debugPrint('📱 Current state: ProductDetailsLoaded with quantity: ${currentState.quantity}');
+      debugPrint('   currentState.quantity: ${currentState.quantity}');
       
       final pd = currentState.productDetails;
       
-      // STEP 1: Determine the correct variant ID FIRST (before stock validation)
+      // STEP 1: Determine the correct variant ID - use event.productId if it matches a variant (from controller)
       debugPrint('🔍 Step 1: Determining variant ID to add...');
       String productIdToAdd = event.productId;
       VariantCombination? targetVariant;
       try {
+        final byId = pd.variantCombinations.firstWhere((v) => v.variantId == event.productId);
+        productIdToAdd = byId.variantId;
+        targetVariant = byId;
+        debugPrint('   Using productId from Add to Cart (controller.variantId): $productIdToAdd');
+      } catch (_) {
         // Build selected pairs using attribute_id and value_id
         // Helper to resolve attribute_id for an attribute name from variant_combinations
         String? findAttributeIdByName(String attributeName) {
@@ -3809,8 +3816,6 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
             }
           }
         }
-      } catch (e) {
-        debugPrint('⚠️ Error resolving variant ID: $e');
       }
       
       // If we still don't have a target variant, try to find it by the resolved productIdToAdd
@@ -3825,79 +3830,26 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
       }
       
-      // STEP 2: Validate stock on the TARGET variant (the one we're actually adding)
-      debugPrint('🔍 Step 2: Validating stock for variantId=$productIdToAdd');
-      int quantityToAdd = currentState.quantity;
-      bool quantityWasClamped = false;
+      // STEP 2: Use exact quantity from user - no clamping; API validates stock
+      debugPrint('🛒 [ADD_TO_CART_FLOW] Step 2b - Using user quantity (no clamping)');
+      final int quantityToAdd = currentState.quantity;
+      debugPrint('   quantityToAdd (user selection): $quantityToAdd');
       
-      if (targetVariant != null) {
-        debugPrint('📦 Target variant: variantId=${targetVariant.variantId}, inStock=${targetVariant.inStock}, quantityAvailable=${targetVariant.quantityAvailable}');
-        
-        // Check inStock first
-        if (!targetVariant.inStock) {
-          debugPrint('❌ Variant is marked as out of stock');
-          final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
-          final msg = isArabic
-              ? 'هذا المنتج غير متوفر حالياً في المخزون.'
-              : 'This product is currently out of stock.';
-          emit(ProductDetailsError(msg));
-          return;
-        }
-        
-        // Check quantityAvailable
-        final quantityAvailable = targetVariant.quantityAvailable;
-        if (quantityAvailable != null) {
-          if (quantityAvailable <= 0) {
-            debugPrint('❌ Variant quantityAvailable is 0 or negative');
-            final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
-            final msg = isArabic
-                ? 'هذا المنتج غير متوفر حالياً في المخزون.'
-                : 'This product is currently out of stock.';
-            emit(ProductDetailsError(msg));
-            return;
-          }
-          
-          // Check if there's already an item in cart with this variant ID
-          int existingCartQuantity = 0;
-          final variantIdToCheck = targetVariant.variantId;
-          if (cartBloc.state is CartLoaded) {
-            final cartState = cartBloc.state as CartLoaded;
-            try {
-              final existingItem = cartState.cartItems.firstWhere(
-                (item) => item.product.id == variantIdToCheck,
-              );
-              existingCartQuantity = existingItem.quantity;
-              debugPrint('📋 Found existing cart item: quantity=$existingCartQuantity');
-            } catch (e) {
-              debugPrint('ℹ️ Item not found in cart, using 0 for existing quantity');
-            }
-          }
-          
-          // Calculate available quantity (total available - already in cart)
-          final maxAllowed = quantityAvailable.toInt();
-          final available = maxAllowed - existingCartQuantity;
-          
-          debugPrint('🔢 Stock check: quantity=${currentState.quantity}, existingCart=$existingCartQuantity, maxAllowed=$maxAllowed, available=$available');
-          
-          // If user tries to add more than available, clamp to available quantity
-          if (currentState.quantity > available && available > 0) {
-            quantityToAdd = available;
-            quantityWasClamped = true;
-            debugPrint('⚠️ Quantity clamped from ${currentState.quantity} to $quantityToAdd (available: $available)');
-          }
-        } else {
-          debugPrint('⚠️ quantityAvailable is null, but inStock=true. Proceeding with stock check...');
-        }
-      } else {
-        debugPrint('⚠️ Could not find target variant for stock validation. Proceeding anyway...');
+      if (targetVariant != null && !targetVariant.inStock) {
+        debugPrint('❌ Variant is marked as out of stock');
+        final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
+        final msg = isArabic
+            ? 'هذا المنتج غير متوفر حالياً في المخزون.'
+            : 'This product is currently out of stock.';
+        emit(ProductDetailsError(msg));
+        return;
       }
       
       emit(currentState.copyWith(isAdding: true));
       debugPrint('⏳ Emitting loading state...');
       
-      debugPrint('🚀 Calling addToCart use case...');
-
-      debugPrint('📤 addToCart payload — productIdToAdd=$productIdToAdd, colorId=${event.colorId}, sizeId=${event.sizeId}, qty=$quantityToAdd');
+      debugPrint('🛒 [ADD_TO_CART_FLOW] Step 2c - Final payload (variant_id for add-to-cart endpoint):');
+      debugPrint('   variant_id=$productIdToAdd, quantity=$quantityToAdd');
       final result = await addToCart(AddToCartParams(
         productId: productIdToAdd,
         colorId: event.colorId,
@@ -3910,53 +3862,19 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       result.fold(
         (failure) {
           debugPrint('❌ Add to cart failed: ${failure.message}');
-          
-          // Check if this is a stock-related error - if so, don't show error since we already clamped
-          final lowerMessage = failure.message.toLowerCase();
-          final isStockError = lowerMessage.contains('available') || 
-                              lowerMessage.contains('stock') ||
-                              lowerMessage.contains('quantity') ||
-                              lowerMessage.contains('exceed');
-          
-          if (isStockError) {
-            // For stock errors, we've already clamped, so just refresh cart and show success
-            debugPrint('⚠️ Stock error from API (should not happen after clamping), refreshing cart state');
-            cartBloc.add(const RefreshCart());
-            
-            // If quantity was clamped, show the clamped dialog, otherwise just close
-            if (quantityWasClamped) {
-              final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
-              final message = isArabic
-                  ? 'تم إضافة جميع الكمية المتاحة ($quantityToAdd قطعة) إلى السلة.'
-                  : 'We added all available quantity ($quantityToAdd item(s)) to your cart.';
-              emit(ProductDetailsQuantityClamped(message, quantityToAdd));
-            } else {
-              emit(currentState.copyWith(isAdding: false));
-            }
-          } else {
-            // For non-stock errors, show the error
-            emit(ProductDetailsError(failure.message));
-          }
+          emit(currentState.copyWith(isAdding: false));
+          final displayMsg = failure.message.contains('out of stock') ||
+                  failure.message.toLowerCase().contains('stock')
+              ? (AppLocalizationService().currentLocale.languageCode == 'ar'
+                  ? 'الكمية المطلوبة غير متوفرة. يرجى تقليل الكمية.'
+                  : 'The requested quantity is not available. Please reduce the quantity.')
+              : failure.message;
+          emit(ProductDetailsError(displayMsg));
         },
         (cartItem) {
-          debugPrint('✅ Cart item added successfully via API: ${cartItem.toString()}');
-          
-          // The item has already been added to the cart via the API in the repository
-          // Just refresh the cart to get the updated state
-          debugPrint('🔄 Refreshing cart to get updated state...');
+          debugPrint('✅ Cart item added successfully: ${cartItem.quantity} items');
           cartBloc.add(const RefreshCart());
-          
-          // If quantity was clamped, emit a special state to show dialog
-          if (quantityWasClamped) {
-            final isArabic = AppLocalizationService().currentLocale.languageCode == 'ar';
-            final message = isArabic
-                ? 'تم إضافة جميع الكمية المتاحة ($quantityToAdd قطعة) إلى السلة.'
-                : 'We added all available quantity ($quantityToAdd item(s)) to your cart.';
-            emit(ProductDetailsQuantityClamped(message, quantityToAdd));
-          } else {
-            emit(currentState.copyWith(isAdding: false));
-          }
-          debugPrint('✅ Final state emitted: isAdding = false');
+          emit(currentState.copyWith(isAdding: false));
         },
       );
     } else {
@@ -3970,81 +3888,11 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
   ) {
     if (state is ProductDetailsLoaded) {
       final s = state as ProductDetailsLoaded;
-      
-      // CRITICAL: Use maxAvailable from event (from DynamicVariantController) if provided
-      // This ensures we use the controller's current variant selection, not stale BLoC state
-      int? maxAvailable;
-      String? variantId;
-      
-      if (event.maxAvailable != null && event.variantId != null) {
-        // Use controller's values (most accurate)
-        maxAvailable = event.maxAvailable;
-        variantId = event.variantId;
-        debugPrint('✅ Using controller values: maxAvailable=$maxAvailable, variantId=$variantId');
-      } else {
-        // Fallback to old logic (for backward compatibility)
-        final pd = s.productDetails;
-        VariantCombination? selectedVariant;
-        if (pd.selectedColor.isNotEmpty && pd.variantCombinations.isNotEmpty) {
-          selectedVariant = pd.getFirstInStockVariantForColor(pd.selectedColor);
-        }
-        selectedVariant ??= _findSelectedVariant(pd);
-
-        if (selectedVariant == null) {
-          debugPrint('⚠️ Cannot find selected variant, allowing increment');
-          final newQuantity = s.quantity + 1;
-          emit(s.copyWith(quantity: newQuantity));
-          return;
-        }
-        
-        final quantityAvailable = selectedVariant.quantityAvailable ?? double.infinity;
-        if (quantityAvailable == 0) {
-          debugPrint('⚠️ Product is out of stock, cannot increment');
-          return;
-        }
-        
-        maxAvailable = quantityAvailable.toInt();
-        variantId = selectedVariant.variantId;
-        debugPrint('⚠️ Using fallback logic: maxAvailable=$maxAvailable, variantId=$variantId');
+      int newQuantity = s.quantity + 1;
+      // Cap at available quantity when max is provided (e.g. from add-to-cart bottom sheet)
+      if (event.maxAvailable != null && newQuantity > event.maxAvailable!) {
+        newQuantity = event.maxAvailable!;
       }
-      
-      // Check if there's already an item in cart with this variant ID
-      int existingCartQuantity = 0;
-      if (variantId != null && cartBloc.state is CartLoaded) {
-        final cartState = cartBloc.state as CartLoaded;
-        try {
-          final existingItem = cartState.cartItems.firstWhere(
-            (item) => item.product.id == variantId,
-          );
-          existingCartQuantity = existingItem.quantity;
-        } catch (e) {
-          // Item not found in cart, existingCartQuantity remains 0
-          debugPrint('ℹ️ Item not found in cart, using 0 for existing quantity');
-        }
-      }
-      
-      // Available = total stock minus what's already in cart (same as bottom sheet)
-      final available = (maxAvailable ?? 0) - existingCartQuantity;
-      
-      // If current quantity exceeds available (e.g. after variant change), clamp and emit
-      if (s.quantity > available && available > 0) {
-        debugPrint('⚠️ Clamping quantity from ${s.quantity} to $available (available stock)');
-        emit(s.copyWith(quantity: available));
-        return;
-      }
-      if (available <= 0) {
-        debugPrint('⚠️ No available stock, cannot increment');
-        return;
-      }
-      
-      // Prevent incrementing if already at max available
-      if (s.quantity >= available) {
-        debugPrint('⚠️ Cannot increment: quantity (${s.quantity}) at max available ($available)');
-        return;
-      }
-      
-      final newQuantity = s.quantity + 1;
-      debugPrint('➕ Incrementing quantity from ${s.quantity} to $newQuantity (available: $available)');
       emit(s.copyWith(quantity: newQuantity));
     }
   }

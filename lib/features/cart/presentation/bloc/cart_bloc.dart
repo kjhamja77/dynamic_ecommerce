@@ -51,12 +51,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   /// Get the max allowed quantity for a product (returns null if unknown)
   int? getMaxQuantity(String productId) => _maxQuantities[productId];
   
-  /// Check if increment is allowed for a product based on current quantity
-  bool canIncrement(String productId, int currentQuantity) {
-    final maxQty = _maxQuantities[productId];
-    if (maxQty == null) return true; // Unknown, allow increment (backend will validate)
-    return currentQuantity < maxQty;
-  }
+  /// Check if increment is allowed - no restriction; send exact quantity, API validates.
+  bool canIncrement(String productId, int currentQuantity) => true;
 
   Future<void> _onLoadCart(LoadCart event, Emitter<CartState> emit) async {
     emit(CartLoading());

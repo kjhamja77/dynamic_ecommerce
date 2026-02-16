@@ -119,6 +119,23 @@ class ApiClient {
             options.headers['Cookie'] = 'session_id=$sessionId';
             debugPrint('ApiClient:onRequest → using session_id present');
           }
+
+          // Log auth state for cart requests (guest users typically have session_id only, no token)
+          final path = options.path;
+          if (path.contains('cart') || path.contains('/ecom/product/cart')) {
+            final hasToken = token != null && token.isNotEmpty;
+            final hasSession = sessionId != null && sessionId.isNotEmpty;
+            final tokenPreview = hasToken
+                ? '${token!.length} chars, preview: ${token.substring(0, token.length.clamp(0, 8))}${token.length > 8 ? "..." : ""}'
+                : 'none';
+            final sessionPreview = hasSession
+                ? '${sessionId!.length} chars, preview: ${sessionId.substring(0, sessionId.length.clamp(0, 8))}${sessionId.length > 8 ? "..." : ""}'
+                : 'none';
+            debugPrint(
+              '🛒 Cart API request → auth_token: $tokenPreview | session_id: $sessionPreview | '
+              'guest users typically use session_id only (no token)',
+            );
+          }
           
           // Attach Accept-Language from LanguageService if available
           final apiLang = await LanguageService().getApiLanguageCode();

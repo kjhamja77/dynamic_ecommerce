@@ -4,6 +4,7 @@ import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../domain/entities/product_details.dart';
 import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
+import '../utils/attribute_label_helper.dart';
 
 /// Fully dynamic variant selector widget that works with unlimited attributes
 /// 
@@ -156,7 +157,7 @@ class _AttributeSection extends StatelessWidget {
         children: [
           // Attribute name
           Text(
-            attributeName,
+            localizedAttributeLabel(context, attributeName),
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.mdFontSize,
               fontWeight: FontWeight.w600,
