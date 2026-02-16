@@ -661,51 +661,67 @@ class AddToCartBottomSheet extends StatelessWidget {
               height: ResponsiveConstants.lgButtonHeight,
               child: Consumer<DynamicVariantController>(
                 builder: (context, variantController, _) {
-                  return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
-                    buildWhen: (previous, current) => current is ProductDetailsLoaded,
-                    builder: (context, state) {
-                      final isAdding =
-                              state is ProductDetailsLoaded && state.isAdding;
-                          
-                          // Check if all required attributes are selected
-                          final pd = variantController.productDetails;
-                          if (pd == null) {
-                            return const SizedBox.shrink();
-                          }
-                          
-                          // Count how many attributes need to be selected
-                          final totalAttributes = pd.variantAttributeOptions.length;
-                          final selectedAttributesCount = variantController.selectedAttributes.length;
-                          final bool hasAllAttributesSelected = selectedAttributesCount >= totalAttributes && variantController.variantId.isNotEmpty;
-                          
-                          final bool variantInStock = variantController.inStock && variantController.quantityAvailable > 0;
-                          final bool isOutOfStock = !variantInStock;
-                          final bool canAdd = hasAllAttributesSelected && variantInStock && !isAdding;
-
-                          developer.log(
-                            '🔘 Button state check -> quantityAvailable=${variantController.quantityAvailable}, '
-                            'variantInStock=$variantInStock, isOutOfStock=$isOutOfStock, canAdd=$canAdd, '
-                            'variantId=${variantController.variantId}, hasAllSelected=$hasAllAttributesSelected '
-                            '($selectedAttributesCount/$totalAttributes attributes)',
+                  return BlocBuilder<CartBloc, CartState>(
+                    buildWhen: (previous, current) => true,
+                    builder: (context, cartState) {
+                      // Use same "remaining" logic as the stock message so button and message stay in sync
+                      int remainingQty = variantController.quantityAvailable;
+                      if (cartState is CartLoaded && variantController.variantId.isNotEmpty) {
+                        try {
+                          final existingItem = cartState.cartItems.firstWhere(
+                            (item) => item.product.id == variantController.variantId,
                           );
-                          
-                          // Determine button state and text
-                          String buttonText;
-                          bool buttonEnabled;
-                          
-                          if (!hasAllAttributesSelected) {
-                            // Case: Not all attributes selected
-                            buttonText = AppLocalizations.of(context)!.selectOptions;
-                            buttonEnabled = false;
-                          } else if (isOutOfStock) {
-                            // Case: All selected but out of stock
-                            buttonText = AppLocalizations.of(context)!.outOfStock;
-                            buttonEnabled = false;
-                          } else {
-                            // Case: All selected and in stock
-                            buttonText = AppLocalizations.of(context)!.addToCart;
-                            buttonEnabled = canAdd;
-                          }
+                          remainingQty = remainingQty - existingItem.quantity;
+                          if (remainingQty < 0) remainingQty = 0;
+                        } catch (_) {}
+                      }
+                      final bool hasRemainingStock = remainingQty > 0;
+                      final bool isOutOfStockForButton = !hasRemainingStock;
+
+                      return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
+                        buildWhen: (previous, current) => current is ProductDetailsLoaded,
+                        builder: (context, state) {
+                          final isAdding =
+                                  state is ProductDetailsLoaded && state.isAdding;
+                              
+                              // Check if all required attributes are selected
+                              final pd = variantController.productDetails;
+                              if (pd == null) {
+                                return const SizedBox.shrink();
+                              }
+                              
+                              // Count how many attributes need to be selected
+                              final totalAttributes = pd.variantAttributeOptions.length;
+                              final selectedAttributesCount = variantController.selectedAttributes.length;
+                              final bool hasAllAttributesSelected = selectedAttributesCount >= totalAttributes && variantController.variantId.isNotEmpty;
+                              
+                              // Out of stock = no remaining quantity (same as "Out of Stock" message below)
+                              final bool canAdd = hasAllAttributesSelected && hasRemainingStock && !isAdding;
+
+                              developer.log(
+                                '🔘 Button state check -> quantityAvailable=${variantController.quantityAvailable}, '
+                                'remainingQty=$remainingQty, isOutOfStock=$isOutOfStockForButton, canAdd=$canAdd, '
+                                'variantId=${variantController.variantId}, hasAllSelected=$hasAllAttributesSelected '
+                                '($selectedAttributesCount/$totalAttributes attributes)',
+                              );
+                              
+                              // Determine button state and text
+                              String buttonText;
+                              bool buttonEnabled;
+                              
+                              if (!hasAllAttributesSelected) {
+                                // Case: Not all attributes selected
+                                buttonText = AppLocalizations.of(context)!.selectOptions;
+                                buttonEnabled = false;
+                              } else if (isOutOfStockForButton) {
+                                // Case: All selected but out of stock (or all in cart) – match "Out of Stock" message
+                                buttonText = AppLocalizations.of(context)!.outOfStock;
+                                buttonEnabled = false;
+                              } else {
+                                // Case: All selected and has remaining stock
+                                buttonText = AppLocalizations.of(context)!.addToCart;
+                                buttonEnabled = canAdd;
+                              }
                           
                           return ElevatedButton(
                             onPressed: buttonEnabled
@@ -885,7 +901,7 @@ class AddToCartBottomSheet extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    !hasAllAttributesSelected || isOutOfStock
+                                    !hasAllAttributesSelected || isOutOfStockForButton
                                         ? Icons.block
                                         : Icons.shopping_cart_outlined,
                                     size: 20,
@@ -920,7 +936,9 @@ class AddToCartBottomSheet extends StatelessWidget {
                     },
                   );
                 },
-              ),
+              );
+            },
+          ),
             ),
           ),
 

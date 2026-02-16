@@ -24,7 +24,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../cart/presentation/bloc/cart_bloc.dart';
-import '../../../cart/domain/entities/cart_item.dart';
 
 // Replace these via --dart-define at build time or paste your IDs directly
 // Example: flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com \
@@ -54,7 +53,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPhoneLogin = false;
   final _phoneFieldKey = GlobalKey<PhoneInputFieldState>();
   BiometricSettings? _lastBiometricSettings;
-  List<CartItem>? _guestCartSnapshot;
   
   Future<String?> _getGoogleIdToken() async {
     try {
@@ -91,16 +89,6 @@ class _LoginPageState extends State<LoginPage> {
     // Check biometric availability when the page loads
     context.read<BiometricBloc>().add(CheckBiometricAvailability());
     context.read<BiometricBloc>().add(GetBiometricSettings());
-    _snapshotGuestCart();
-  }
-
-  void _snapshotGuestCart() {
-    try {
-      final cartState = context.read<CartBloc>().state;
-      if (cartState is CartLoaded && cartState.cartItems.isNotEmpty) {
-        _guestCartSnapshot = List<CartItem>.from(cartState.cartItems);
-      }
-    } catch (_) {}
   }
 
   @override
@@ -136,30 +124,28 @@ class _LoginPageState extends State<LoginPage> {
               ),
             );
           } else if (state is Authenticated) {
-            // On successful login (non-guest), merge guest cart into user cart
+            debugPrint('═══════════════════════════════════════════════════════');
+            debugPrint('🔐 [LOGIN_FLOW] Step 5 - LoginPage: Authenticated state received');
+            debugPrint('   User ID: ${state.user.id}');
+            debugPrint('   User Email: ${state.user.email}');
+            debugPrint('   Is Guest: ${state.user.isGuest}');
+            debugPrint('═══════════════════════════════════════════════════════');
+            
+            // Refresh cart to get the user's cart (guest and real users have separate carts)
             if (!state.user.isGuest) {
+              debugPrint('🔐 [LOGIN_FLOW] Step 5.1 - LoginPage: Real user login detected');
+              debugPrint('   Refreshing cart to get user cart...');
               final cartBloc = context.read<CartBloc>();
-              // Initial refresh to get the current user cart
               cartBloc.add(const RefreshCart());
-              Future.delayed(const Duration(milliseconds: 300), () async {
-                final snapshot = _guestCartSnapshot;
-                if (snapshot != null && snapshot.isNotEmpty) {
-                  // Add all guest items; backend should handle dedup/quantity increments
-                  for (final item in snapshot) {
-                    cartBloc.add(AddItemToCart(cartItem: item));
-                  }
-                  // Final refresh to reflect merged cart
-                  await Future.delayed(const Duration(milliseconds: 300));
-                  cartBloc.add(const RefreshCart());
-                }
-                // Navigate to main app and clear the stack
-                NavigationService.pushNamedAndRemoveUntil('/main', arguments: null);
-              });
+              debugPrint('   Cart refresh dispatched');
             } else {
-              // Guest sessions should also enter the main app shell.
-              // AuthWrapper will detect the freshly stored token and show HomePage.
-              NavigationService.pushNamedAndRemoveUntil('/main', arguments: null);
+              debugPrint('🔐 [LOGIN_FLOW] Step 5.1 - LoginPage: Guest user login detected');
             }
+            
+            // Navigate to main app and clear the stack
+            debugPrint('🔐 [LOGIN_FLOW] Step 5.2 - LoginPage: Navigating to main app');
+            NavigationService.pushNamedAndRemoveUntil('/main', arguments: null);
+            debugPrint('🔐 [LOGIN_FLOW] Step 5.3 - LoginPage: Navigation complete - login flow finished');
           } else if (state is EmailVerificationRequired) {
             // Show email verification dialog (no navigation from login)
             _showEmailVerificationDialog(context, state.email, state.message);
