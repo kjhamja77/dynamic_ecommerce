@@ -19,8 +19,13 @@ import 'color_selection_section.dart';
 
 class ProductInfoSection extends StatelessWidget {
   final ProductDetails productDetails;
+  final ScrollController? scrollController;
 
-  const ProductInfoSection({super.key, required this.productDetails});
+  const ProductInfoSection({
+    super.key,
+    required this.productDetails,
+    this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +294,10 @@ class ProductInfoSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: ColorSelectionSection(productDetails: productDetails),
+                child: ColorSelectionSection(
+                  productDetails: productDetails,
+                  scrollController: scrollController,
+                ),
               ),
               SizedBox(height: ResponsiveConstants.mdSpacing),
             ],

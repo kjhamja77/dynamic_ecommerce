@@ -2113,6 +2113,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAddressIsSetYet => 'لم يتم تعيين عنوان بعد';
 
   @override
+  String get incomplete => 'غير مكتمل';
+
+  @override
+  String get tapToCompleteAddressDetails => 'اضغط لإكمال تفاصيل العنوان';
+
+  @override
   String get noPaymentMethods => 'لا توجد طرق دفع';
 
   @override
@@ -2535,14 +2541,22 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get emailNotVerifiedMessage =>
-      'يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. يرجى التحقق من بريدك الإلكتروني والنقر على رابط التحقق.';
+      'يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. انقر على الزر أدناه لإرسال بريد إلكتروني للتحقق من حسابك.';
 
   @override
-  String get resendEmail => 'إعادة إرسال البريد الإلكتروني';
+  String get resendEmail => 'إرسال بريد التحقق';
 
   @override
   String get verificationEmailSent =>
       'تم إرسال بريد التحقق! يرجى التحقق من صندوق الوارد.';
+
+  @override
+  String get accountCreatedSuccessfully =>
+      'تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني.';
+
+  @override
+  String get registrationSuccessful =>
+      'تم التسجيل بنجاح! مرحباً بك في تطبيقنا.';
 
   @override
   String get noProductDescription => 'لا يوجد وصف متاح';

@@ -3826,6 +3826,14 @@
   "@noAddressIsSetYet": {
     "description": "Message when no address is set yet in checkout"
   },
+  "incomplete": "غير مكتمل",
+  "@incomplete": {
+    "description": "Label shown when a shipping address is incomplete"
+  },
+  "tapToCompleteAddressDetails": "اضغط لإكمال تفاصيل العنوان",
+  "@tapToCompleteAddressDetails": {
+    "description": "Hint text shown when shipping address details are missing"
+  },
   "edit": "تعديل",
   "@edit": {
     "description": "Edit button text"
@@ -4517,19 +4525,29 @@
     "description": "Title for email verification dialog"
   },
   
-  "emailNotVerifiedMessage": "يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. يرجى التحقق من بريدك الإلكتروني والنقر على رابط التحقق.",
+  "emailNotVerifiedMessage": "يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. انقر على الزر أدناه لإرسال بريد إلكتروني للتحقق من حسابك.",
   "@emailNotVerifiedMessage": {
     "description": "Message explaining email verification requirement"
   },
   
-  "resendEmail": "إعادة إرسال البريد الإلكتروني",
+  "resendEmail": "إرسال بريد التحقق",
   "@resendEmail": {
-    "description": "Button to resend verification email"
+    "description": "Button to send verification email"
   },
   
   "verificationEmailSent": "تم إرسال بريد التحقق! يرجى التحقق من صندوق الوارد.",
   "@verificationEmailSent": {
     "description": "Message shown when verification email is resent"
+  },
+
+  "accountCreatedSuccessfully": "تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني.",
+  "@accountCreatedSuccessfully": {
+    "description": "Success message when account is created but email verification is required"
+  },
+
+  "registrationSuccessful": "تم التسجيل بنجاح! مرحباً بك في تطبيقنا.",
+  "@registrationSuccessful": {
+    "description": "Success message when registration is complete and user is authenticated"
   },
   
   "noProductDescription": "لا يوجد وصف متاح",

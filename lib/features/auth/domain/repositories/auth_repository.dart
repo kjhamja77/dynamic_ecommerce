@@ -13,5 +13,7 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> resetPassword(String token, String newPassword);
   Future<Either<Failure, User>> verifyMobileCode({required int userId, required String verificationCode});
   Future<Either<Failure, void>> resendMobileVerification({required int userId});
+  Future<Either<Failure, void>> resendEmailVerification({required int userId, required String apiToken});
+  Future<Either<Failure, void>> resendEmailVerificationByEmail({required String email});
   Future<Either<Failure, User>> guestLogin({required String deviceId, String? deviceToken});
 }

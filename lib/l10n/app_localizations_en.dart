@@ -2102,6 +2102,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAddressIsSetYet => 'No address is set yet';
 
   @override
+  String get incomplete => 'Incomplete';
+
+  @override
+  String get tapToCompleteAddressDetails => 'Tap to complete address details';
+
+  @override
   String get noPaymentMethods => 'No Payment Methods';
 
   @override
@@ -2528,14 +2534,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailNotVerifiedMessage =>
-      'Your email address needs to be verified before you can continue. Please check your email and click the verification link.';
+      'Your email address needs to be verified before you can continue. Click the button below to send email to verify your account.';
 
   @override
-  String get resendEmail => 'Resend Email';
+  String get resendEmail => 'Send Verification Email';
 
   @override
   String get verificationEmailSent =>
       'Verification email sent! Please check your inbox.';
+
+  @override
+  String get accountCreatedSuccessfully =>
+      'Account created successfully! Please verify your email.';
+
+  @override
+  String get registrationSuccessful =>
+      'Registration successful! Welcome to our app.';
 
   @override
   String get noProductDescription => 'No Description Available';

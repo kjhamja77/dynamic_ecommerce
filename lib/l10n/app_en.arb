@@ -3841,6 +3841,14 @@
   "@noAddressIsSetYet": {
     "description": "Message when no address is set yet in checkout"
   },
+  "incomplete": "Incomplete",
+  "@incomplete": {
+    "description": "Label shown when a shipping address is incomplete"
+  },
+  "tapToCompleteAddressDetails": "Tap to complete address details",
+  "@tapToCompleteAddressDetails": {
+    "description": "Hint text shown when shipping address details are missing"
+  },
   "edit": "Edit",
   "@edit": {
     "description": "Edit button text"
@@ -4532,19 +4540,29 @@
     "description": "Title for email verification dialog"
   },
   
-  "emailNotVerifiedMessage": "Your email address needs to be verified before you can continue. Please check your email and click the verification link.",
+  "emailNotVerifiedMessage": "Your email address needs to be verified before you can continue. Click the button below to send email to verify your account.",
   "@emailNotVerifiedMessage": {
     "description": "Message explaining email verification requirement"
   },
   
-  "resendEmail": "Resend Email",
+  "resendEmail": "Send Verification Email",
   "@resendEmail": {
-    "description": "Button to resend verification email"
+    "description": "Button to send verification email"
   },
   
   "verificationEmailSent": "Verification email sent! Please check your inbox.",
   "@verificationEmailSent": {
     "description": "Message shown when verification email is resent"
+  },
+
+  "accountCreatedSuccessfully": "Account created successfully! Please verify your email.",
+  "@accountCreatedSuccessfully": {
+    "description": "Success message when account is created but email verification is required"
+  },
+
+  "registrationSuccessful": "Registration successful! Welcome to our app.",
+  "@registrationSuccessful": {
+    "description": "Success message when registration is complete and user is authenticated"
   },
   
   "noProductDescription": "No Description Available",

@@ -134,7 +134,7 @@ class ShippingAddressCard extends StatelessWidget {
                               ),
                               SizedBox(width: 4.w),
                               Text(
-                                'Incomplete',
+                                AppLocalizations.of(context)!.incomplete,
                                 style: AppFonts.getTextStyle(
                                   fontSize: ResponsiveConstants.xsFontSize,
                                   color: Colors.orange.shade700,
@@ -205,7 +205,7 @@ class ShippingAddressCard extends StatelessWidget {
                     )
                   else
                     Text(
-                      'Tap to complete address details',
+                      AppLocalizations.of(context)!.tapToCompleteAddressDetails,
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.smFontSize,
                         color: Colors.orange.shade600,

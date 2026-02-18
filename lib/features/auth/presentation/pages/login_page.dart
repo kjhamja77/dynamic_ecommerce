@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import '../bloc/auth_bloc.dart';
 import '../../domain/entities/user.dart';
+import '../widgets/email_verification_dialog.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/phone_input_field.dart';
 import '../widgets/auth_button.dart';
@@ -147,8 +148,14 @@ class _LoginPageState extends State<LoginPage> {
             NavigationService.pushNamedAndRemoveUntil('/main', arguments: null);
             debugPrint('🔐 [LOGIN_FLOW] Step 5.3 - LoginPage: Navigation complete - login flow finished');
           } else if (state is EmailVerificationRequired) {
-            // Show email verification dialog (no navigation from login)
-            _showEmailVerificationDialog(context, state.email, state.message);
+            _showEmailVerificationDialog(context, state);
+          } else if (state is EmailVerificationResent) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)!.verificationEmailSent),
+                backgroundColor: Colors.green,
+              ),
+            );
           } else if (state is MobileNumberMissing) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -673,134 +680,20 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showEmailVerificationDialog(
-    BuildContext context,
-    String email,
-    String message,
-  ) {
+  void _showEmailVerificationDialog(BuildContext context, EmailVerificationRequired state) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        final dialogTheme = Theme.of(context);
-        final dialogColorScheme = dialogTheme.colorScheme;
-        final dialogIsDark = dialogTheme.brightness == Brightness.dark;
-        
-        return AlertDialog(
-          backgroundColor: dialogColorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AuthColorConstants.primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.mark_email_unread,
-                  color: AuthColorConstants.primaryColor,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                AppLocalizations.of(context)!.emailVerificationRequired,
-                style: AppFonts.getTextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: dialogColorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppLocalizations.of(context)!.emailNotVerifiedMessage,
-                style: AppFonts.getTextStyle(
-                  fontSize: 14,
-                  color: dialogColorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AuthColorConstants.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AuthColorConstants.primaryColor),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.email,
-                      color: AuthColorConstants.primaryColor,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        email,
-                        style: AppFonts.getTextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: dialogColorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                AppLocalizations.of(context)!.ok,
-                style: AppFonts.getTextStyle(
-                  color: dialogColorScheme.onSurface.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: Implement resend verification email functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(context)!.verificationEmailSent),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AuthColorConstants.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.resendEmail,
-              style: AppFonts.getTextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      )
-        ;
-      },
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (dialogContext) => EmailVerificationDialog(
+        email: state.email,
+        userId: state.userId,
+        apiToken: state.apiToken,
+        onOkPressed: () {
+          // In login page, only close the dialog, do not navigate anywhere
+          Navigator.of(dialogContext).pop();
+        },
+      ),
     );
   }
 }

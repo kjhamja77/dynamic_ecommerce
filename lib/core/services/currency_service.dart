@@ -86,14 +86,29 @@ class CurrencyService {
   }
 
   /// Format price with currency symbol based on locale
-  String formatPrice(double price, {String? currencyCode, Locale? locale}) {
+  ///
+  /// [roundToInteger] can be used in screens like filters where we want
+  /// to hide fractional parts completely and show clean rounded values
+  /// (e.g. "15000.90" → "15001").
+  String formatPrice(
+    double price, {
+    String? currencyCode,
+    Locale? locale,
+    bool roundToInteger = false,
+  }) {
     // Format price and remove trailing zeros
     String priceString;
-    // Always format to 2 decimal places first, then remove trailing zeros
-    // This handles floating point precision issues
-    priceString = price.toStringAsFixed(2);
-    // Remove trailing zeros and decimal point if not needed (e.g., "56350.00" -> "56350")
-    priceString = priceString.replaceAll(RegExp(r'\.0+$'), '');
+
+    if (roundToInteger) {
+      // Explicitly round to the nearest whole unit and drop fractions
+      priceString = price.round().toString();
+    } else {
+      // Always format to 2 decimal places first, then remove trailing zeros
+      // This handles floating point precision issues
+      priceString = price.toStringAsFixed(2);
+      // Remove trailing zeros and decimal point if not needed (e.g., "56350.00" -> "56350")
+      priceString = priceString.replaceAll(RegExp(r'\.0+$'), '');
+    }
     
     if (currencyCode != null) {
       final symbol = getCurrencySymbol(currencyCode, locale: locale);

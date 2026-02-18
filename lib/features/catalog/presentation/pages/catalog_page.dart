@@ -601,7 +601,7 @@ class _CatalogPageState extends State<CatalogPage> {
                                 crossAxisCount: ResponsiveConstants.gridCrossAxisCount,
                                 crossAxisSpacing: ResponsiveConstants.gridSpacing,
                                 mainAxisSpacing: ResponsiveConstants.gridSpacing,
-                                childAspectRatio: ResponsiveConstants.gridChildAspectRatio,
+                                childAspectRatio: ResponsiveConstants.catalogGridChildAspectRatio,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) => const CatalogShimmerTile(),
@@ -613,7 +613,7 @@ class _CatalogPageState extends State<CatalogPage> {
                                 crossAxisCount: ResponsiveConstants.gridCrossAxisCount,
                                 crossAxisSpacing: ResponsiveConstants.gridSpacing,
                                 mainAxisSpacing: ResponsiveConstants.gridSpacing,
-                                childAspectRatio: ResponsiveConstants.gridChildAspectRatio,
+                                childAspectRatio: ResponsiveConstants.catalogGridChildAspectRatio,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {

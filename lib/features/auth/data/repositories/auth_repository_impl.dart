@@ -282,6 +282,32 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> resendEmailVerification({required int userId, required String apiToken}) async {
+    debugPrint('AuthRepositoryImpl.resendEmailVerification: start userId=$userId, apiToken length=${apiToken.length}');
+    try {
+      await remoteDataSource.resendEmailVerification(userId: userId, apiToken: apiToken);
+      debugPrint('AuthRepositoryImpl.resendEmailVerification: remoteDataSource success, returning Right');
+      return const Right(null);
+    } catch (e) {
+      debugPrint('AuthRepositoryImpl.resendEmailVerification: catch e=$e, returning Left(ServerFailure)');
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resendEmailVerificationByEmail({required String email}) async {
+    debugPrint('AuthRepositoryImpl.resendEmailVerificationByEmail: start email=$email');
+    try {
+      await remoteDataSource.resendEmailVerificationByEmail(email: email);
+      debugPrint('AuthRepositoryImpl.resendEmailVerificationByEmail: remoteDataSource success, returning Right');
+      return const Right(null);
+    } catch (e) {
+      debugPrint('AuthRepositoryImpl.resendEmailVerificationByEmail: catch e=$e, returning Left(ServerFailure)');
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
   /// Helper method to mark onboarding as completed
   Future<void> _markOnboardingCompleted() async {
     try {

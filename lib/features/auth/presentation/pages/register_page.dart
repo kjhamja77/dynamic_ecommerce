@@ -3,13 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../bloc/auth_bloc.dart';
+import '../widgets/email_verification_dialog.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/phone_input_field.dart';
 import '../widgets/auth_button.dart';
 import '../constants/auth_color_constants.dart';
 import '../pages/number_verification_page.dart';
+import '../pages/login_page.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/theme/app_fonts.dart';
+import '../../../../core/navigation/navigation_service.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../bloc/biometric_bloc.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -88,11 +93,29 @@ class _RegisterPageState extends State<RegisterPage> {
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
               ),
             );
           } else if (state is EmailVerificationRequired) {
-            // Show email verification dialog, then navigate to Login
-            _showEmailVerificationDialog(context, state.email, state.message, navigateToLogin: true);
+            _showEmailVerificationDialog(context, state, navigateToLogin: true);
+            // Show success snackbar after dialog is shown so it appears above
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(AppLocalizations.of(context)!.accountCreatedSuccessfully),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            });
+          } else if (state is EmailVerificationResent) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)!.verificationEmailSent),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
           } else if (state is Authenticated) {
             // AuthWrapper will automatically handle the navigation to HomePage
             // No need to manually navigate here
@@ -393,136 +416,34 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _showEmailVerificationDialog(
     BuildContext context,
-    String email,
-    String message, {
+    EmailVerificationRequired state, {
     bool navigateToLogin = false,
   }) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        final dialogTheme = Theme.of(context);
-        final dialogColorScheme = dialogTheme.colorScheme;
-        
-        return AlertDialog(
-          backgroundColor: dialogColorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AuthColorConstants.primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.mark_email_unread,
-                  color: AuthColorConstants.primaryColor,
-                  size: 20,
-                ),
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (dialogContext) => EmailVerificationDialog(
+        email: state.email,
+        userId: state.userId,
+        apiToken: state.apiToken,
+        onOkPressed: () {
+          if (navigateToLogin) {
+            // Close dialog first
+            Navigator.of(dialogContext).pop();
+            // Navigate to login page using navigation service with BiometricBloc provider
+            NavigationService.pushReplacementSlideFromRight(
+              BlocProvider(
+                create: (context) => di.sl<BiometricBloc>(),
+                child: const LoginPage(),
               ),
-              SizedBox(width: 12),
-              Text(
-                AppLocalizations.of(context)!.emailVerificationRequired,
-                overflow: TextOverflow.ellipsis,
-                style: AppFonts.getTextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: dialogColorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppLocalizations.of(context)!.emailNotVerifiedMessage,
-                style: AppFonts.getTextStyle(
-                  fontSize: 14,
-                  color: dialogColorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AuthColorConstants.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AuthColorConstants.primaryColor),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.email,
-                      color: AuthColorConstants.primaryColor,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        email,
-                        style: AppFonts.getTextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: dialogColorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                if (navigateToLogin) {
-                  Navigator.of(context).pop(); // pop RegisterPage to go back to Login
-                }
-              },
-              child: Text(
-                AppLocalizations.of(context)!.ok,
-                style: AppFonts.getTextStyle(
-                  color: dialogColorScheme.onSurface.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: Implement resend verification email functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(context)!.verificationEmailSent),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AuthColorConstants.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.resendEmail,
-              style: AppFonts.getTextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      )
-        ;
-      },
+            );
+          } else {
+            // Just close dialog if not navigating to login
+            Navigator.of(dialogContext).pop();
+          }
+        },
+      ),
     );
   }
 }

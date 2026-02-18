@@ -1,3 +1,4 @@
+import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -41,16 +42,16 @@ class ProductCard extends StatelessWidget {
   }
 
 
-  // Responsive helper method for aspect ratio (compact values must match ResponsiveConstants.productDetailsCompactCardHeight formula).
+  // Responsive helper method for aspect ratio. Smaller value = taller image (image fills more card height).
   double _getImageAspectRatio() {
     if (isCompact) {
-      if (1.sw >= 900) return 1.45;
-      if (1.sw >= 600) return 1.5;
-      return 1.55;
+      if (1.sw >= 900) return 1.0;  // Increased height for compact mode
+      if (1.sw >= 600) return 1.05;
+      return 1.1;
     }
-    if (1.sw >= 900) return 1.1; // Tablet and desktop
-    if (1.sw >= 600) return 1.15; // Large phones
-    return 1.2;                  // Small phones
+    if (1.sw >= 900) return 0.75; // Tablet and desktop – taller image
+    if (1.sw >= 600) return 0.78; // Large phones
+    return 0.82;                  // Small phones – taller image
   }
 
   // Responsive helper method for brand font size
@@ -68,13 +69,13 @@ class ProductCard extends StatelessWidget {
   // Responsive helper method for product name font size
   double _getResponsiveProductNameFontSize() {
     if (isCompact) {
-      if (1.sw >= 900) return ResponsiveConstants.productNameFontSize - 1; // compact reduction
-      if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 1.5;
-      return ResponsiveConstants.productNameFontSize - 2;
+      if (1.sw >= 900) return ResponsiveConstants.productNameFontSize - 3; // compact reduction
+      if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 3;
+      return ResponsiveConstants.productNameFontSize - 4;
     }
     if (1.sw >= 900) return ResponsiveConstants.productNameFontSize; // Tablet and desktop
     if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 0.5; // Large phones
-    return ResponsiveConstants.productNameFontSize - 1; // Small phones
+    return ResponsiveConstants.productNameFontSize - 3; // Small phones
   }
 
   // Responsive helper method for spacing
@@ -140,14 +141,15 @@ class ProductCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surface,
               borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-              border: Border.all(
-                color: colorScheme.outline.withValues(alpha: 0.2),
-              ),
+              // border: Border.all(
+              //   color: colorScheme.outline.withValues(alpha: 0.2),
+              // ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  color: Colors.grey.shade300,//.withValues(alpha: isDark ? 0.3 : 0.03)
+                  blurRadius: 2,
+                  spreadRadius: 0.5,
+                  offset: const Offset(0.5, 2),
                 ),
               ],
             ),
@@ -156,179 +158,34 @@ class ProductCard extends StatelessWidget {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-            // Image with overlays
+            // Image with carousel, dot indicators, and color swatches
             AspectRatio(
               aspectRatio: _getImageAspectRatio(),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Builder(
-                      builder: (context) {
-                        final cs = Theme.of(context).colorScheme;
-                        // Inner image card – round only the top corners so
-                        // the bottom edge aligns flush with the info section.
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: cs.surface,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(ResponsiveConstants.mdRadius),
-                              topRight: Radius.circular(ResponsiveConstants.mdRadius),
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              topRight: Radius.circular(12),
-                            ),
-                            child: product.images.isNotEmpty
-                                ? _ProductImageLoader(
-                                    imageUrl: product.images.first,
-                                  )
-                                : Center(
-                                    child: Icon(
-                                      Icons.image_not_supported_outlined,
-                                      color: Colors.grey.shade400,
-                                      size: ResponsiveConstants.lgIconSize,
-                                    ),
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Favorite button badge (can be hidden by parent)
-                  if (showFavoriteBadge)
-                    Positioned(
-                      top: ResponsiveConstants.smPadding,
-                      right: ResponsiveConstants.smPadding,
-                      child: FavoriteButton(
-                        productId: product.id,
-                        productName: product.name,
-                        brand: product.brand,
-                        price: product.price,
-                        imageUrl: product.images.isNotEmpty ? product.images.first : null,
-                        category: product.category,
-                        size: ResponsiveConstants.favoriteButtonIconSize,
-                        isCompact: true,
-                      ),
-                    ),
-
-                  // Badges: Use real API data
-                  if (product.isOnSale || (product.originalPrice != null && product.originalPrice! > product.price))
-                    Positioned(
-                      left: ResponsiveConstants.smPadding,
-                      bottom: ResponsiveConstants.smPadding,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: ResponsiveConstants.smPadding,
-                              vertical: ResponsiveConstants.xsPadding,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade600,
-                              borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
-                            ),
-                            child: Text(
-                              product.saleBadge ?? AppLocalizations.of(context)!.discount,
-                              style: AppFonts.getTextStyle(color: Colors.white,
-                                fontSize: ResponsiveConstants.badgeFontSize,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (product.originalPrice != null && product.originalPrice! > product.price &&
-                              (product.discountPercentage.isFinite && product.discountPercentage > 0)) ...[
-                            SizedBox(width: ResponsiveConstants.xsSpacing),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResponsiveConstants.smPadding,
-                                vertical: ResponsiveConstants.xsPadding,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
-                              ),
-                              child: Text(
-                                '-${product.discountPercentage.toInt()}%',
-                                style: AppFonts.getTextStyle(color: Colors.red.shade700,
-                                  fontSize: ResponsiveConstants.badgeFontSize,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    )
-                  else if (isNew)
-                    Positioned(
-                      left: ResponsiveConstants.smPadding,
-                      bottom: ResponsiveConstants.smPadding,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResponsiveConstants.smPadding,
-                          vertical: ResponsiveConstants.xsPadding,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
-                        ),
-                        child: Text(
-                          AppLocalizations.of(context)!.newBadge,
-                          style: AppFonts.getTextStyle(color: Colors.white,
-                            fontSize: ResponsiveConstants.badgeFontSize,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  // Show custom tags from API
-                  if (product.tags != null && product.tags!.isNotEmpty)
-                    Positioned(
-                      left: ResponsiveConstants.smPadding,
-                      bottom: ResponsiveConstants.smPadding,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResponsiveConstants.smPadding,
-                          vertical: ResponsiveConstants.xsPadding,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade600,
-                          borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
-                        ),
-                        child: Text(
-                          product.tags!.first,
-                          style: AppFonts.getTextStyle(color: Colors.white,
-                            fontSize: ResponsiveConstants.badgeFontSize,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+              child: _ProductCardImageSection(
+                product: product,
+                showFavoriteBadge: showFavoriteBadge,
+                isNew: isNew,
               ),
             ),
 
-            // Info section - in compact mode wrap in Flexible so it only takes remaining height (avoids bottom overflow in fixed-height lists)
-            if (isCompact)
-              Flexible(
-                child: _buildCardInfoSection(
-                  context,
-                  currencyProvider,
-                  useRtl: null, // computed inside
-                ),
-              )
-            else
-              Builder(
-                builder: (context) => _buildCardInfoSection(
-                  context,
-                  currencyProvider,
-                  useRtl: null,
-                ),
+            // Info section - Flexible + constrained height so content never overflows in fixed-height grid
+            Flexible(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SizedBox(
+                    height: constraints.maxHeight,
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: _buildCardInfoSection(
+                        context,
+                        currencyProvider,
+                        useRtl: null,
+                      ),
+                    ),
+                  );
+                },
               ),
+            ),
           ],
         ),
       );
@@ -381,7 +238,7 @@ class ProductCard extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: _getResponsiveSpacing()),
+          SizedBox(height: 8),//_getResponsiveSpacing()
 
           // Product name (clean name without variant details)
           Directionality(
@@ -404,7 +261,7 @@ class ProductCard extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: _getResponsiveSpacing() * 1.5),
+          SizedBox(height: 8),//_getResponsiveSpacing() * 1.5
 
           // Price block – anchored directly under text for tighter, more
           // balanced layout within the card height.
@@ -424,6 +281,9 @@ class ProductCard extends StatelessWidget {
               debugPrint(
                 '💰 ProductCard: Price=${product.price} → Formatted="$formattedPrice", Currency=${currencyProvider.currency}',
               );
+              debugPrint(
+                '💰 ProductCard:  images=${product.images}',
+              );
 
               return _PriceBlock(
                 priceText: formattedPrice,
@@ -437,6 +297,409 @@ class ProductCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Image area with carousel, dot indicators, and color swatches
+class _ProductCardImageSection extends StatefulWidget {
+  final Product product;
+  final bool showFavoriteBadge;
+  final bool isNew;
+
+  const _ProductCardImageSection({
+    required this.product,
+    required this.showFavoriteBadge,
+    required this.isNew,
+  });
+
+  @override
+  State<_ProductCardImageSection> createState() => _ProductCardImageSectionState();
+}
+
+class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
+  late PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  static const int _maxVisibleColorSwatches = 4;
+  static const double _colorSwatchSize = 13;
+  static const double _colorSwatchOverlap = 5; // overlap so each circle attaches to the next
+  static const double _carouselDotSize = 6.5;
+  static const double _carouselDotSpacing = 5;
+  static const double _colorSectionPadding = 5;
+  static const double _colorSectionRadius = 8;
+  static const double _colorSectionShadowBlur = 6;
+  static const double _colorSectionShadowOpacity = 0.08;
+
+  /// Maps variant color name (e.g. from API) to display color. Dynamic: supports hex, exact name, and token match.
+  static Color _colorFromName(String name) {
+    final raw = name.trim();
+    if (raw.isEmpty) return Colors.grey;
+    final t = raw.toLowerCase();
+    // 1) Hex: e.g. #FFE4C4 or FFE4C4
+    final hex = t.replaceAll('#', '').replaceAll(' ', '');
+    if (RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) {
+      return Color(int.parse('FF$hex', radix: 16));
+    }
+    // 2) Exact and common variant names (dynamic mapping from backend color text)
+    const Map<String, Color> _names = {
+      'black': Colors.black,
+      'white': Colors.white,
+      'red': Colors.red,
+      'blue': Colors.blue,
+      'green': Colors.green,
+      'yellow': Colors.yellow,
+      'orange': Colors.orange,
+      'grey': Colors.grey,
+      'gray': Colors.grey,
+      'brown': Color(0xFF795548),
+      'navy': Color(0xFF1B3A6B),
+      'beige': Color(0xFFF5DEB3),
+      'pink': Colors.pink,
+      'purple': Colors.purple,
+      'cream': Color(0xFFFFFDD0),
+      'offwhite': Color(0xFFFFFAF0),
+      'off-white': Color(0xFFFFFAF0),
+      'off white': Color(0xFFFFFAF0),
+      'ivory': Color(0xFFFFFFF0),
+      'gold': Color(0xFFFFD700),
+      'silver': Color(0xFFC0C0C0),
+      'tan': Color(0xFFD2B48C),
+      'nude': Color(0xFFE3C6A8),
+      'burgundy': Color(0xFF800020),
+      'maroon': Color(0xFF800000),
+      'wine': Color(0xFF722F37),
+      'olive': Color(0xFF808000),
+      'teal': Color(0xFF008080),
+      'turquoise': Color(0xFF40E0D0),
+      'coral': Color(0xFFFF7F50),
+      'salmon': Color(0xFFFA8072),
+      'lavender': Color(0xFFE6E6FA),
+      'mint': Color(0xFF98FF98),
+      'khaki': Color(0xFFC3B091),
+      'charcoal': Color(0xFF36454F),
+      'denim': Color(0xFF1560BD),
+      'rose': Color(0xFFFF007F),
+      'peach': Color(0xFFFFCBA4),
+      'mustard': Color(0xFFFFDB58),
+      'bronze': Color(0xFFCD7F32),
+      'copper': Color(0xFFB87333),
+      'champagne': Color(0xFFF7E7CE),
+      'taupe': Color(0xFF483C32),
+      'mauve': Color(0xFFE0B0FF),
+      'camel': Color(0xFFC19A6B),
+      'multi': Color(0xFF7E57C2),
+    };
+    final c = _names[t];
+    if (c != null) return c;
+    // 3) Token match: "light cream" -> try "cream", "dark blue" -> try "blue"
+    final tokens = t.split(RegExp(r'[\s\-_]+')).where((s) => s.length > 1).toList();
+    for (final token in tokens) {
+      final tokenColor = _names[token];
+      if (tokenColor != null) return tokenColor;
+    }
+    if (tokens.isNotEmpty) {
+      final last = tokens.last;
+      if (last.length >= 3) {
+        for (final entry in _names.entries) {
+          if (entry.key.contains(last) || last.contains(entry.key)) {
+            return entry.value;
+          }
+        }
+      }
+    }
+    // 4) Fallback: stable hash so same name always gets same color
+    final hash = t.hashCode;
+    final hue = (hash & 0xFFFF) % 360;
+    return HSLColor.fromAHSL(1.0, hue.toDouble(), 0.5, 0.55).toColor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final imageCount = product.images.isEmpty ? 1 : product.images.length;
+    final showDots = imageCount > 1;
+    final colors = product.colors;
+
+    return Stack(
+      children: [
+        // Image carousel
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(ResponsiveConstants.mdRadius),
+                topRight: Radius.circular(ResponsiveConstants.mdRadius),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              child: product.images.isEmpty
+                  ? Center(
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.grey.shade400,
+                        size: ResponsiveConstants.lgIconSize,
+                      ),
+                    )
+                  : PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) => setState(() => _currentPage = index),
+                      itemCount: imageCount,
+                      itemBuilder: (context, index) => _ProductImageLoader(
+                        imageUrl: product.images[index],
+                      ),
+                    ),
+            ),
+          ),
+        ),
+
+        // Carousel dot indicators (bottom center)
+        // if (showDots)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(imageCount, (index) {
+                final selected = index == _currentPage;
+                return Container(
+                  margin: EdgeInsets.symmetric(horizontal: _carouselDotSpacing / 2),
+                  width: _carouselDotSize,
+                  height: _carouselDotSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                );
+              }),
+            ),
+          ),
+
+        // Color section: white container, stacked overlapping swatches, count below (clipped to prevent overflow)
+        if (colors.isNotEmpty)
+          Positioned(
+            right: 6,
+            // bottom:  6,//showDots ? 28 :
+            top: 60,
+            child: Material(
+              color: Colors.transparent,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_colorSectionRadius),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: _colorSwatchSize + _colorSectionPadding * 2,
+                    maxHeight: _colorSwatchSize * _maxVisibleColorSwatches + 32,
+                  ),
+                  padding: EdgeInsets.all(_colorSectionPadding),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    borderRadius: BorderRadius.circular(_colorSectionRadius),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: _colorSectionShadowOpacity),
+                        blurRadius: _colorSectionShadowBlur,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Color swatches stacked top to bottom, each circle overlapping the next (attached via translate)
+                      // Height must fit Column layout (each child takes full _colorSwatchSize); Transform.translate does not reduce layout size
+                      SizedBox(
+                        height: _colorSwatchSize * min(colors.length, _maxVisibleColorSwatches),
+                        width: _colorSwatchSize,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            min(colors.length, _maxVisibleColorSwatches),
+                            (i) => Transform.translate(
+                              offset: Offset(0, i * -_colorSwatchOverlap),
+                              child: Container(
+                                width: _colorSwatchSize,
+                                height: _colorSwatchSize,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _colorFromName(colors[i]),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      // Color count below
+                      Text(
+                        '${colors.length}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                          height: 1.0,
+                        ),
+                        overflow: TextOverflow.clip,
+                        maxLines: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Favorite button
+        if (widget.showFavoriteBadge)
+          Positioned(
+            top: ResponsiveConstants.smPadding,
+            right: ResponsiveConstants.smPadding,
+            child: FavoriteButton(
+              productId: product.id,
+              productName: product.name,
+              brand: product.brand,
+              price: product.price,
+              imageUrl: product.images.isNotEmpty ? product.images.first : null,
+              category: product.category,
+              size: ResponsiveConstants.favoriteButtonIconSize,
+              isCompact: true,
+            ),
+          ),
+
+        // Sale badge
+        if (product.isOnSale || (product.originalPrice != null && product.originalPrice! > product.price))
+          Positioned(
+            left: ResponsiveConstants.smPadding,
+            bottom: ResponsiveConstants.smPadding,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveConstants.smPadding,
+                    vertical: ResponsiveConstants.xsPadding,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600,
+                    borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
+                  ),
+                  child: Text(
+                    product.saleBadge ?? AppLocalizations.of(context)!.discount,
+                    style: AppFonts.getTextStyle(
+                      color: Colors.white,
+                      fontSize: ResponsiveConstants.badgeFontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (product.originalPrice != null &&
+                    product.originalPrice! > product.price &&
+                    product.discountPercentage.isFinite &&
+                    product.discountPercentage > 0) ...[
+                  SizedBox(width: ResponsiveConstants.xsSpacing),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveConstants.smPadding,
+                      vertical: ResponsiveConstants.xsPadding,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
+                    ),
+                    child: Text(
+                      '-${product.discountPercentage.toInt()}%',
+                      style: AppFonts.getTextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: ResponsiveConstants.badgeFontSize,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          )
+        else if (widget.isNew)
+          Positioned(
+            left: ResponsiveConstants.smPadding,
+            bottom: ResponsiveConstants.smPadding,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveConstants.smPadding,
+                vertical: ResponsiveConstants.xsPadding,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
+              ),
+              child: Text(
+                AppLocalizations.of(context)!.newBadge,
+                style: AppFonts.getTextStyle(
+                  color: Colors.white,
+                  fontSize: ResponsiveConstants.badgeFontSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        // Custom tags from API
+        if (product.tags != null && product.tags!.isNotEmpty)
+          Positioned(
+            left: ResponsiveConstants.smPadding,
+            bottom: ResponsiveConstants.smPadding,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveConstants.smPadding,
+                vertical: ResponsiveConstants.xsPadding,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade600,
+                borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
+              ),
+              child: Text(
+                product.tags!.first,
+                style: AppFonts.getTextStyle(
+                  color: Colors.white,
+                  fontSize: ResponsiveConstants.badgeFontSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -497,35 +760,38 @@ class _ProductImageLoaderState extends State<_ProductImageLoader> {
         // Use normalized URL as cacheKey to ensure consistent caching
         // This prevents cache misses when URLs are normalized differently
         final cacheKey = ImageCacheUtils.normalizeImageUrl(widget.imageUrl);
-        return CachedNetworkImage(
-          imageUrl: finalUrl,
-          cacheKey: cacheKey, // Use normalized original URL as cache key
-          // Make the product image fill the available width/height
-          // so there is no inner padding around the picture.
-          fit: BoxFit.cover,
-          httpHeaders: data['headers'] as Map<String, String>,
-          placeholder: (context, url) => Center(
-            child: AppLoadingWidget.small(
-              message: AppLocalizations.of(context)!.loading,
-              showMessage: false,
-            ),
-          ),
-          errorWidget: (context, url, error) {
-            // Show the real reason images fail (401/403/404/etc.)
-            debugPrint(
-              '❌ Product image failed to load'
-              ' | raw=${widget.imageUrl}'
-              ' | final=$url'
-              ' | error=$error',
-            );
-            return Center(
-              child: Icon(
-                Icons.image_not_supported_outlined,
-                color: Colors.grey.shade400,
-                size: ResponsiveConstants.lgIconSize,
+        return Container(
+          color: Colors.white,
+          child: CachedNetworkImage(
+            imageUrl: finalUrl,
+            cacheKey: cacheKey, // Use normalized original URL as cache key
+            // Make the product image fill the available width/height
+            // so there is no inner padding around the picture.
+            fit: BoxFit.fitWidth,
+            httpHeaders: data['headers'] as Map<String, String>,
+            placeholder: (context, url) => Center(
+              child: AppLoadingWidget.small(
+                message: AppLocalizations.of(context)!.loading,
+                showMessage: false,
               ),
-            );
-          },
+            ),
+            errorWidget: (context, url, error) {
+              // Show the real reason images fail (401/403/404/etc.)
+              debugPrint(
+                '❌ Product image failed to load'
+                ' | raw=${widget.imageUrl}'
+                ' | final=$url'
+                ' | error=$error',
+              );
+              return Center(
+                child: Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Colors.grey.shade400,
+                  size: ResponsiveConstants.lgIconSize,
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -549,14 +815,14 @@ class _PriceBlock extends StatelessWidget {
   double _getResponsivePriceFontSize() {
     if (1.sw >= 900) return ResponsiveConstants.priceFontSize; // Tablet and desktop
     if (1.sw >= 600) return ResponsiveConstants.priceFontSize - 1; // Large phones
-    return ResponsiveConstants.priceFontSize - 2; // Small phones
+    return ResponsiveConstants.priceFontSize - 4; // Small phones
   }
 
   // Responsive helper method for original price font size
   double _getResponsiveOriginalPriceFontSize() {
     if (1.sw >= 900) return ResponsiveConstants.originalPriceFontSize; // Tablet and desktop
     if (1.sw >= 600) return ResponsiveConstants.originalPriceFontSize - 0.5; // Large phones
-    return ResponsiveConstants.originalPriceFontSize - 1; // Small phones
+    return ResponsiveConstants.originalPriceFontSize - 2; // Small phones
   }
 
   // Responsive helper method for spacing
@@ -566,32 +832,76 @@ class _PriceBlock extends StatelessWidget {
     return 1; // Small phones
   }
 
+  /// Parse price text (e.g. "45000 IQD" or "د.ع 45000") into number and currency parts
+  Map<String, String> _parsePriceText(String text) {
+    // Try to split by space - format is usually "number currency" (LTR) or "currency number" (RTL)
+    final parts = text.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      // Check if first part is numeric (LTR: "45000 IQD")
+      if (RegExp(r'^\d+\.?\d*$').hasMatch(parts[0])) {
+        return {'number': parts[0], 'currency': parts.sublist(1).join(' ')};
+      }
+      // Check if last part is numeric (RTL: "د.ع 45000")
+      if (RegExp(r'^\d+\.?\d*$').hasMatch(parts.last)) {
+        return {'number': parts.last, 'currency': parts.sublist(0, parts.length - 1).join(' ')};
+      }
+    }
+    // Fallback: assume entire string is number if no clear split
+    return {'number': text, 'currency': ''};
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasDiscount = originalText != null && discountPercent != null;
+    final priceParts = _parsePriceText(priceText);
+    final numberText = priceParts['number'] ?? priceText;
+    final currencyText = priceParts['currency'] ?? '';
+    final priceFontSize = _getResponsivePriceFontSize();
+    final currencyFontSize = (priceFontSize - 5).clamp(8.0, priceFontSize);
 
     if (hasDiscount) {
+      final originalParts = originalText != null ? _parsePriceText(originalText!) : null;
       return Row(
         mainAxisSize: MainAxisSize.min,
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         children: [
-          Flexible(
-            child: Text(
-              priceText,
-              style: AppFonts.getTextStyle(fontSize: _getResponsivePriceFontSize(),
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade700,
+          // Current price: number (red) + currency (black, smaller)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+            children: [
+              Text(
+                numberText,
+                style: AppFonts.getTextStyle(
+                  fontSize: priceFontSize,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              textAlign: isRtl ? TextAlign.right : TextAlign.left,
-            ),
+              if (currencyText.isNotEmpty) ...[
+                SizedBox(width: 7),
+                Text(
+                  currencyText,
+                  style: AppFonts.getTextStyle(
+                    fontSize: currencyFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ],
           ),
           SizedBox(width: _getResponsiveSpacing() * 2),
+          // Original price (strikethrough)
           Flexible(
             child: Text(
               originalText!,
-              style: AppFonts.getTextStyle(fontSize: _getResponsiveOriginalPriceFontSize(),
+              style: AppFonts.getTextStyle(
+                fontSize: _getResponsiveOriginalPriceFontSize(),
                 color: Colors.grey.shade600,
                 decoration: TextDecoration.lineThrough,
               ),
@@ -605,15 +915,36 @@ class _PriceBlock extends StatelessWidget {
     } else {
       return Align(
         alignment: isRtl ? Alignment.centerRight : Alignment.centerLeft,
-        child: Text(
-          priceText,
-          style: AppFonts.getTextStyle(fontSize: _getResponsivePriceFontSize(),
-            fontWeight: FontWeight.w700,
-            color: Colors.red.shade700,
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          textAlign: isRtl ? TextAlign.right : TextAlign.left,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+          children: [
+            // Number in red
+            Text(
+              numberText,
+              style: AppFonts.getTextStyle(
+                fontSize: priceFontSize,
+                fontWeight: FontWeight.w700,
+                color: Colors.red.shade700,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            // Currency in black, smaller
+            if (currencyText.isNotEmpty) ...[
+              SizedBox(width: 2),
+              Text(
+                currencyText,
+                style: AppFonts.getTextStyle(
+                  fontSize: currencyFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red.shade700,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ],
         ),
       );
     }

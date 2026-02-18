@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants/endpoints.dart';
 import 'package:zalando_clone_app/core/network/api_client.dart';
 import '../models/user_model.dart';
@@ -19,6 +20,8 @@ abstract class AuthRemoteDataSource {
   Future<void> resetPassword(String token, String newPassword);
   Future<UserModel> verifyMobileCode({required int userId, required String verificationCode});
   Future<void> resendMobileVerification({required int userId});
+  Future<void> resendEmailVerification({required int userId, required String apiToken});
+  Future<void> resendEmailVerificationByEmail({required String email});
   Future<UserModel> loginWithGoogle({required String idToken, required String deviceId, String? deviceToken});
   Future<UserModel> guestLogin({required String deviceId, String? deviceToken});
 }
@@ -54,8 +57,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         if (status == 'error') {
           final errorCode = (result['code'] ?? '').toString();
           final errorMessage = (result['message'] ?? 'Login failed').toString();
-          
-          // Include error code in exception message for specific handling
+          // For email not verified, include user_id and api_token from data for resend flow
+          if (errorCode.toUpperCase() == 'EMAIL_NOT_VERIFIED' && result['data'] is Map) {
+            final data = Map<String, dynamic>.from(result['data'] as Map);
+            final userId = data['user_id']?.toString();
+            final apiToken = data['api_token']?.toString() ?? data['token']?.toString();
+            String exceptionMessage = 'EMAIL_NOT_VERIFIED: $errorMessage';
+            if (userId != null) exceptionMessage += '|USER_ID:$userId';
+            if (apiToken != null && apiToken.isNotEmpty) exceptionMessage += '|API_TOKEN:$apiToken';
+            throw Exception(exceptionMessage);
+          }
           if (errorCode.isNotEmpty) {
             throw Exception('$errorCode: $errorMessage');
           } else {
@@ -219,11 +230,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         }
         // If backend returns success but indicates that the user must verify email
         // before logging in (e.g. code == USER_CREATED), surface this as an
-        // EMAIL_NOT_VERIFIED error so the AuthBloc can show the verification UI
-        // instead of treating the user as authenticated.
+        // EMAIL_NOT_VERIFIED error and pass user_id and api_token for resend flow.
         if (status == 'success' && code == 'USER_CREATED') {
-          // Do NOT store token or create a UserModel – force email verification flow.
-          throw Exception('EMAIL_NOT_VERIFIED: $message');
+          String exceptionMessage = 'EMAIL_NOT_VERIFIED: $message';
+          if (result['data'] is Map) {
+            final data = Map<String, dynamic>.from(result['data'] as Map);
+            final userId = data['user_id']?.toString();
+            final apiToken = data['api_token']?.toString() ?? data['token']?.toString();
+            if (userId != null) exceptionMessage += '|USER_ID:$userId';
+            if (apiToken != null && apiToken.isNotEmpty) exceptionMessage += '|API_TOKEN:$apiToken';
+          }
+          throw Exception(exceptionMessage);
         }
         if (result['data'] is Map) {
           final data = Map<String, dynamic>.from(result['data'] as Map);
@@ -441,6 +458,51 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final msg = e.response?.data is Map && (e.response?.data['message'] != null)
           ? e.response?.data['message'].toString()
           : e.message ?? 'Resend mobile verification failed';
+      throw Exception(msg);
+    }
+  }
+
+  @override
+  Future<void> resendEmailVerification({required int userId, required String apiToken}) async {
+    debugPrint('AuthRemoteDataSource.resendEmailVerification: called user_id=$userId, api_token length=${apiToken.length}');
+    debugPrint('AuthRemoteDataSource.resendEmailVerification: calling API ${Endpoints.resendMailVerification} POST');
+    try {
+      final response = await api.requestRpc(
+        Endpoints.resendMailVerification,
+        method: 'POST',
+        params: {
+          'user_id': userId,
+          'api_token': apiToken,
+        },
+      );
+      debugPrint('AuthRemoteDataSource.resendEmailVerification: success statusCode=${response.statusCode}, data=${response.data}');
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map && (e.response?.data['message'] != null)
+          ? e.response?.data['message'].toString()
+          : e.message ?? 'Resend email verification failed';
+      debugPrint('AuthRemoteDataSource.resendEmailVerification: DioException type=${e.type}, message=$msg, responseData=${e.response?.data}');
+      throw Exception(msg);
+    }
+  }
+
+  @override
+  Future<void> resendEmailVerificationByEmail({required String email}) async {
+    debugPrint('AuthRemoteDataSource.resendEmailVerificationByEmail: called email=$email');
+    debugPrint('AuthRemoteDataSource.resendEmailVerificationByEmail: calling API ${Endpoints.resendMailVerification} POST');
+    try {
+      final response = await api.requestRpc(
+        Endpoints.resendMailVerification,
+        method: 'POST',
+        params: {
+          'email': email,
+        },
+      );
+      debugPrint('AuthRemoteDataSource.resendEmailVerificationByEmail: success statusCode=${response.statusCode}, data=${response.data}');
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map && (e.response?.data['message'] != null)
+          ? e.response?.data['message'].toString()
+          : e.message ?? 'Resend email verification failed';
+      debugPrint('AuthRemoteDataSource.resendEmailVerificationByEmail: DioException type=${e.type}, message=$msg, responseData=${e.response?.data}');
       throw Exception(msg);
     }
   }

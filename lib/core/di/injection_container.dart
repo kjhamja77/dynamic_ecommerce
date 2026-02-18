@@ -33,6 +33,7 @@ import '../../features/auth/domain/usecases/register_usecase.dart';
 import '../../features/auth/domain/usecases/verify_mobile_code_usecase.dart';
 import '../../features/auth/domain/usecases/google_login_usecase.dart';
 import '../../features/auth/domain/usecases/resend_mobile_verification_usecase.dart';
+import '../../features/auth/domain/usecases/resend_email_verification_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/domain/usecases/guest_login_usecase.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
@@ -142,6 +143,7 @@ Future<void> init() async {
       deviceService: sl(),
       verifyMobileCodeUseCase: sl(),
       resendMobileVerificationUseCase: sl(),
+      resendEmailVerificationUseCase: sl(),
       googleLoginUseCase: sl(),
       guestLoginUseCase: sl(),
     ),
@@ -266,6 +268,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GoogleLoginUseCase(sl()));
   sl.registerLazySingleton(() => VerifyMobileCodeUseCase(sl()));
   sl.registerLazySingleton(() => ResendMobileVerificationUseCase(sl()));
+  sl.registerLazySingleton(() => ResendEmailVerificationUseCase(sl()));
   sl.registerLazySingleton(() => GetFeaturedProductsUseCase(sl()));
   sl.registerLazySingleton(() => GetPagesUseCase(sl()));
   sl.registerLazySingleton(() => GetPageComponentsUseCase(sl()));

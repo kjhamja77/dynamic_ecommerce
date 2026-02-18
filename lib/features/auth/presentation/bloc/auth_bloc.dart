@@ -6,6 +6,7 @@ import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/verify_mobile_code_usecase.dart';
 import '../../domain/usecases/resend_mobile_verification_usecase.dart';
+import '../../domain/usecases/resend_email_verification_usecase.dart';
 import '../../domain/usecases/google_login_usecase.dart';
 import '../../domain/usecases/guest_login_usecase.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -81,6 +82,15 @@ class ResendMobileVerificationRequested extends AuthEvent {
   List<Object?> get props => [userId];
 }
 
+class ResendEmailVerificationRequested extends AuthEvent {
+  final String email;
+
+  const ResendEmailVerificationRequested({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
 class BiometricAuthenticated extends AuthEvent {
   final User user;
   const BiometricAuthenticated({required this.user});
@@ -144,14 +154,18 @@ class ForgotPasswordEmailSent extends AuthState {
 class EmailVerificationRequired extends AuthState {
   final String email;
   final String message;
-  
+  final int? userId;
+  final String? apiToken;
+
   const EmailVerificationRequired({
     required this.email,
     required this.message,
+    this.userId,
+    this.apiToken,
   });
 
   @override
-  List<Object?> get props => [email, message];
+  List<Object?> get props => [email, message, userId, apiToken];
 }
 
 class MobileVerificationSuccess extends AuthState {
@@ -163,6 +177,15 @@ class MobileVerificationSuccess extends AuthState {
   List<Object> get props => [user];
 }
 class MobileVerificationResent extends AuthState {}
+
+class ResendingEmailVerification extends AuthState {
+  final int? userId;
+  const ResendingEmailVerification(this.userId);
+  @override
+  List<Object?> get props => [userId];
+}
+
+class EmailVerificationResent extends AuthState {}
 
 class MobileVerificationRequired extends AuthState {
   final int? userId;
@@ -191,6 +214,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final DeviceService deviceService;
   final VerifyMobileCodeUseCase verifyMobileCodeUseCase;
   final ResendMobileVerificationUseCase resendMobileVerificationUseCase;
+  final ResendEmailVerificationUseCase resendEmailVerificationUseCase;
   final GoogleLoginUseCase googleLoginUseCase;
   final GuestLoginUseCase guestLoginUseCase;
 
@@ -201,6 +225,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.deviceService,
     required this.verifyMobileCodeUseCase,
     required this.resendMobileVerificationUseCase,
+    required this.resendEmailVerificationUseCase,
     required this.googleLoginUseCase,
     required this.guestLoginUseCase,
   }) : super(AuthInitial()) {
@@ -212,6 +237,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ForgotPasswordRequested>(_onForgotPasswordRequested);
     on<VerifyMobileCodeRequested>(_onVerifyMobileCodeRequested);
     on<ResendMobileVerificationRequested>(_onResendMobileVerificationRequested);
+    on<ResendEmailVerificationRequested>(_onResendEmailVerificationRequested);
     on<GoogleLoginRequested>(_onGoogleLoginRequested);
     on<GuestLoginRequested>(_onGuestLoginRequested);
   }
@@ -238,11 +264,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       result.fold(
         (failure) {
           // Check if this is an email verification error
-          if (failure.message.contains('EMAIL_NOT_VERIFIED') || 
+          if (failure.message.contains('EMAIL_NOT_VERIFIED') ||
               failure.message.contains('Email not verified')) {
+            final parsed = _parseEmailVerificationPayload(failure.message);
             emit(EmailVerificationRequired(
               email: event.email,
-              message: failure.message,
+              message: parsed.message,
+              userId: parsed.userId,
+              apiToken: parsed.apiToken,
             ));
           } else if (failure.message.contains('NO_MOBILE_NUMBER')) {
             emit(MobileNumberMissing(message: failure.message));
@@ -298,11 +327,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     result.fold(
       (failure) {
         // Check if this is an email verification or mobile verification error
-        if (failure.message.contains('EMAIL_NOT_VERIFIED') || 
+        if (failure.message.contains('EMAIL_NOT_VERIFIED') ||
             failure.message.contains('Email not verified')) {
+          final parsed = _parseEmailVerificationPayload(failure.message);
           emit(EmailVerificationRequired(
             email: event.email,
-            message: failure.message,
+            message: parsed.message,
+            userId: parsed.userId,
+            apiToken: parsed.apiToken,
           ));
         } else if (failure.message.contains('MOBILE_VERIFICATION_REQUIRED') ||
                    (failure.message.toLowerCase().contains('mobile') &&
@@ -456,6 +488,44 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       (failure) => emit(AuthError(failure.message)),
       (_) => emit(MobileVerificationResent()),
     );
+  }
+
+  Future<void> _onResendEmailVerificationRequested(
+    ResendEmailVerificationRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    debugPrint('AuthBloc.resendEmailVerification: event received email=${event.email}');
+    emit(ResendingEmailVerification(null));
+    debugPrint('AuthBloc.resendEmailVerification: calling resendEmailVerificationUseCase with email');
+    final result = await resendEmailVerificationUseCase(ResendEmailVerificationParams(
+      email: event.email,
+    ));
+    result.fold(
+      (failure) {
+        debugPrint('AuthBloc.resendEmailVerification: useCase returned failure: ${failure.message}, emitting AuthError');
+        emit(AuthError(failure.message));
+      },
+      (_) {
+        debugPrint('AuthBloc.resendEmailVerification: useCase returned success, emitting EmailVerificationResent');
+        emit(EmailVerificationResent());
+      },
+    );
+  }
+
+  static ({String message, int? userId, String? apiToken}) _parseEmailVerificationPayload(String raw) {
+    String message = raw.split('|').first.trim();
+    int? userId;
+    String? apiToken;
+    if (raw.contains('|USER_ID:')) {
+      for (final part in raw.split('|')) {
+        if (part.startsWith('USER_ID:')) {
+          userId = int.tryParse(part.substring(8));
+        } else if (part.startsWith('API_TOKEN:')) {
+          apiToken = part.substring(10);
+        }
+      }
+    }
+    return (message: message, userId: userId, apiToken: apiToken);
   }
 
   Future<void> _onGoogleLoginRequested(

@@ -58,7 +58,7 @@ class CatalogShimmer extends StatelessWidget {
               crossAxisCount: ResponsiveConstants.gridCrossAxisCount,
               crossAxisSpacing: ResponsiveConstants.gridSpacing,
               mainAxisSpacing: ResponsiveConstants.gridSpacing,
-              childAspectRatio: ResponsiveConstants.gridChildAspectRatio,
+              childAspectRatio: ResponsiveConstants.catalogGridChildAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) => _card(context),

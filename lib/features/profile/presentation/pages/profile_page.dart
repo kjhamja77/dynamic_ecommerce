@@ -284,18 +284,31 @@ class _ProfilePageState extends State<ProfilePage>
                             ),
                           ),
                           SizedBox(height: ResponsiveConstants.smSpacing),
-                          TextButton.icon(
-                            onPressed: () => _showGuestLanguageSheet(context),
-                            icon: Icon(
-                              Icons.language,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            label: Text(
-                              AppLocalizations.of(context)!.languageRegion,
-                              style: AppFonts.getTextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w600,
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: () => _showGuestLanguageSheet(context),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.language,
+                                    size: 20,
+                                    color: colorScheme.primary,
+                                  ),
+                                  SizedBox(width: ResponsiveConstants.smSpacing),
+                                  Flexible(
+                                    child: Text(
+                                      AppLocalizations.of(context)!.languageRegion,
+                                      style: AppFonts.getTextStyle(
+                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

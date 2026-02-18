@@ -39,6 +39,7 @@ class FiltersPage extends StatefulWidget {
 }
 
 class _FiltersPageState extends State<FiltersPage> {
+  late final FiltersBloc _filtersBloc;
   int _subcategoriesRequestSeq = 0;
   int _attributesRequestSeq = 0;
   final Map<String, bool> _attributeShowAll = {};
@@ -249,6 +250,7 @@ class _FiltersPageState extends State<FiltersPage> {
   @override
   void initState() {
     super.initState();
+    _filtersBloc = FiltersBloc(widget.initial);
     // Start with empty attributes - will be loaded based on category selection
     // This prevents showing global attributes when a category with no attributes is selected
     _currentAttributes = [];
@@ -260,18 +262,23 @@ class _FiltersPageState extends State<FiltersPage> {
 
     if (widget.initial.categoryIds.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _initializePreSelectedCategory(widget.initial.categoryIds.first);
+        if (!mounted) return;
+        final firstCategoryId = widget.initial.categoryIds.first;
+        _initializePreSelectedCategory(firstCategoryId);
+        // Fetch subcategories from API so they show on initial load (e.g. Men selected → show Men's subcategories)
+        _loadSubcategories(firstCategoryId, bloc: _filtersBloc);
       });
     }
- 
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (widget.initial.categoryIds.isNotEmpty) {
-         final currentState = context.read<FiltersBloc>().state;
+        final currentState = _filtersBloc.state;
         Map<int, List<FilterCategory>> subcategoriesMap = {};
         if (currentState is FiltersLoaded) {
           subcategoriesMap = currentState.subcategories;
         }
-        
+
         // Extract deepest category IDs - if subcategories exist in initial selection,
         // use only those (exclude parent)
         final deepestCategoryIds = _getDeepestCategoryIds(
@@ -281,11 +288,11 @@ class _FiltersPageState extends State<FiltersPage> {
         final categoryIdsForAttributes = deepestCategoryIds.isNotEmpty
             ? deepestCategoryIds
             : null;
-        
+
         debugPrint('🎯 initState: categoryIds=${widget.initial.categoryIds}, '
             'deepestForAttributes=$deepestCategoryIds, '
             'willFetchAttributesFor=$categoryIdsForAttributes');
-        
+
         _reloadAttributesForCategoryIds(categoryIdsForAttributes, forceNetwork: true);
       } else {
         _reloadAttributesForCategoryIds(null, forceNetwork: true);
@@ -296,6 +303,7 @@ class _FiltersPageState extends State<FiltersPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _filtersBloc.close();
     super.dispose();
   }
 
@@ -588,16 +596,14 @@ class _FiltersPageState extends State<FiltersPage> {
     );
 
     if (category.id != -1 && category.children.isNotEmpty) {
-      context.read<FiltersBloc>().add(
-        FiltersSubcategoriesSet(categoryId, category.children),
-      );
+      _filtersBloc.add(FiltersSubcategoriesSet(categoryId, category.children));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<FiltersBloc>(
-      create: (_) => FiltersBloc(widget.initial),
+    return BlocProvider<FiltersBloc>.value(
+      value: _filtersBloc,
       child: _buildScaffold(),
     );
   }
@@ -728,11 +734,19 @@ class _FiltersPageState extends State<FiltersPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              currency.formatPrice(startVal, locale: Localizations.localeOf(context)),
+              currency.formatPrice(
+                startVal,
+                locale: Localizations.localeOf(context),
+                roundToInteger: true,
+              ),
               style: AppFonts.getTextStyle(fontWeight: FontWeight.w600),
             ),
             Text(
-              currency.formatPrice(endVal, locale: Localizations.localeOf(context)),
+              currency.formatPrice(
+                endVal,
+                locale: Localizations.localeOf(context),
+                roundToInteger: true,
+              ),
               style: AppFonts.getTextStyle(fontWeight: FontWeight.w600),
             ),
           ],
@@ -745,8 +759,16 @@ class _FiltersPageState extends State<FiltersPage> {
           inactiveColor: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
           divisions: 20,
           labels: RangeLabels(
-            currency.formatPrice(startVal, locale: Localizations.localeOf(context)),
-            currency.formatPrice(endVal, locale: Localizations.localeOf(context)),
+            currency.formatPrice(
+              startVal,
+              locale: Localizations.localeOf(context),
+              roundToInteger: true,
+            ),
+            currency.formatPrice(
+              endVal,
+              locale: Localizations.localeOf(context),
+              roundToInteger: true,
+            ),
           ),
           onChanged: (values) async {
             await HapticService.selectionClick();
@@ -797,6 +819,56 @@ class _FiltersPageState extends State<FiltersPage> {
         // Category - Only show if we have categories
         if (widget.options.categories.isNotEmpty) ...[
           ..._buildCategorySection(context, criteria, widget.options.categories, subcategories),
+        ],
+
+        // Brands - show as chips when we have brands from API
+        if (widget.options.brands.isNotEmpty) ...[
+          _buildSectionHeader(AppLocalizations.of(context)!.brand),
+          Wrap(
+            spacing: ResponsiveConstants.xsSpacing,
+            runSpacing: ResponsiveConstants.xsSpacing,
+            children: widget.options.brands.map((brand) {
+              final selected = criteria.brandIds.contains(brand.id);
+              final colorScheme = Theme.of(context).colorScheme;
+              return ChoiceChip(
+                label: Text(
+                  brand.name,
+                  style: AppFonts.getTextStyle(
+                    color: selected
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                selected: selected,
+                checkmarkColor: colorScheme.onPrimary,
+                onSelected: (_) async {
+                  await HapticService.selectionClick();
+                  final newSelected = !selected;
+                  _handleAttributeSelection(
+                    context: context,
+                    criteria: criteria,
+                    attributeName: 'Brand',
+                    lowerAttributeName: 'brand',
+                    attributeType: 'brand',
+                    value: brand.name,
+                    selected: newSelected,
+                    isSingleSelection: false,
+                  );
+                },
+                selectedColor: colorScheme.primary,
+                backgroundColor: colorScheme.surface,
+                shape: StadiumBorder(
+                  side: BorderSide(
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: ResponsiveConstants.mdSpacing),
         ],
 
         // Attributes are always shown below category/subcategory.
@@ -1210,6 +1282,18 @@ class _FiltersPageState extends State<FiltersPage> {
     final showAll = _attributeShowAll[attributeName] ?? false;
     final onShowAllChanged = (bool value) => setState(() => _attributeShowAll[attributeName] = value);
 
+    // Build a lookup between the displayed name and the raw value coming
+    // from the backend for this attribute. For colors, the backend often
+    // sends a "value" field (e.g. hex code or english name) plus a
+    // localized "name" (e.g. Arabic label). We want to:
+    // - show the localized name to the user (chip text)
+    // - use the raw value to compute the dot color dynamically.
+    final Map<String, String> valueByName = {
+      for (final v in attribute.values)
+        if (v.name.trim().isNotEmpty)
+          v.name.trim(): (v.value.trim().isNotEmpty ? v.value.trim() : v.name.trim()),
+    };
+
     // Treat as color section when: type is 'color', name contains 'color', or name matches localized "Color" (e.g. "اللون" in Arabic)
     final localizedColorLabel = AppLocalizations.of(context)!.color.trim();
     final isColorVisual = attributeType == 'color' ||
@@ -1228,6 +1312,7 @@ class _FiltersPageState extends State<FiltersPage> {
             selectedItems: selectedValues,
             showAll: showAll,
             onShowAllChanged: onShowAllChanged,
+            valueByName: valueByName,
             onItemSelected: (value, selected) {
               _handleAttributeSelection(
                 context: context,
@@ -1410,11 +1495,14 @@ class _FiltersPageState extends State<FiltersPage> {
 
   Widget _buildColorChip(
     BuildContext context, {
-    required String color,
+    required String label,
+    required String rawColorValue,
     required bool selected,
     required Function(bool) onSelected,
   }) {
-    final chipColor = _colorForName(color);
+    // Use the backend "value" (rawColorValue) to determine the actual
+    // color for the dot, falling back to the label when needed.
+    final chipColor = _colorForName(rawColorValue.isNotEmpty ? rawColorValue : label);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
@@ -1455,7 +1543,7 @@ class _FiltersPageState extends State<FiltersPage> {
             SizedBox(width: ResponsiveConstants.xsSpacing),
             Flexible(
               child: Text(
-                color,
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppFonts.getTextStyle(
@@ -1480,6 +1568,7 @@ class _FiltersPageState extends State<FiltersPage> {
     required bool showAll,
     required Function(bool) onShowAllChanged,
     required Function(String, bool) onItemSelected,
+    Map<String, String>? valueByName,
   }) {
     final int itemLimit = 8;
     final visibleItems = showAll ? items : items.take(itemLimit).toList();
@@ -1494,7 +1583,8 @@ class _FiltersPageState extends State<FiltersPage> {
             final selected = selectedItems.contains(color);
             return _buildColorChip(
               context,
-              color: color,
+              label: color,
+              rawColorValue: valueByName != null ? (valueByName[color] ?? color) : color,
               selected: selected,
               onSelected: (value) => onItemSelected(color, value),
             );
@@ -1546,6 +1636,56 @@ class _FiltersPageState extends State<FiltersPage> {
     );
   }
 
+  /// Mapping for common Arabic color names to the same colors
+  /// used for their English equivalents. This ensures that the
+  /// colored dot in the filters UI is consistent between English
+  /// and Arabic, even though the backend only sends a localized
+  /// `name` field (no shared hex/value field across locales).
+  static const Map<String, Color> _arabicColorLookup = {
+    // Black / White
+    'اسود': Color(0xFF000000),
+    'أسود': Color(0xFF000000),
+    'ابيض': Color(0xFFFFFFFF),
+    'أبيض': Color(0xFFFFFFFF),
+
+    // Primary colors
+    'احمر': Color(0xFFE53935), // RED
+    'أحمر': Color(0xFFE53935),
+    'اخضر': Color(0xFF43A047), // GREEN
+    'أخضر': Color(0xFF43A047),
+
+    // PINK
+    'وردي': Color(0xFFF06292),
+
+    // BROWN
+    'بني': Color(0xFF795548),
+
+    // CREAM
+    'كريمي': Color(0xFFF5F0E6),
+
+    // NAVY
+    'نيلي': Color(0xFF1B3A6B),
+
+    // GRAY
+    'رصاصي': Color(0xFF9E9E9E),
+
+    // BEIGE
+    'بيج': Color(0xFFF5DEB3),
+
+    // OFF WHITE
+    'اوف وايت': Color(0xFFF5F5F5),
+    'أوف وايت': Color(0xFFF5F5F5),
+
+    // NUDE
+    'نود': Color(0xFFF4D1B8),
+
+    // GOLD
+    'ذهبي': Color(0xFFFFD54F),
+
+    // SILVER
+    'فضي': Color(0xFFCFD8DC),
+  };
+
   static const Map<String, Color> _namedColorLookup = {
     'black': Color(0xFF000000),
     'white': Color(0xFFFFFFFF),
@@ -1593,6 +1733,13 @@ class _FiltersPageState extends State<FiltersPage> {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       return Colors.grey;
+    }
+
+    // First try direct Arabic name mapping so that localized
+    // color names resolve to the exact same colors as English.
+    final arabicColor = _arabicColorLookup[trimmed];
+    if (arabicColor != null) {
+      return arabicColor;
     }
 
     final hexCandidate = trimmed.replaceAll('#', '').replaceAll(' ', '');
@@ -1916,7 +2063,7 @@ class _FiltersPageState extends State<FiltersPage> {
       }
 
       print('🌳 Starting _loadSubcategories for category ${category.id}');
-      _loadSubcategories(blocContext, category.id).catchError((error) {
+      _loadSubcategories(category.id, blocContext: blocContext).catchError((error) {
         print('⚠️ Error loading subcategories for ${category.id}: $error');
         if (mounted) {
           setState(() {
@@ -1998,60 +2145,58 @@ class _FiltersPageState extends State<FiltersPage> {
     return true;
   }
 
-  Future<void> _loadSubcategories(BuildContext blocContext, int parentId) async {
-    // Prevent duplicate API calls using separate tracking
+  /// Load subcategories for [parentId] from API and update bloc.
+  /// Pass [bloc] when calling from initState (no context with provider); pass [blocContext] when calling from UI.
+  Future<void> _loadSubcategories(
+    int parentId, {
+    BuildContext? blocContext,
+    FiltersBloc? bloc,
+  }) async {
+    assert(bloc != null || blocContext != null, 'Provide either bloc or blocContext');
+    final targetBloc = bloc ?? blocContext!.read<FiltersBloc>();
+
     if (_subcategoriesApiInProgress.contains(parentId)) {
       debugPrint('⚠️ API call already in progress for parentId: $parentId, skipping duplicate call...');
       return;
     }
-    
-    // Mark API call as in progress
+
     _subcategoriesApiInProgress.add(parentId);
-    
-    // Ensure loading state is set (should already be set by caller, but safety check)
+
     if (mounted && !_loadingCategoryIds.contains(parentId)) {
       setState(() {
         _loadingCategoryIds.add(parentId);
       });
     }
-    
+
     try {
       final int requestSeq = ++_subcategoriesRequestSeq;
 
-      // Optimize API call - use timeout to ensure fast response
       final dataSource = di.sl<FilterRemoteDataSource>();
       final List<FilterCategory> subcats = await dataSource.getCategoriesWithChildren(
         parentId: parentId,
-        maxDepth: 1, // Use max_depth: 1 as specified
+        maxDepth: 1,
       ).timeout(
-        // Requests are queued globally; a short timeout here causes false "no subcategories".
-        // Give enough time for queueing + network (Dio connectTimeout is 60s).
         const Duration(seconds: 75),
         onTimeout: () => <FilterCategory>[],
       );
-      
-      // If user changed selection while this request was in-flight/queued, ignore stale response.
-        if (!mounted || requestSeq != _subcategoriesRequestSeq) {
+
+      if (!mounted || requestSeq != _subcategoriesRequestSeq) {
         debugPrint('⚠️ Ignoring stale subcategory response (requestSeq mismatch or widget disposed)');
         return;
       }
-      
-      // Update BLoC state with loaded subcategories
+
       if (subcats.isNotEmpty) {
-        // Check mounted one more time before dispatching event
         if (!mounted) {
           debugPrint('⚠️ Widget disposed before BLoC update, skipping subcategory set');
           return;
         }
-        
-        blocContext.read<FiltersBloc>().add(FiltersSubcategoriesSet(parentId, subcats));
+        targetBloc.add(FiltersSubcategoriesSet(parentId, subcats));
       } else {
         debugPrint('🌳 No subcategories found for parentId: $parentId');
       }
     } catch (e) {
       debugPrint('❌ Error loading subcategories for parentId=$parentId: $e');
     } finally {
-      // Always remove loading state and API tracking, re-enable buttons
       _subcategoriesApiInProgress.remove(parentId);
       if (mounted) {
         setState(() {
@@ -2205,7 +2350,7 @@ class _FiltersPageState extends State<FiltersPage> {
                                 });
                               }
                               // ignore: unawaited_futures
-                              _loadSubcategories(context, subcategory.id);
+                              _loadSubcategories(subcategory.id, blocContext: context);
                             }
                           },
                     disabledColor: colorScheme.surface.withValues(alpha: 0.5),

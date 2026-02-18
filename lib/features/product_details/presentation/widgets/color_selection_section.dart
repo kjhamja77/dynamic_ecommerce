@@ -10,13 +10,16 @@ import '../bloc/product_details_bloc.dart';
 import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/services/haptic_service.dart';
 
 class ColorSelectionSection extends StatelessWidget {
   final ProductDetails productDetails;
+  final ScrollController? scrollController;
 
   const ColorSelectionSection({
     super.key,
     required this.productDetails,
+    this.scrollController,
   });
 
   @override
@@ -92,6 +95,7 @@ class ColorSelectionSection extends StatelessWidget {
                       return _ColorOptionCard(
                         colorOption: colorOption,
                         productDetails: currentProductDetails,
+                        scrollController: scrollController,
                       );
                     },
                   ),
@@ -108,10 +112,12 @@ class ColorSelectionSection extends StatelessWidget {
 class _ColorOptionCard extends StatelessWidget {
   final ColorOption colorOption;
   final ProductDetails productDetails;
+  final ScrollController? scrollController;
 
   const _ColorOptionCard({
     required this.colorOption,
     required this.productDetails,
+    this.scrollController,
   });
 
   /// Get the English color name for matching
@@ -538,11 +544,21 @@ class _ColorOptionCard extends StatelessWidget {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: hasMultipleChoices && colorAttributeId != null && colorValueId != null
-              ? () {
+              ? () async {
                   debugPrint('🎨 ColorSelectionSection (Bottom): Tapped color "${colorOption.displayNameOrName}" (value_id: $colorValueId, attribute_id: $colorAttributeId)');
+                  await HapticService.buttonClick();
                   // Update controller (single source of truth)
                   // This immediately updates selection and triggers Consumer rebuilds
                   variantController.selectAttributeValue(colorAttributeId!, colorValueId!);
+                  
+                  // Animate scroll to top (main image area)
+                  if (scrollController != null && scrollController!.hasClients) {
+                    scrollController!.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 1000),
+                      curve: Curves.easeInOut,
+                    );
+                  }
                   
                   // Note: BLoC event removed to prevent double-click issue
                   // Controller handles selection, images update via controller.currentImages

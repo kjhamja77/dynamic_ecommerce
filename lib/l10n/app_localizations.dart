@@ -4052,6 +4052,18 @@ abstract class AppLocalizations {
   /// **'لم يتم تعيين عنوان بعد'**
   String get noAddressIsSetYet;
 
+  /// Label shown when a shipping address is incomplete
+  ///
+  /// In ar, this message translates to:
+  /// **'غير مكتمل'**
+  String get incomplete;
+
+  /// Hint text shown when shipping address details are missing
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط لإكمال تفاصيل العنوان'**
+  String get tapToCompleteAddressDetails;
+
   /// Empty payment methods state title
   ///
   /// In ar, this message translates to:
@@ -4869,13 +4881,13 @@ abstract class AppLocalizations {
   /// Message explaining email verification requirement
   ///
   /// In ar, this message translates to:
-  /// **'يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. يرجى التحقق من بريدك الإلكتروني والنقر على رابط التحقق.'**
+  /// **'يجب التحقق من عنوان بريدك الإلكتروني قبل أن تتمكن من المتابعة. انقر على الزر أدناه لإرسال بريد إلكتروني للتحقق من حسابك.'**
   String get emailNotVerifiedMessage;
 
-  /// Button to resend verification email
+  /// Button to send verification email
   ///
   /// In ar, this message translates to:
-  /// **'إعادة إرسال البريد الإلكتروني'**
+  /// **'إرسال بريد التحقق'**
   String get resendEmail;
 
   /// Message shown when verification email is resent
@@ -4883,6 +4895,18 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تم إرسال بريد التحقق! يرجى التحقق من صندوق الوارد.'**
   String get verificationEmailSent;
+
+  /// Success message when account is created but email verification is required
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني.'**
+  String get accountCreatedSuccessfully;
+
+  /// Success message when registration is complete and user is authenticated
+  ///
+  /// In ar, this message translates to:
+  /// **'تم التسجيل بنجاح! مرحباً بك في تطبيقنا.'**
+  String get registrationSuccessful;
 
   /// Title shown when product has no description
   ///

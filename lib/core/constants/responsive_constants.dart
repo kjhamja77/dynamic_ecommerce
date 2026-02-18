@@ -290,6 +290,8 @@ class ResponsiveConstants {
   // Responsive grid dimensions
   static int get gridCrossAxisCount => _getGridCrossAxisCount();
   static double get gridChildAspectRatio => _getGridChildAspectRatio();
+  /// Taller cards for catalog page so brand, name, and price are all visible (smaller = taller card).
+  static double get catalogGridChildAspectRatio => _getCatalogGridChildAspectRatio();
 
   // Helper methods for responsive calculations
   static int _getGridCrossAxisCount() {
@@ -304,6 +306,13 @@ class ResponsiveConstants {
     if (1.sw >= _tabletBreakpoint) return 0.70;  // better proportions on tablet
     if (1.sw >= _mobileBreakpoint) return 0.65;  // better proportions on large phones
     return 0.60;                                  // better proportions on small phones
+  }
+
+  static double _getCatalogGridChildAspectRatio() {
+    if (1.sw >= _desktopBreakpoint) return 0.52; // taller card – more room for info
+    if (1.sw >= _tabletBreakpoint) return 0.48;
+    if (1.sw >= _mobileBreakpoint) return 0.45;
+    return 0.525;                                  // tallest on small phones
   }
 
   // Responsive edge insets

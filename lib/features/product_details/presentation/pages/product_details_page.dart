@@ -394,6 +394,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         // Product Info Section (scrolls up to cover image)
         ProductInfoSection(
           productDetails: productDetails,
+          scrollController: _scrollController,
         ),
         //
         // Bottom padding

@@ -85,14 +85,28 @@ class CurrencyProvider extends ChangeNotifier {
   }
 
   /// Format price with current currency
-  String formatPrice(double price, {Locale? locale}) {
+  ///
+  /// When [roundToInteger] is true, the value will be rounded to the
+  /// nearest whole unit and displayed without any fractional part.
+  /// This is useful for UI elements like filter sliders where clean,
+  /// whole-number ranges are preferred.
+  String formatPrice(
+    double price, {
+    Locale? locale,
+    bool roundToInteger = false,
+  }) {
     // Use default currency if none is set
     final currencyCode = _currency ?? 'IQD'; // Default to Iraqi Dinar
     
     // If no locale provided, use current app locale
     final effectiveLocale = locale ?? AppLocalizationService().currentLocale;
     
-    return _currencyService.formatPrice(price, currencyCode: currencyCode, locale: effectiveLocale);
+    return _currencyService.formatPrice(
+      price,
+      currencyCode: currencyCode,
+      locale: effectiveLocale,
+      roundToInteger: roundToInteger,
+    );
   }
 
   /// Check if currency is available
