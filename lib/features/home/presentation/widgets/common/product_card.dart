@@ -29,6 +29,24 @@ class ProductCard extends StatelessWidget {
     this.showFavoriteBadge = true,
   });
 
+  /// Detects if the card is in a horizontal layout (horizontal list)
+  /// vs vertical layout (grid). Based on width/height constraints.
+  bool _isHorizontalLayout(BoxConstraints constraints) {
+    // If width is bounded and height is also bounded, check aspect ratio
+    if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
+      final aspectRatio = constraints.maxWidth / constraints.maxHeight;
+      // Horizontal cards are typically wider than tall (aspect ratio > 1)
+      // Vertical cards are typically taller than wide (aspect ratio < 1)
+      return aspectRatio > 0.85; // Threshold to detect horizontal layout
+    }
+    // If only width is bounded (typical in horizontal ListView), it's horizontal
+    if (constraints.hasBoundedWidth && !constraints.hasBoundedHeight) {
+      return true;
+    }
+    // Default to vertical (grid) layout
+    return false;
+  }
+
   // Responsive helper method for aspect ratio. Smaller value = taller image (image fills more card height).
   double _getImageAspectRatio() {
     if (isCompact) {
@@ -146,7 +164,42 @@ class ProductCard extends StatelessWidget {
               builder: (context, constraints) {
                 final hasBoundedHeight = constraints.hasBoundedHeight && 
                     constraints.maxHeight < double.infinity;
+                final isHorizontal = _isHorizontalLayout(constraints);
 
+                // Horizontal layout: image and info side by side or stacked with fixed ratios
+                // Vertical layout: image on top, info below (default)
+                if (isHorizontal && hasBoundedHeight) {
+                  // Horizontal list layout - use Expanded with flex ratios
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      // Image section - takes 65% of available height (increased from 60%)
+                      Expanded(
+                        flex: 4,
+                        child: _ProductCardImageSection(
+                          product: product,
+                          showFavoriteBadge: showFavoriteBadge,
+                          isNew: isNew,
+                          isHorizontal: true,
+                        ),
+                      ),
+
+                      // Info section - takes 35% of available height, prevents overflow
+                      Expanded(
+                        flex: 2,
+                        child: _buildCardInfoSection(
+                          context,
+                          currencyProvider,
+                          useRtl: null,
+                          isHorizontal: true,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                // Vertical layout (default) - for grids and unbounded lists
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
@@ -158,6 +211,7 @@ class ProductCard extends StatelessWidget {
                         product: product,
                         showFavoriteBadge: showFavoriteBadge,
                         isNew: isNew,
+                        isHorizontal: false,
                       ),
                     ),
 
@@ -171,6 +225,7 @@ class ProductCard extends StatelessWidget {
                           context,
                           currencyProvider,
                           useRtl: null,
+                          isHorizontal: false,
                         ),
                       )
                     else
@@ -178,6 +233,7 @@ class ProductCard extends StatelessWidget {
                         context,
                         currencyProvider,
                         useRtl: null,
+                        isHorizontal: false,
                       ),
                   ],
                 );
@@ -193,6 +249,7 @@ class ProductCard extends StatelessWidget {
     BuildContext context,
     CurrencyProvider currencyProvider, {
     bool? useRtl,
+    required bool isHorizontal,
   }) {
     final isRtl = useRtl ?? (Directionality.of(context) == TextDirection.rtl);
     final isBrandArabic = _containsArabic(product.brand);
@@ -211,16 +268,20 @@ class ProductCard extends StatelessWidget {
         final isConstrained = constraints.hasBoundedHeight && 
             constraints.maxHeight < double.infinity;
 
-        // Adjust padding and spacing based on constraints
+        // Adjust padding and spacing based on layout type and constraints
         final padding = EdgeInsets.symmetric(
           horizontal:
               isCompact ? ResponsiveConstants.xsPadding : ResponsiveConstants.smPadding,
-          vertical: isCompact 
-              ? ResponsiveConstants.xsPadding 
-              : (isConstrained ? 2.h : 3.h),
+          vertical: isHorizontal
+              ? ResponsiveConstants.xsPadding // Tighter padding for horizontal
+              : (isCompact 
+                  ? ResponsiveConstants.xsPadding 
+                  : (isConstrained ? 2.h : 3.h)),
         );
 
-        final verticalSpacing = isConstrained ? 4.h : 5.h;
+        final verticalSpacing = isHorizontal 
+            ? 3.h // Tighter spacing for horizontal layout
+            : (isConstrained ? 4.h : 5.h);
 
         return Container(
           padding: padding,
@@ -250,7 +311,7 @@ class ProductCard extends StatelessWidget {
 
               SizedBox(height: verticalSpacing),
 
-              // Product name (description) - Flexible when constrained
+              // Product name (description) - Flexible to prevent overflow
               Flexible(
                 fit: FlexFit.loose,
                 child: Directionality(
@@ -265,7 +326,7 @@ class ProductCard extends StatelessWidget {
                           .withValues(alpha: 0.7),
                       height: isConstrained ? 1.1 : 1.2,
                     ),
-                    maxLines: 2,
+                    maxLines: isHorizontal ? 1 : 2, // Single line for horizontal, 2 for vertical
                     overflow: TextOverflow.ellipsis,
                     textAlign: nameTextDirection == TextDirection.rtl
                         ? TextAlign.right
@@ -301,20 +362,22 @@ class ProductCard extends StatelessWidget {
                 },
               ),
 
-              SizedBox(height: 5),
-
               // Cart quantity button below price (product info section)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: CartQuantityButton(
-                    product: product,
-                    productType: productType,
+              // Hide in horizontal layout (horizontal lists)
+              if (!isHorizontal) ...[
+                SizedBox(height: 5),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: CartQuantityButton(
+                      product: product,
+                      productType: productType,
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: 5),
+                SizedBox(height: ResponsiveConstants.smSpacing), // Add space below cart button
+              ],
             ],
           ),
         );
@@ -328,11 +391,13 @@ class _ProductCardImageSection extends StatefulWidget {
   final Product product;
   final bool showFavoriteBadge;
   final bool isNew;
+  final bool isHorizontal; // Whether card is in horizontal list layout
 
   const _ProductCardImageSection({
     required this.product,
     required this.showFavoriteBadge,
     required this.isNew,
+    this.isHorizontal = false,
   });
 
   @override
@@ -471,6 +536,76 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
     );
   }
 
+  /// Build color swatches section widget
+  Widget _buildColorSwatchesSection(List<String> colors) {
+    return Material(
+      color: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_colorSectionRadius),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: _colorSwatchSize + _colorSectionPadding * 2,
+            maxHeight: _colorSwatchSize * _maxVisibleColorSwatches + 32,
+          ),
+          padding: EdgeInsets.all(_colorSectionPadding),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.grey.withValues(alpha: 0.25),
+                Colors.black.withValues(alpha: 0.20),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(_colorSectionRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _colorSectionShadowOpacity),
+                blurRadius: _colorSectionShadowBlur,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                height: _colorSwatchSize * min(colors.length, _maxVisibleColorSwatches),
+                width: _colorSwatchSize,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                    min(colors.length, _maxVisibleColorSwatches),
+                    (i) => Transform.translate(
+                      offset: Offset(0, i * -_colorSwatchOverlap),
+                      child: _buildColorImage(
+                        colors[i],
+                        _colorSwatchSize,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '${colors.length}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.0,
+                ),
+                overflow: TextOverflow.clip,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Maps variant color name (e.g. from API) to display color. Dynamic: supports hex, exact name, and token match.
   static Color _colorFromName(String name) {
     final raw = name.trim();
@@ -600,8 +735,35 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
           ),
         ),
 
-        // Carousel dot indicators (bottom center)
-        // if (showDots)
+        // Carousel dot indicators
+        // Position on bottom center for horizontal layout, bottom center for vertical layout
+        if (widget.isHorizontal)
+          // Horizontal layout: indicators at bottom center (horizontal row, centered)
+          // Positioned lower on the card
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 20, // Moved down from 40 for better positioning
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(imageCount, (index) {
+                final selected = index == _currentPage;
+                return Container(
+                  margin: EdgeInsets.symmetric(horizontal: _carouselDotSpacing / 2),
+                  width: _carouselDotSize,
+                  height: _carouselDotSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                );
+              }),
+            ),
+          )
+        else
+          // Vertical layout: indicators at bottom center (horizontal row)
           Positioned(
             left: 0,
             right: 0,
@@ -626,80 +788,17 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
           ),
 
         // Color section: white container, stacked overlapping color images, count below (clipped to prevent overflow)
+        // Position color swatches on right middle for horizontal layout, right top for vertical layout
         if (colors.isNotEmpty)
           Positioned(
             right: 6,
-            // bottom:  6,//showDots ? 28 :
-            top: 60,
-            child: Material(
-              color: Colors.transparent,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_colorSectionRadius),
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: _colorSwatchSize + _colorSectionPadding * 2,
-                    maxHeight: _colorSwatchSize * _maxVisibleColorSwatches + 32,
-                  ),
-                  padding: EdgeInsets.all(_colorSectionPadding),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.grey.withValues(alpha: 0.25),
-                        Colors.black.withValues(alpha: 0.20),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(_colorSectionRadius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: _colorSectionShadowOpacity),
-                        blurRadius: _colorSectionShadowBlur,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Color images stacked top to bottom, each circle overlapping the next (attached via translate)
-                      // Height must fit Column layout (each child takes full _colorSwatchSize); Transform.translate does not reduce layout size
-                      SizedBox(
-                        height: _colorSwatchSize * min(colors.length, _maxVisibleColorSwatches),
-                        width: _colorSwatchSize,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            min(colors.length, _maxVisibleColorSwatches),
-                            (i) => Transform.translate(
-                              offset: Offset(0, i * -_colorSwatchOverlap),
-                              child: _buildColorImage(
-                                colors[i],
-                                _colorSwatchSize,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      // Color count below (white for visibility on gradient)
-                      Text(
-                        '${colors.length}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1.0,
-                        ),
-                        overflow: TextOverflow.clip,
-                        maxLines: 1,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            top: widget.isHorizontal ? 0 : 60,
+            bottom: widget.isHorizontal ? 0 : null,
+            child: widget.isHorizontal
+                ? Center(
+                    child: _buildColorSwatchesSection(colors),
+                  )
+                : _buildColorSwatchesSection(colors),
           ),
 
         // Favorite button
@@ -720,10 +819,11 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
           ),
 
         // Sale badge
+        // For horizontal layout, positioned lower on the card
         if (product.isOnSale || (product.originalPrice != null && product.originalPrice! > product.price))
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: ResponsiveConstants.smPadding,
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -775,7 +875,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
         else if (widget.isNew)
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: ResponsiveConstants.smPadding,
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -799,7 +899,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
         if (product.tags != null && product.tags!.isNotEmpty)
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: ResponsiveConstants.smPadding,
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -978,6 +1078,9 @@ class _PriceBlock extends StatelessWidget {
     final currencyText = priceParts['currency'] ?? '';
     final priceFontSize = _getResponsivePriceFontSize();
     final currencyFontSize = (priceFontSize - 5).clamp(8.0, priceFontSize);
+    // Use app theme primary color (orange) for prices
+    final theme = Theme.of(context);
+    final priceColor = theme.colorScheme.primary;
 
     if (hasDiscount) {
       final originalParts = originalText != null ? _parsePriceText(originalText!) : null;
@@ -985,7 +1088,7 @@ class _PriceBlock extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         children: [
-          // Current price: number (red) + currency (black, smaller)
+          // Current price: number (orange) + currency (orange, smaller)
           Row(
             mainAxisSize: MainAxisSize.min,
             textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -995,7 +1098,7 @@ class _PriceBlock extends StatelessWidget {
                 style: AppFonts.getTextStyle(
                   fontSize: priceFontSize,
                   fontWeight: FontWeight.w700,
-                  color: Colors.red.shade700,
+                  color: priceColor,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -1007,7 +1110,7 @@ class _PriceBlock extends StatelessWidget {
                   style: AppFonts.getTextStyle(
                     fontSize: currencyFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: priceColor,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -1039,18 +1142,18 @@ class _PriceBlock extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           children: [
-            // Number in red
+            // Number in orange (app theme color)
             Text(
               numberText,
               style: AppFonts.getTextStyle(
                 fontSize: priceFontSize,
                 fontWeight: FontWeight.w700,
-                color: Colors.orange.shade700,
+                color: priceColor,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
-            // Currency in black, smaller
+            // Currency in orange (app theme color), smaller
             if (currencyText.isNotEmpty) ...[
               SizedBox(width: 2),
               Text(
@@ -1058,7 +1161,7 @@ class _PriceBlock extends StatelessWidget {
                 style: AppFonts.getTextStyle(
                   fontSize: currencyFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.orange.shade700,//red.shade700
+                  color: priceColor,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

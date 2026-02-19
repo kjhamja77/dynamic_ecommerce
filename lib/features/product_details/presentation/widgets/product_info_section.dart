@@ -490,6 +490,7 @@ class ProductInfoSection extends StatelessWidget {
                             final product = products[index];
                             return SizedBox(
                               width: cardWidth,
+                              height: ResponsiveConstants.productDetailsCompactListHeight,
                               child: ProductCard(
                                 product: product,
                                 isCompact: true,
@@ -556,6 +557,7 @@ class ProductInfoSection extends StatelessWidget {
                         ResponsiveConstants.productDetailsCardWidth;
                     return SizedBox(
                       width: cardWidth,
+                      height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
                         productType: rp.type,
@@ -610,6 +612,7 @@ class ProductInfoSection extends StatelessWidget {
                         ResponsiveConstants.productDetailsCardWidth;
                     return SizedBox(
                       width: cardWidth,
+                      height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
                         productType: rp.type,
