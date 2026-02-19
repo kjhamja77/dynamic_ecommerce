@@ -7,11 +7,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:zalando_clone_app/core/constants/responsive_constants.dart';
 import 'package:zalando_clone_app/core/widgets/app_loading_widget.dart';
 import 'package:zalando_clone_app/core/utils/image_cache_utils.dart';
+import 'package:zalando_clone_app/core/widgets/authenticated_cached_image.dart';
 import 'package:zalando_clone_app/l10n/app_localizations.dart';
 import 'package:zalando_clone_app/features/home/domain/entities/product.dart';
 import 'package:zalando_clone_app/features/favorites/presentation/widgets/favorite_button.dart';
 import '../../../../../core/providers/currency_provider.dart';
 import '../../../../../core/theme/app_fonts.dart';
+import 'cart_quantity_button.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -26,21 +28,6 @@ class ProductCard extends StatelessWidget {
     this.isCompact = false,
     this.showFavoriteBadge = true,
   });
-
-  // Responsive helper method for card info height (compact values must match ResponsiveConstants.productDetailsCompactCardHeight formula).
-  double _getCardInfoHeight() {
-    if (isCompact) {
-      if (1.sw >= 900) return 106.h; // Tablet and desktop (compact) – brand + 2-line title + price + headroom
-      if (1.sw >= 600) return 102.h; // Large phones (compact)
-      return 98.h;                   // Small phones (compact)
-    }
-    // Slightly reduced heights to avoid vertical overflow inside grid tiles,
-    // especially on smaller screens with larger text scales.
-    if (1.sw >= 900) return 90.h; // Tablet and desktop
-    if (1.sw >= 600) return 85.h; // Large phones
-    return 80.h;                  // Small phones
-  }
-
 
   // Responsive helper method for aspect ratio. Smaller value = taller image (image fills more card height).
   double _getImageAspectRatio() {
@@ -66,16 +53,16 @@ class ProductCard extends StatelessWidget {
     return ResponsiveConstants.brandFontSize - 1; // Small phones
   }
 
-  // Responsive helper method for product name font size
+  // Responsive helper method for product name font size (slightly smaller than brand)
   double _getResponsiveProductNameFontSize() {
     if (isCompact) {
-      if (1.sw >= 900) return ResponsiveConstants.productNameFontSize - 3; // compact reduction
-      if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 3;
-      return ResponsiveConstants.productNameFontSize - 4;
+      if (1.sw >= 900) return ResponsiveConstants.productNameFontSize - 4;
+      if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 4;
+      return ResponsiveConstants.productNameFontSize - 5;
     }
-    if (1.sw >= 900) return ResponsiveConstants.productNameFontSize; // Tablet and desktop
-    if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 0.5; // Large phones
-    return ResponsiveConstants.productNameFontSize - 3; // Small phones
+    if (1.sw >= 900) return ResponsiveConstants.productNameFontSize - 1;
+    if (1.sw >= 600) return ResponsiveConstants.productNameFontSize - 1.5;
+    return ResponsiveConstants.productNameFontSize - 4;
   }
 
   // Responsive helper method for spacing
@@ -155,39 +142,47 @@ class ProductCard extends StatelessWidget {
             ),
             // Remove outer padding so the image can touch the
             // card edges (top/left/right) as per design.
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-            // Image with carousel, dot indicators, and color swatches
-            AspectRatio(
-              aspectRatio: _getImageAspectRatio(),
-              child: _ProductCardImageSection(
-                product: product,
-                showFavoriteBadge: showFavoriteBadge,
-                isNew: isNew,
-              ),
-            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final hasBoundedHeight = constraints.hasBoundedHeight && 
+                    constraints.maxHeight < double.infinity;
 
-            // Info section - Flexible + constrained height so content never overflows in fixed-height grid
-            Flexible(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SizedBox(
-                    height: constraints.maxHeight,
-                    child: SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: _buildCardInfoSection(
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
+                  children: [
+                    // Image with carousel, dot indicators, and color swatches
+                    AspectRatio(
+                      aspectRatio: _getImageAspectRatio(),
+                      child: _ProductCardImageSection(
+                        product: product,
+                        showFavoriteBadge: showFavoriteBadge,
+                        isNew: isNew,
+                      ),
+                    ),
+
+                    // Spacing between image and info section
+                    SizedBox(height: hasBoundedHeight ? 2.h : ResponsiveConstants.smSpacing),
+
+                    // Info section - adapts to content and constraints
+                    if (hasBoundedHeight)
+                      Expanded(
+                        child: _buildCardInfoSection(
+                          context,
+                          currencyProvider,
+                          useRtl: null,
+                        ),
+                      )
+                    else
+                      _buildCardInfoSection(
                         context,
                         currencyProvider,
                         useRtl: null,
                       ),
-                    ),
-                  );
-                },
-              ),
+                  ],
+                );
+              },
             ),
-          ],
-        ),
       );
         },
       ),
@@ -210,93 +205,120 @@ class ProductCard extends StatelessWidget {
         : (isRtl ? TextDirection.rtl : TextDirection.ltr);
     final useRtlValue = isBrandArabic || isNameArabic || isRtl;
 
-    return Container(
-      padding: EdgeInsets.all(
-        isCompact ? ResponsiveConstants.xsPadding : ResponsiveConstants.smPadding,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Brand name
-          Directionality(
-            textDirection: brandTextDirection,
-            child: Text(
-              product.brand,
-              style: AppFonts.getTextStyle(
-                fontSize: _getResponsiveBrandFontSize(),
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-                height: 1.0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Check if we're in a bounded height context (like GridView)
+        final isConstrained = constraints.hasBoundedHeight && 
+            constraints.maxHeight < double.infinity;
+
+        // Adjust padding and spacing based on constraints
+        final padding = EdgeInsets.symmetric(
+          horizontal:
+              isCompact ? ResponsiveConstants.xsPadding : ResponsiveConstants.smPadding,
+          vertical: isCompact 
+              ? ResponsiveConstants.xsPadding 
+              : (isConstrained ? 2.h : 3.h),
+        );
+
+        final verticalSpacing = isConstrained ? 4.h : 5.h;
+
+        return Container(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment:
+                useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Brand name
+              Directionality(
+                textDirection: brandTextDirection,
+                child: Text(
+                  product.brand,
+                  style: AppFonts.getTextStyle(
+                    fontSize: _getResponsiveBrandFontSize(),
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    height: 1.0,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: brandTextDirection == TextDirection.rtl
+                      ? TextAlign.right
+                      : TextAlign.left,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: brandTextDirection == TextDirection.rtl
-                  ? TextAlign.right
-                  : TextAlign.left,
-            ),
-          ),
 
-          SizedBox(height: 8),//_getResponsiveSpacing()
+              SizedBox(height: verticalSpacing),
 
-          // Product name (clean name without variant details)
-          Directionality(
-            textDirection: nameTextDirection,
-            child: Text(
-              _getCleanProductName(product.name),
-              style: AppFonts.getTextStyle(
-                fontSize: _getResponsiveProductNameFontSize(),
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.7),
-                height: 1.0,
+              // Product name (description) - Flexible when constrained
+              Flexible(
+                fit: FlexFit.loose,
+                child: Directionality(
+                  textDirection: nameTextDirection,
+                  child: Text(
+                    _getCleanProductName(product.name),
+                    style: AppFonts.getTextStyle(
+                      fontSize: _getResponsiveProductNameFontSize(),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                      height: isConstrained ? 1.1 : 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: nameTextDirection == TextDirection.rtl
+                        ? TextAlign.right
+                        : TextAlign.left,
+                  ),
+                ),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: nameTextDirection == TextDirection.rtl
-                  ? TextAlign.right
-                  : TextAlign.left,
-            ),
+
+              SizedBox(height: verticalSpacing),
+
+              // Price block
+              Builder(
+                builder: (context) {
+                  final formattedPrice = currencyProvider.formatPrice(
+                    product.price,
+                    locale: Localizations.localeOf(context),
+                  );
+                  final formattedOriginalPrice = product.originalPrice != null
+                      ? currencyProvider.formatPrice(
+                          product.originalPrice!,
+                          locale: Localizations.localeOf(context),
+                        )
+                      : null;
+
+                  return _PriceBlock(
+                    priceText: formattedPrice,
+                    originalText: formattedOriginalPrice,
+                    discountPercent: product.hasDiscount
+                        ? product.discountPercentage.toInt()
+                        : null,
+                    isRtl: useRtlValue,
+                  );
+                },
+              ),
+
+              SizedBox(height: 5),
+
+              // Cart quantity button below price (product info section)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: CartQuantityButton(
+                    product: product,
+                    productType: productType,
+                  ),
+                ),
+              ),
+              SizedBox(height: 5),
+            ],
           ),
-
-          SizedBox(height: 8),//_getResponsiveSpacing() * 1.5
-
-          // Price block – anchored directly under text for tighter, more
-          // balanced layout within the card height.
-          Builder(
-            builder: (context) {
-              final formattedPrice = currencyProvider.formatPrice(
-                product.price,
-                locale: Localizations.localeOf(context),
-              );
-              final formattedOriginalPrice = product.originalPrice != null
-                  ? currencyProvider.formatPrice(
-                      product.originalPrice!,
-                      locale: Localizations.localeOf(context),
-                    )
-                  : null;
-
-              debugPrint(
-                '💰 ProductCard: Price=${product.price} → Formatted="$formattedPrice", Currency=${currencyProvider.currency}',
-              );
-              debugPrint(
-                '💰 ProductCard:  images=${product.images}',
-              );
-
-              return _PriceBlock(
-                priceText: formattedPrice,
-                originalText: formattedOriginalPrice,
-                discountPercent: product.hasDiscount
-                    ? product.discountPercentage.toInt()
-                    : null,
-                isRtl: useRtlValue,
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -336,12 +358,118 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
   static const int _maxVisibleColorSwatches = 4;
   static const double _colorSwatchSize = 13;
   static const double _colorSwatchOverlap = 5; // overlap so each circle attaches to the next
-  static const double _carouselDotSize = 6.5;
+  static const double _carouselDotSize = 7.5;
   static const double _carouselDotSpacing = 5;
   static const double _colorSectionPadding = 5;
   static const double _colorSectionRadius = 8;
   static const double _colorSectionShadowBlur = 6;
   static const double _colorSectionShadowOpacity = 0.08;
+
+  /// Build color image widget - shows image if available, falls back to color swatch
+  Widget _buildColorImage(String colorName, double size) {
+    // Try to get color image from product.colorImages
+    final colorImages = widget.product.colorImages;
+    String? colorImageUrl;
+    
+    if (colorImages != null && colorImages.containsKey(colorName) && colorImages[colorName]!.isNotEmpty) {
+      colorImageUrl = colorImages[colorName]!.first;
+    }
+    
+    // Background container: grey-to-black gradient with low opacity (transparent)
+    final gradientBackground = BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.grey.withValues(alpha: 0.25),
+          Colors.black.withValues(alpha: 0.20),
+        ],
+      ),
+    );
+
+    // If we have a color image URL, show it
+    if (colorImageUrl != null && colorImageUrl.isNotEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: gradientBackground,
+        padding: EdgeInsets.all(2),
+        child: Container(
+          width: size - 4,
+          height: size - 4,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white,
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: AuthenticatedCachedImage(
+              imageUrl: colorImageUrl,
+              fit: BoxFit.cover,
+              placeholder: Container(
+                color: Colors.grey.shade300,
+                child: Center(
+                  child: SizedBox(
+                    width: size * 0.4,
+                    height: size * 0.4,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: Container(
+                color: _colorFromName(colorName),
+                child: Icon(
+                  Icons.image_not_supported,
+                  size: size * 0.5,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback to color swatch if no image available
+    return Container(
+      width: size,
+      height: size,
+      decoration: gradientBackground,
+      padding: EdgeInsets.all(2),
+      child: Container(
+        width: size - 4,
+        height: size - 4,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _colorFromName(colorName),
+          border: Border.all(
+            color: Colors.white,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// Maps variant color name (e.g. from API) to display color. Dynamic: supports hex, exact name, and token match.
   static Color _colorFromName(String name) {
@@ -497,7 +625,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
             ),
           ),
 
-        // Color section: white container, stacked overlapping swatches, count below (clipped to prevent overflow)
+        // Color section: white container, stacked overlapping color images, count below (clipped to prevent overflow)
         if (colors.isNotEmpty)
           Positioned(
             right: 6,
@@ -514,7 +642,14 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
                   ),
                   padding: EdgeInsets.all(_colorSectionPadding),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.70),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.grey.withValues(alpha: 0.25),
+                        Colors.black.withValues(alpha: 0.20),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(_colorSectionRadius),
                     boxShadow: [
                       BoxShadow(
@@ -528,7 +663,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Color swatches stacked top to bottom, each circle overlapping the next (attached via translate)
+                      // Color images stacked top to bottom, each circle overlapping the next (attached via translate)
                       // Height must fit Column layout (each child takes full _colorSwatchSize); Transform.translate does not reduce layout size
                       SizedBox(
                         height: _colorSwatchSize * min(colors.length, _maxVisibleColorSwatches),
@@ -539,37 +674,22 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
                             min(colors.length, _maxVisibleColorSwatches),
                             (i) => Transform.translate(
                               offset: Offset(0, i * -_colorSwatchOverlap),
-                              child: Container(
-                                width: _colorSwatchSize,
-                                height: _colorSwatchSize,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _colorFromName(colors[i]),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.06),
-                                      blurRadius: 2,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
+                              child: _buildColorImage(
+                                colors[i],
+                                _colorSwatchSize,
                               ),
                             ),
                           ),
                         ),
                       ),
                       SizedBox(height: 4),
-                      // Color count below
+                      // Color count below (white for visibility on gradient)
                       Text(
                         '${colors.length}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
+                          color: Colors.white,
                           height: 1.0,
                         ),
                         overflow: TextOverflow.clip,
@@ -925,7 +1045,7 @@ class _PriceBlock extends StatelessWidget {
               style: AppFonts.getTextStyle(
                 fontSize: priceFontSize,
                 fontWeight: FontWeight.w700,
-                color: Colors.red.shade700,
+                color: Colors.orange.shade700,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -938,7 +1058,7 @@ class _PriceBlock extends StatelessWidget {
                 style: AppFonts.getTextStyle(
                   fontSize: currencyFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.red.shade700,
+                  color: Colors.orange.shade700,//red.shade700
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

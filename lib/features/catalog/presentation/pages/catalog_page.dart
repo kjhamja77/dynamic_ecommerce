@@ -34,10 +34,37 @@ class CatalogPage extends StatefulWidget {
 class _CatalogPageState extends State<CatalogPage> {
   bool _filtersApplied = false; // Flag to ensure filters are applied only once
   Future<FilterOptions?>? _filterOptionsFuture; // Cache filter options
+  final ScrollController _scrollController = ScrollController();
+  bool _isAppBarVisible = true;
+  double _lastScrollOffset = 0;
   
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    final currentOffset = _scrollController.offset;
+    final scrollDelta = currentOffset - _lastScrollOffset;
+    
+    // Reduced threshold (3px) for faster, more responsive app bar animation
+    if (scrollDelta > 3 && _isAppBarVisible && currentOffset > 10) {
+      // Scrolling down - hide app bar
+      setState(() => _isAppBarVisible = false);
+    } else if (scrollDelta < -3 && !_isAppBarVisible) {
+      // Scrolling up - show app bar immediately
+      setState(() => _isAppBarVisible = true);
+    }
+    
+    _lastScrollOffset = currentOffset;
   }
 
   @override
@@ -125,6 +152,7 @@ class _CatalogPageState extends State<CatalogPage> {
                         ));
                       },
                       child: CustomScrollView(
+                        controller: _scrollController,
                         physics: Theme.of(context).platform == TargetPlatform.iOS
                             ? const ClampingScrollPhysics()
                             : const AlwaysScrollableScrollPhysics(),
@@ -136,27 +164,34 @@ class _CatalogPageState extends State<CatalogPage> {
                             pinned: false,
                             snap: true,
                             leading: Navigator.of(context).canPop()
-                                ? IconButton(
-                                    tooltip: null,
-                                    icon: Icon(
-                                      Icons.arrow_back,
-                                      color: colorScheme.onSurface,
+                                ? AnimatedOpacity(
+                                    opacity: _isAppBarVisible ? 1.0 : 0.0,
+                                    duration: const Duration(milliseconds: 150),
+                                    child: IconButton(
+                                      tooltip: null,
+                                      icon: Icon(
+                                        Icons.arrow_back,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      onPressed: () => Navigator.of(context).pop(),
                                     ),
-                                    onPressed: () => Navigator.of(context).pop(),
                                   )
                                 : null,
-                            title: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.args.title,
-                                  style: AppFonts.getTextStyle(
-                                    fontSize: ResponsiveConstants.titleFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
+                            title: AnimatedOpacity(
+                              opacity: _isAppBarVisible ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 150),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.args.title,
+                                    style: AppFonts.getTextStyle(
+                                      fontSize: ResponsiveConstants.titleFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface,
+                                    ),
                                   ),
-                                ),
                           Row(
                             children: [
                               if (s.isFiltering) ...[
@@ -191,28 +226,36 @@ class _CatalogPageState extends State<CatalogPage> {
                           ),
                         ],
                       ),
-                      actions: [
-                        IconButton(
-                          tooltip: null,
-                          icon: Icon(
-                            Icons.sort,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            actions: [
+                        AnimatedOpacity(
+                          opacity: _isAppBarVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: IconButton(
+                            tooltip: null,
+                            icon: Icon(
+                              Icons.sort,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            onPressed: () {
+                              final bloc = context.read<CatalogBloc>();
+                              HapticService.buttonClick();
+                              final currentState = bloc.state;
+                              if (currentState is CatalogLoaded) {
+                                _showSortSheet(context, currentState);
+                              }
+                            },
                           ),
-                          onPressed: () {
-                            final bloc = context.read<CatalogBloc>();
-                            HapticService.buttonClick();
-                            final currentState = bloc.state;
-                            if (currentState is CatalogLoaded) {
-                              _showSortSheet(context, currentState);
-                            }
-                          },
                         ),
-                        IconButton(
-                          tooltip: null,
-                          icon: Icon(
-                            Icons.tune,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
+                        AnimatedOpacity(
+                          opacity: _isAppBarVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: IconButton(
+                            tooltip: null,
+                            icon: Icon(
+                              Icons.tune,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           onPressed: () async {
                             final navigator = Navigator.of(context);
                             final bloc = context.read<CatalogBloc>();
@@ -342,6 +385,7 @@ class _CatalogPageState extends State<CatalogPage> {
                               print('✅ CatalogPage: Event dispatched successfully');
                             }
                           },
+                          ),
                         ),
                       ],
                       bottom: PreferredSize(

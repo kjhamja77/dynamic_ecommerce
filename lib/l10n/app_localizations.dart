@@ -992,10 +992,10 @@ abstract class AppLocalizations {
   /// **'تم إضافة العنصر للسلة'**
   String get itemAddedToCart;
 
-  /// Item removed from cart success message
+  /// Snackbar when item is removed from cart (delete)
   ///
   /// In ar, this message translates to:
-  /// **'تم حذف العنصر من السلة'**
+  /// **'تم إزالة المنتج من السلة'**
   String get itemRemovedFromCart;
 
   /// Item added to favorites success message
@@ -2192,6 +2192,18 @@ abstract class AppLocalizations {
   /// **'تم إضافة العنصر للسلة بنجاح!'**
   String get addedToCartSuccessfully;
 
+  /// Snackbar when cart item quantity is increased from product card
+  ///
+  /// In ar, this message translates to:
+  /// **'تم زيادة الكمية'**
+  String get cartQuantityIncreased;
+
+  /// Snackbar when cart item quantity is reduced from product card
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تقليل كمية المنتج من السلة'**
+  String get cartQuantityReduced;
+
   /// Place order button text
   ///
   /// In ar, this message translates to:
@@ -2965,6 +2977,12 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'فشل في إضافة العنصر إلى السلة'**
   String get failedToAddItemToCart;
+
+  /// Snackbar when cart quantity reaches stock limit
+  ///
+  /// In ar, this message translates to:
+  /// **'يمكنك طلب ما يصل إلى {max} من هذا المنتج. هذا هو الحد الأقصى.'**
+  String maxOrderLimitReached(int max);
 
   /// Cart item not found error
   ///

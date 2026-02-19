@@ -1131,6 +1131,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addedToCartSuccessfully => 'Added to cart successfully!';
 
   @override
+  String get cartQuantityIncreased => 'Quantity increased';
+
+  @override
+  String get cartQuantityReduced => 'Item quantity reduced from cart';
+
+  @override
   String get placeOrder => 'Place Order';
 
   @override
@@ -1533,6 +1539,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get failedToAddItemToCart => 'Failed to add item to cart';
+
+  @override
+  String maxOrderLimitReached(int max) {
+    return 'You can order up to $max of this item. This is the maximum limit.';
+  }
 
   @override
   String get cartItemNotFound => 'Cart item not found';

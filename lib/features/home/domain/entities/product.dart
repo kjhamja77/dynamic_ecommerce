@@ -15,6 +15,7 @@ class Product extends Equatable {
   final bool isAvailable;
   final List<String> sizes;
   final List<String> colors;
+  final Map<String, List<String>>? colorImages; // Maps color name to list of image URLs
   final DateTime createdAt;
   // Additional attributes for enhanced product details
   final List<String>? materials;
@@ -50,6 +51,7 @@ class Product extends Equatable {
     required this.isAvailable,
     required this.sizes,
     required this.colors,
+    this.colorImages,
     required this.createdAt,
     this.materials,
     this.heelHeightCm,
@@ -91,6 +93,7 @@ class Product extends Equatable {
         isAvailable,
         sizes,
         colors,
+        colorImages,
         createdAt,
         materials,
         heelHeightCm,

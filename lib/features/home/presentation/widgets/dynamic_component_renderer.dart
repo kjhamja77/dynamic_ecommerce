@@ -309,96 +309,98 @@ class DynamicComponentRenderer extends StatelessWidget {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: component.children.length,
-            itemBuilder: (context, index) {
-              final child = component.children[index];
-              if (child.valueType != 'product_content') return const SizedBox.shrink();
-              final content = child.content['product'] as Map<String, dynamic>?;
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate card width for 2 columns with spacing
+              final screenWidth = constraints.maxWidth;
+              final spacing = 12.0;
+              final cardWidth = (screenWidth - spacing) / 2;
               
-              // Extract product data from API response
-              // Prefer a human‑readable / localized template name when available.
-              final Map<String, dynamic>? productTemplate =
-                  content?['product_template'] as Map<String, dynamic>?;
-              final String templateName =
-                  (productTemplate?['name'] as String?)?.trim() ?? '';
-              final String rawDisplayName =
-                  (content?['display_name'] as String?)?.trim() ?? '';
-              final String rawName =
-                  (content?['name'] as String?)?.trim() ?? '';
-              final String rawDescription =
-                  (content?['description'] as String?)?.trim() ?? '';
-
-              // Heuristic to pick the best title:
-              // 1) Prefer product_template.name (translatable template name).
-              // 2) Then display_name if present.
-              // 3) Then raw name.
-              // 4) If description is in Arabic while the chosen title is not (or empty),
-              //    use description instead so Arabic product titles are shown correctly.
-              String effectiveName = templateName.isNotEmpty
-                  ? templateName
-                  : (rawDisplayName.isNotEmpty ? rawDisplayName : rawName);
-              if ((effectiveName.isEmpty || !_containsArabic(effectiveName)) &&
-                  _containsArabic(rawDescription)) {
-                effectiveName = rawDescription;
-              }
-
-              final String type = (content?['type'] as String?) ?? 'variant';
-              final String? image = content?['image'] as String?;
-              final num price = (content?['price'] as num?) ?? 0;
-              final int productId = (content?['id'] as int?) ?? child.componentId;
-              // Brand can be nested object or simple string
-              String brandName = '';
-              final dynamic brandObj = content?['brand'];
-              if (brandObj is Map<String, dynamic>) {
-                brandName = (brandObj['name'] as String?) ?? '';
-              } else if (brandObj is String) {
-                brandName = brandObj;
-              }
-              
-              // Construct full image URL
-              final String? fullImageUrl = image != null && image.isNotEmpty
-                  ? (image.startsWith('http') 
-                      ? image 
-                      : '${AppConstants.baseUrl}${image.startsWith('/') ? image.substring(1) : image}')
-                  : null;
-              
-              // Create Product entity for ProductCard
-              final Product product = Product(
-                id: productId.toString(),
-                name: effectiveName,
-                description: rawDescription,
-                price: price.toDouble(),
-                originalPrice: null, // No original price in API response
-                images: fullImageUrl != null ? [fullImageUrl] : [],
-                category: 'Featured', // Default category
-                brand: brandName, // Use brand from API when provided
-                type: type, // Use provided type (variant/template)
-                rating: 4.5, // Default rating
-                reviewCount: 100, // Default review count
-                isAvailable: true,
-                sizes: ['S', 'M', 'L'], // Default sizes
-                colors: ['Black', 'White'], // Default colors
-                createdAt: DateTime.now(),
-              );
-              
-              return ProductCard(
-                product: product,
-                productType: type, // Use provided type (variant/template)
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: component.children
+                    .where((child) => child.valueType == 'product_content')
+                    .map((child) => SizedBox(
+                          width: cardWidth,
+                          child: _buildProductCardFromChild(child),
+                        ))
+                    .toList(),
               );
             },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProductCardFromChild(dynamic child) {
+    final content = child.content['product'] as Map<String, dynamic>?;
+    
+    // Extract product data from API response
+    final Map<String, dynamic>? productTemplate =
+        content?['product_template'] as Map<String, dynamic>?;
+    final String templateName =
+        (productTemplate?['name'] as String?)?.trim() ?? '';
+    final String rawDisplayName =
+        (content?['display_name'] as String?)?.trim() ?? '';
+    final String rawName =
+        (content?['name'] as String?)?.trim() ?? '';
+    final String rawDescription =
+        (content?['description'] as String?)?.trim() ?? '';
+
+    // Heuristic to pick the best title
+    String effectiveName = templateName.isNotEmpty
+        ? templateName
+        : (rawDisplayName.isNotEmpty ? rawDisplayName : rawName);
+    if ((effectiveName.isEmpty || !_containsArabic(effectiveName)) &&
+        _containsArabic(rawDescription)) {
+      effectiveName = rawDescription;
+    }
+
+    final String type = (content?['type'] as String?) ?? 'variant';
+    final String? image = content?['image'] as String?;
+    final num price = (content?['price'] as num?) ?? 0;
+    final int productId = (content?['id'] as int?) ?? child.componentId;
+    
+    // Brand can be nested object or simple string
+    String brandName = '';
+    final dynamic brandObj = content?['brand'];
+    if (brandObj is Map<String, dynamic>) {
+      brandName = (brandObj['name'] as String?) ?? '';
+    } else if (brandObj is String) {
+      brandName = brandObj;
+    }
+    
+    // Construct full image URL
+    final String? fullImageUrl = image != null && image.isNotEmpty
+        ? (image.startsWith('http') 
+            ? image 
+            : '${AppConstants.baseUrl}${image.startsWith('/') ? image.substring(1) : image}')
+        : null;
+    
+    // Create Product entity for ProductCard
+    final Product product = Product(
+      id: productId.toString(),
+      name: effectiveName,
+      description: rawDescription,
+      price: price.toDouble(),
+      originalPrice: null,
+      images: fullImageUrl != null ? [fullImageUrl] : [],
+      category: 'Featured',
+      brand: brandName,
+      type: type,
+      rating: 4.5,
+      reviewCount: 100,
+      isAvailable: true,
+      sizes: ['S', 'M', 'L'],
+      colors: ['Black', 'White'],
+      createdAt: DateTime.now(),
+    );
+    
+    return ProductCard(
+      product: product,
+      productType: type,
     );
   }
 

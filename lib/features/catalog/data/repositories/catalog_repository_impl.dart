@@ -597,43 +597,132 @@ class CatalogRepositoryImpl implements CatalogRepository {
     print('  - main_image: ${item['main_image']}');
     print('  - image_1920: ${item['image_1920']}');
     
+    // Build variant_id to color mapping from variant_combinations
+    final Map<String, String> variantIdToColor = {};
+    final Map<String, String> canonicalVariantIdByColor = {};
+    final variantCombinations = item['variant_combinations'] as List<dynamic>? ?? [];
+    
+    for (final v in variantCombinations) {
+      if (v is Map<String, dynamic>) {
+        final variantId = (v['variant_id'] ?? '').toString();
+        String? colorName;
+        final attrs = (v['attributes'] as List<dynamic>? ?? const []);
+        for (final a in attrs) {
+          if (a is Map<String, dynamic>) {
+            final attrName = (a['attribute_name'] ?? '').toString().toLowerCase();
+            if (attrName == 'color' || attrName == 'colour' || attrName == 'اللون' || attrName == 'color name') {
+              colorName = (a['value_name'] ?? '').toString();
+              break;
+            }
+          }
+        }
+        if (variantId.isNotEmpty && colorName != null && colorName.isNotEmpty) {
+          variantIdToColor[variantId] = colorName;
+          // First variant encountered for a color becomes the canonical one
+          canonicalVariantIdByColor.putIfAbsent(colorName, () => variantId);
+        }
+      }
+    }
+    
+    // Build color to images mapping
+    final Map<String, List<String>> colorToImages = {};
+    String? templateImage;
+    
     if (item['images'] != null && (item['images'] as List).isNotEmpty) {
       final imagesList = item['images'] as List<dynamic>;
 
-      // For catalog/list view the business requirement is:
-      // - For VARIANT products, show the TEMPLATE image (product template),
-      //   not the specific variant image.
-      // - Do NOT over-filter by variant_id here; just use what the backend sends.
-      //
-      // So:
-      // 1) If product is a variant and there are any "template" images,
-      //    use ONLY those.
-      // 2) Otherwise, fall back to using all images as-is.
-      Iterable<dynamic> effectiveImages = imagesList;
-      if (productType == 'variant') {
-        final templateImages = imagesList.where((img) =>
-            img is Map<String, dynamic> &&
-            (img['type']?.toString().toLowerCase() == 'template'));
-        if (templateImages.isNotEmpty) {
-          effectiveImages = templateImages;
-          print('  - Using TEMPLATE images for variant in catalog list');
+      // Handle two API response formats:
+      // 1. New format: images array with objects containing 'image' field (no 'type' field)
+      // 2. Old format: images array with objects containing 'type', 'variant_id', 'url' fields
+      
+      bool hasTypeField = false;
+      if (imagesList.isNotEmpty && imagesList.first is Map<String, dynamic>) {
+        hasTypeField = (imagesList.first as Map<String, dynamic>).containsKey('type');
+      }
+      
+      if (hasTypeField) {
+        // OLD FORMAT: Handle images with type and variant_id fields
+        // BUSINESS RULE FOR CATALOG/LIST VIEW:
+        // For VARIANT products: Show ALL template images and template_gallery images WITHOUT variant_id
+        //   - type='template' (all of them, multiple if they exist)
+        //   - type='template_gallery' with empty variant_id (general gallery images)
+        //   - DO NOT show variant-specific images (variant, variant_gallery, template_gallery with variant_id)
+        // For TEMPLATE products: Show all template and template_gallery images
+        // This ensures we show multiple images when they exist, but avoid variant-specific duplicates
+        
+        for (final img in imagesList) {
+          if (img is! Map<String, dynamic>) continue;
+          
+          final imagePath = (img['url'] as String?) ?? (img['image'] as String?);
+          if (imagePath == null || imagePath.isEmpty) continue;
+          
+          final imageUrl = _constructImageUrl(imagePath);
+          if (imageUrl.isEmpty) continue;
+          
+          final imageType = (img['type'] ?? '').toString().toLowerCase();
+          final variantId = (img['variant_id'] ?? '').toString();
+          
+          // Store first template image for reference
+          if (imageType == 'template' && variantId.isEmpty && templateImage == null) {
+            templateImage = imageUrl;
+          }
+          
+          // Determine if this image should be added to product images
+          // For variants: template images OR template_gallery without variant_id
+          // For templates: template images OR template_gallery (with or without variant_id)
+          final isTemplateImage = imageType == 'template' && variantId.isEmpty;
+          final isGeneralTemplateGallery = imageType == 'template_gallery' && variantId.isEmpty;
+          final isVariantSpecificImage = imageType == 'variant' || 
+                                         imageType == 'variant_gallery' ||
+                                         (imageType == 'template_gallery' && variantId.isNotEmpty);
+          
+          final shouldAddToProductImages = isVariantSpecificImage
+              ? false  // Never add variant-specific images to product images
+              : (productType == 'variant'
+                  ? (isTemplateImage || isGeneralTemplateGallery)  // Variants: template + general template_gallery
+                  : (isTemplateImage || imageType == 'template_gallery' || imageType.isEmpty));  // Templates: all template images
+          
+          if (shouldAddToProductImages && !images.contains(imageUrl)) {
+            images.add(imageUrl);
+            print('  - Added product image (type: $imageType, variant_id: $variantId): $imageUrl');
+          }
+          
+          // Map variant-specific images to colors for color swatches (but don't add to product images)
+          if (isVariantSpecificImage && variantId.isNotEmpty) {
+            final color = variantIdToColor[variantId];
+            if (color != null && canonicalVariantIdByColor[color] == variantId) {
+              colorToImages.putIfAbsent(color, () => <String>[]);
+              if (!colorToImages[color]!.contains(imageUrl)) {
+                colorToImages[color]!.add(imageUrl);
+                print('  - Added color image for "$color" (variant_id: $variantId): $imageUrl');
+              }
+            }
+          }
+        }
+      } else {
+        // NEW FORMAT: Simple images array - add all images to product images
+        for (final img in imagesList) {
+          if (img is! Map<String, dynamic>) continue;
+          
+          final imagePath = (img['image'] as String?);
+          if (imagePath == null || imagePath.isEmpty) continue;
+          
+          final imageUrl = _constructImageUrl(imagePath);
+          if (imageUrl.isEmpty) continue;
+          
+          if (!images.contains(imageUrl)) {
+            images.add(imageUrl);
+            print('  - Added product image: $imageUrl');
+          }
+          
+          // Store first image as template image for reference
+          if (templateImage == null) {
+            templateImage = imageUrl;
+          }
         }
       }
 
-      for (final img in effectiveImages) {
-        if (img is! Map<String, dynamic>) continue;
-        // API may return either 'image' or 'url' field - check both
-        final imagePath = (img['url'] as String?) ?? (img['image'] as String?);
-        if (imagePath == null || imagePath.isEmpty) continue;
-
-        final imageUrl = _constructImageUrl(imagePath);
-        if (imageUrl.isNotEmpty) {
-          images.add(imageUrl);
-          print('  - Added catalog image: $imageUrl');
-        }
-      }
-
-      print('  - Using images array: $images');
+      print('  - Using images array: ${images.length} images');
     } else if (item['main_image'] != null && item['main_image'].toString().isNotEmpty) {
       // Fallback to main_image if images array is empty
       final mainImageUrl = _constructImageUrl(item['main_image'] as String);
@@ -654,10 +743,11 @@ class CatalogRepositoryImpl implements CatalogRepository {
     }
 
     // BUSINESS RULE FOR CATALOG/LIST VIEW:
-    // For VARIANT products, the card should show the TEMPLATE image,
+    // For VARIANT products, the card should show the TEMPLATE image first,
     // not the per-variant image. The backend provides this through
     // product_template.image_1920 and/or a "type": "template" entry.
-    if (productType == 'variant') {
+    // Only add fallback template image if we don't already have any images
+    if (productType == 'variant' && images.isEmpty) {
       final productTemplate = item['product_template'] as Map<String, dynamic>?;
       String? templateImageUrl;
 
@@ -676,13 +766,11 @@ class CatalogRepositoryImpl implements CatalogRepository {
         }
       }
 
-      // If we resolved a valid template image URL, override the images list
+      // If we resolved a valid template image URL and have no images yet, add it
       if (templateImageUrl != null && templateImageUrl.isNotEmpty) {
-        images
-          ..clear()
-          ..add(templateImageUrl);
+        images.add(templateImageUrl);
         print(
-          '  - Overriding images for variant with TEMPLATE image: $templateImageUrl',
+          '  - Added fallback TEMPLATE image: $templateImageUrl',
         );
       }
     }
@@ -706,7 +794,29 @@ class CatalogRepositoryImpl implements CatalogRepository {
         if (attrName.toLowerCase() == 'size') {
           sizes.addAll(values.map((v) => v['name'] as String));
         } else if (attrName.toLowerCase() == 'color') {
+          // Extract color names
           colors.addAll(values.map((v) => v['name'] as String));
+          
+          // Extract color images from product_attributes[COLOR].values[].image
+          // Map color name to its image URL
+          for (final value in values) {
+            if (value is Map<String, dynamic>) {
+              final colorName = value['name'] as String?;
+              final colorImagePath = value['image'] as String?;
+              
+              if (colorName != null && colorName.isNotEmpty && 
+                  colorImagePath != null && colorImagePath.isNotEmpty) {
+                final colorImageUrl = _constructImageUrl(colorImagePath);
+                if (colorImageUrl.isNotEmpty) {
+                  colorToImages.putIfAbsent(colorName, () => <String>[]);
+                  if (!colorToImages[colorName]!.contains(colorImageUrl)) {
+                    colorToImages[colorName]!.add(colorImageUrl);
+                    print('  - Added color image from product_attributes for "$colorName": $colorImageUrl');
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -811,6 +921,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
       sizes: sizes.isNotEmpty ? sizes : ['S', 'M', 'L'], // Default sizes if none found
       // Do not inject fake colors; leave empty so catalog aggregates true colors only
       colors: colors,
+      colorImages: colorToImages.isNotEmpty ? colorToImages : null,
       createdAt: createdAt,
       favourite: false, // Mock favorite status
       tags: tags,

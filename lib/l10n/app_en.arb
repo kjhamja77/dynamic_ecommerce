@@ -1862,6 +1862,18 @@
   "@addedToCartSuccessfully": {
     "description": "Success message when item is added to cart"
   },
+  "cartQuantityIncreased": "Quantity increased",
+  "@cartQuantityIncreased": {
+    "description": "Snackbar when cart item quantity is increased from product card"
+  },
+  "cartQuantityReduced": "Item quantity reduced from cart",
+  "@cartQuantityReduced": {
+    "description": "Snackbar when cart item quantity is reduced from product card"
+  },
+  "itemRemovedFromCart": "Item removed from cart",
+  "@itemRemovedFromCart": {
+    "description": "Snackbar when item is removed from cart (delete)"
+  },
   
   "placeOrder": "Place Order",
   "@placeOrder": {
@@ -2659,6 +2671,15 @@
   "failedToAddItemToCart": "Failed to add item to cart",
   "@failedToAddItemToCart": {
     "description": "Add to cart error message"
+  },
+  "maxOrderLimitReached": "You can order up to {max} of this item. This is the maximum limit.",
+  "@maxOrderLimitReached": {
+    "description": "Snackbar when cart quantity reaches stock limit",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
   },
   
   "cartItemNotFound": "Cart item not found",

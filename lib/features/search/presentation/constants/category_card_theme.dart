@@ -15,17 +15,17 @@ class CategoryCardTheme {
   static EdgeInsets get cardPadding => ResponsiveConstants.mdEdgeInsets;
   static EdgeInsets get cardMargin => EdgeInsets.only(bottom: ResponsiveConstants.mdSpacing);
 
-  // Card shadows
+  // Card shadows (reduced for subtler elevation)
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.04),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
+      color: Colors.black.withValues(alpha: 0.03),
+      blurRadius: 6,
+      offset: const Offset(0, 1),
       spreadRadius: 0,
     ),
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.02),
-      blurRadius: 4,
+      color: Colors.black.withValues(alpha: 0.015),
+      blurRadius: 3,
       offset: const Offset(0, 1),
       spreadRadius: 0,
     ),

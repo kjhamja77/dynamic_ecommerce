@@ -104,6 +104,8 @@ class CartLineModel {
   final String productName;
   final String productImage;
   final double quantity;
+  /// Max quantity allowed for this line (stock available). From API when cart is loaded.
+  final int? quantityAvailable;
   final double priceUnit;
   final double priceSubtotal;
   final double priceTotal;
@@ -117,6 +119,7 @@ class CartLineModel {
     required this.productName,
     required this.productImage,
     required this.quantity,
+    this.quantityAvailable,
     required this.priceUnit,
     required this.priceSubtotal,
     required this.priceTotal,
@@ -126,12 +129,16 @@ class CartLineModel {
   });
 
   factory CartLineModel.fromApiJson(Map<String, dynamic> json) {
+    final qty = (json['quantity'] ?? 0.0).toDouble();
+    final available = json['quantity_available'] ?? json['max_quantity'] ?? json['stock_available'];
+    final quantityAvailable = available != null ? (available is int ? available : (available is num ? available.toInt() : int.tryParse(available.toString()))) : null;
     return CartLineModel(
       lineId: json['line_id'] ?? 0,
       productId: json['product_id'] ?? 0,
       productName: json['product_name'] ?? '',
       productImage: json['product_image'] ?? '',
-      quantity: (json['quantity'] ?? 0.0).toDouble(),
+      quantity: qty,
+      quantityAvailable: quantityAvailable,
       priceUnit: (json['price_unit'] ?? 0.0).toDouble(),
       priceSubtotal: (json['price_subtotal'] ?? 0.0).toDouble(),
       priceTotal: (json['price_total'] ?? 0.0).toDouble(),
@@ -150,6 +157,7 @@ class CartLineModel {
       'product_name': productName,
       'product_image': productImage,
       'quantity': quantity,
+      if (quantityAvailable != null) 'quantity_available': quantityAvailable,
       'price_unit': priceUnit,
       'price_subtotal': priceSubtotal,
       'price_total': priceTotal,

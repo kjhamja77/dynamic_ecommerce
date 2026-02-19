@@ -1847,6 +1847,18 @@
   "@addedToCartSuccessfully": {
     "description": "Success message when item is added to cart"
   },
+  "cartQuantityIncreased": "تم زيادة الكمية",
+  "@cartQuantityIncreased": {
+    "description": "Snackbar when cart item quantity is increased from product card"
+  },
+  "cartQuantityReduced": "تم تقليل كمية المنتج من السلة",
+  "@cartQuantityReduced": {
+    "description": "Snackbar when cart item quantity is reduced from product card"
+  },
+  "itemRemovedFromCart": "تم إزالة المنتج من السلة",
+  "@itemRemovedFromCart": {
+    "description": "Snackbar when item is removed from cart (delete)"
+  },
   
   "placeOrder": "تأكيد الطلب",
   "@placeOrder": {
@@ -2644,6 +2656,15 @@
   "failedToAddItemToCart": "فشل في إضافة العنصر إلى السلة",
   "@failedToAddItemToCart": {
     "description": "Add to cart error message"
+  },
+  "maxOrderLimitReached": "يمكنك طلب ما يصل إلى {max} من هذا المنتج. هذا هو الحد الأقصى.",
+  "@maxOrderLimitReached": {
+    "description": "Snackbar when cart quantity reaches stock limit",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
   },
   
   "cartItemNotFound": "عنصر السلة غير موجود",

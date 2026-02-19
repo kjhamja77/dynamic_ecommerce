@@ -100,16 +100,16 @@ class _ExpandableCategoryListWidgetState extends State<ExpandableCategoryListWid
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.08,
+                alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.04,
               ),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
               spreadRadius: 0,
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
               spreadRadius: 0,
             ),
           ],

@@ -51,8 +51,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   /// Get the max allowed quantity for a product (returns null if unknown)
   int? getMaxQuantity(String productId) => _maxQuantities[productId];
   
-  /// Check if increment is allowed - no restriction; send exact quantity, API validates.
-  bool canIncrement(String productId, int currentQuantity) => true;
+  /// Check if increment is allowed. When backend has set a max (e.g. stock limit), restrict.
+  bool canIncrement(String productId, int currentQuantity) {
+    final max = _maxQuantities[productId];
+    if (max == null) return true;
+    return currentQuantity < max;
+  }
 
   Future<void> _onLoadCart(LoadCart event, Emitter<CartState> emit) async {
     emit(CartLoading());
@@ -65,8 +69,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           for (final item in cartData.items) {
             debugPrint('CartBloc._onLoadCart: Item - product_id: ${item.product.id}, quantity: ${item.quantity}, product_name: ${item.product.name}');
           }
-          // Clear max quantities when cart is reloaded (stock may have changed)
-          _maxQuantities.clear();
+          _applyMaxQuantitiesFromCartResponse(cartData.response);
           emit(CartLoaded(cartData.items, cartResponse: cartData.response));
         },
       );
@@ -91,6 +94,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           for (final item in cartData.items) {
             debugPrint('CartBloc._onRefreshCart: Item - product_id: ${item.product.id}, quantity: ${item.quantity}, product_name: ${item.product.name}');
           }
+          _applyMaxQuantitiesFromCartResponse(cartData.response);
           emit(CartLoaded(cartData.items, cartResponse: cartData.response));
         },
       );
@@ -129,6 +133,25 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     }
     // Return original message if we can't parse it
     return errorMessage;
+  }
+
+  /// Current cart items and response from CartLoaded or CartStockError (so decrement/update work from any state).
+  (List<CartItem>, CartResponseModel?)? _currentCartItems(CartState s) {
+    if (s is CartLoaded) return (s.cartItems, s.cartResponse);
+    if (s is CartStockError) return (s.cartItems, s.cartResponse);
+    return null;
+  }
+
+  /// Populate max quantities from cart API response (quantity_available per line).
+  /// Used when loading/refreshing cart so product cards can disable increment at stock limit.
+  void _applyMaxQuantitiesFromCartResponse(CartResponseModel? response) {
+    if (response == null) return;
+    for (final line in response.lines) {
+      if (line.quantityAvailable != null) {
+        _maxQuantities[line.productId.toString()] = line.quantityAvailable!;
+        debugPrint('CartBloc: Set max quantity for product ${line.productId} to ${line.quantityAvailable} from cart response');
+      }
+    }
   }
 
   Future<void> _onAddItemToCart(AddItemToCart event, Emitter<CartState> emit) async {
@@ -247,39 +270,38 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   Future<void> _onRemoveItemFromCart(RemoveItemFromCart event, Emitter<CartState> emit) async {
     final currentState = state;
-    if (currentState is CartLoaded) {
-      // Optimistic update - remove item immediately from UI
-      final updatedCartItems = List<CartItem>.from(currentState.cartItems);
-      updatedCartItems.removeWhere((item) => item.product.id == event.cartItemId); // Compare product.id instead of item.id
-      emit(CartUpdating(
-        cartItems: updatedCartItems,
-        cartResponse: currentState.cartResponse,
-        updatingProductId: event.cartItemId,
-      ));
-      
-      try {
-        final result = await _removeFromCart(RemoveFromCartParams(cartItemId: event.cartItemId));
-        await result.fold(
-          (failure) async {
-            if (!emit.isDone) {
-              // Revert optimistic update on failure
-              emit(CartLoaded(currentState.cartItems, cartResponse: currentState.cartResponse));
-              emit(CartError(failure.message));
-            }
-          },
-          (_) async {
-            // Success - reload to sync totals/prices from server
-            if (!emit.isDone) {
-              await _reloadCart(emit);
-            }
-          },
-        );
-      } catch (e) {
-        if (!emit.isDone) {
-          // Revert optimistic update on error
-          emit(CartLoaded(currentState.cartItems));
-          emit(CartError('Failed to remove item from cart'));
-        }
+    final list = _currentCartItems(currentState);
+    if (list == null) return;
+    final cartItems = list.$1;
+    final cartResponse = list.$2;
+
+    // Optimistic update - remove item immediately from UI
+    final updatedCartItems = List<CartItem>.from(cartItems);
+    updatedCartItems.removeWhere((item) => item.product.id == event.cartItemId);
+    emit(CartUpdating(
+      cartItems: updatedCartItems,
+      cartResponse: cartResponse,
+      updatingProductId: event.cartItemId,
+    ));
+
+    try {
+      final result = await _removeFromCart(RemoveFromCartParams(cartItemId: event.cartItemId));
+      await result.fold(
+        (failure) async {
+          if (!emit.isDone) {
+            emit(CartLoaded(cartItems, cartResponse: cartResponse));
+            emit(CartError(failure.message));
+          }
+        },
+        (_) async {
+          _maxQuantities.remove(event.cartItemId);
+          if (!emit.isDone) await _reloadCart(emit);
+        },
+      );
+    } catch (e) {
+      if (!emit.isDone) {
+        emit(CartLoaded(cartItems, cartResponse: cartResponse));
+        emit(CartError('Failed to remove item from cart'));
       }
     }
   }
@@ -387,30 +409,60 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   Future<void> _onUpdateItemQuantity(UpdateItemQuantity event, Emitter<CartState> emit) async {
     final currentState = state;
-    if (currentState is CartLoaded) {
-      debugPrint('CartBloc: _onUpdateItemQuantity called');
-      debugPrint('CartBloc: event.cartItemId = ${event.cartItemId}');
-      debugPrint('CartBloc: event.quantity = ${event.quantity}');
-      
-      // Find the cart item to check current quantity
-      final cartItem = currentState.cartItems.firstWhere(
-        (item) => item.product.id == event.cartItemId,
-        orElse: () => throw Exception('Cart item not found'),
-      );
-      
-      // If increasing quantity, backend will validate stock
-      // If decreasing, no validation needed
-      if (event.quantity > cartItem.quantity) {
-        debugPrint('CartBloc: Increasing quantity from ${cartItem.quantity} to ${event.quantity} - backend will validate stock');
+    final list = _currentCartItems(currentState);
+    if (list == null) return;
+    final cartItems = list.$1;
+    final cartResponse = list.$2;
+
+    debugPrint('CartBloc: _onUpdateItemQuantity called');
+    debugPrint('CartBloc: event.cartItemId = ${event.cartItemId}');
+    debugPrint('CartBloc: event.quantity = ${event.quantity}');
+
+    final itemIndex = cartItems.indexWhere((item) => item.product.id == event.cartItemId);
+    if (itemIndex == -1) return;
+    final currentItem = cartItems[itemIndex];
+
+    if (event.quantity > currentItem.quantity) {
+      debugPrint('CartBloc: Increasing quantity from ${currentItem.quantity} to ${event.quantity} - backend will validate stock');
+    }
+
+    // Optimistic update so product card and cart UI show new quantity immediately
+    final updatedCartItems = cartItems.map<CartItem>((item) {
+      if (item.product.id == event.cartItemId) {
+        return item.copyWith(quantity: event.quantity);
       }
-      
-      // Per-item loading, keep old values rendered
-      emit(CartUpdating(
-        cartItems: currentState.cartItems,
-        cartResponse: currentState.cartResponse,
-        updatingProductId: event.cartItemId,
-      ));
-      try {
+      return item;
+    }).toList();
+    emit(CartUpdating(
+      cartItems: updatedCartItems,
+      cartResponse: cartResponse,
+      updatingProductId: event.cartItemId,
+    ));
+
+    final isDecrement = event.quantity < currentItem.quantity;
+    try {
+      if (isDecrement) {
+        // Decrement: use remove action (remove N) so backend does not re-validate stock and return "out of stock"
+        final quantityToRemove = currentItem.quantity - event.quantity;
+        final result = await _removeFromCartByQuantity(
+          RemoveFromCartByQuantityParams(
+            cartItemId: event.cartItemId,
+            quantity: quantityToRemove,
+          ),
+        );
+        await result.fold(
+          (failure) async {
+            if (!emit.isDone) {
+              emit(CartLoaded(cartItems, cartResponse: cartResponse));
+              emit(CartError(failure.message));
+            }
+          },
+          (_) async {
+            if (!emit.isDone) await _reloadCart(emit);
+          },
+        );
+      } else {
+        // Increment: use update action (set target quantity); backend validates stock
         final result = await _updateCartItemQuantity(
           UpdateCartItemQuantityParams(
             cartItemId: event.cartItemId,
@@ -420,52 +472,36 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         await result.fold(
           (failure) async {
             if (!emit.isDone) {
-              // For stock errors, emit CartStockError to show snackbar while keeping cart visible
               if (_isStockError(failure.message)) {
-                // Track that current quantity is max for this product
-                _maxQuantities[event.cartItemId] = cartItem.quantity;
-                debugPrint('CartBloc: Set max quantity for product ${event.cartItemId} to ${cartItem.quantity}');
-                
+                _maxQuantities[event.cartItemId] = currentItem.quantity;
+                debugPrint('CartBloc: Set max quantity for product ${event.cartItemId} to ${currentItem.quantity}');
                 final formattedMessage = _formatStockErrorMessage(failure.message);
-                // Emit CartStockError directly with current cart items (reverting optimistic update)
-                emit(CartStockError(formattedMessage, currentState.cartItems, currentState.cartResponse));
+                emit(CartStockError(formattedMessage, cartItems, cartResponse));
               } else {
-                // Revert optimistic update on failure for non-stock errors
-                emit(CartLoaded(currentState.cartItems, cartResponse: currentState.cartResponse));
-                final errorMessage = 'Failed to update quantity. ${failure.message}';
-                emit(CartError(errorMessage));
+                emit(CartLoaded(cartItems, cartResponse: cartResponse));
+                emit(CartError('Failed to update quantity. ${failure.message}'));
               }
             }
           },
           (_) async {
-            // Success - clear max quantity for this product (stock may have changed)
             _maxQuantities.remove(event.cartItemId);
             debugPrint('CartBloc: Cleared max quantity for product ${event.cartItemId} after successful update');
-            
-            if (!emit.isDone) {
-              await _reloadCart(emit);
-            }
+            if (!emit.isDone) await _reloadCart(emit);
           },
         );
-      } catch (e) {
-        if (!emit.isDone) {
-          final errorStr = e.toString();
-          
-          // Check if it's a stock error
-          if (_isStockError(errorStr)) {
-            // Track that current quantity is max for this product
-            _maxQuantities[event.cartItemId] = cartItem.quantity;
-            debugPrint('CartBloc: Set max quantity for product ${event.cartItemId} to ${cartItem.quantity}');
-            
-            final formattedMessage = _formatStockErrorMessage(errorStr);
-            // Emit CartStockError directly with current cart items (reverting optimistic update)
-            emit(CartStockError(formattedMessage, currentState.cartItems, currentState.cartResponse));
-          } else {
-            // Revert optimistic update on failure for non-stock errors
-            emit(CartLoaded(currentState.cartItems, cartResponse: currentState.cartResponse));
-            final errorMsg = 'Failed to update item quantity. Please check stock availability.';
-            emit(CartError(errorMsg));
-          }
+      }
+    } catch (e) {
+      if (!emit.isDone) {
+        final errorStr = e.toString();
+        if (_isStockError(errorStr) && !isDecrement) {
+          _maxQuantities[event.cartItemId] = currentItem.quantity;
+          debugPrint('CartBloc: Set max quantity for product ${event.cartItemId} to ${currentItem.quantity}');
+          emit(CartStockError(_formatStockErrorMessage(errorStr), cartItems, cartResponse));
+        } else {
+          emit(CartLoaded(cartItems, cartResponse: cartResponse));
+          emit(CartError(isDecrement
+              ? 'Failed to update quantity.'
+              : 'Failed to update item quantity. Please check stock availability.'));
         }
       }
     }

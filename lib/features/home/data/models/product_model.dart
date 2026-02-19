@@ -16,6 +16,7 @@ class ProductModel extends Product {
     required super.isAvailable,
     required super.sizes,
     required super.colors,
+    super.colorImages,
     required super.createdAt,
     super.materials,
     super.heelHeightCm,
@@ -116,6 +117,7 @@ class ProductModel extends Product {
       isAvailable: product.isAvailable,
       sizes: product.sizes,
       colors: product.colors,
+      colorImages: product.colorImages,
       createdAt: product.createdAt,
       materials: product.materials,
       heelHeightCm: product.heelHeightCm,
@@ -179,6 +181,13 @@ class ProductModel extends Product {
       isAvailable: json['is_available'] ?? json['in_stock'] ?? true,
       sizes: json['sizes'] != null ? List<String>.from(json['sizes']) : [],
       colors: json['colors'] != null ? List<String>.from(json['colors']) : [],
+      colorImages: json['color_images'] != null 
+          ? Map<String, List<String>>.from(
+              (json['color_images'] as Map).map(
+                (key, value) => MapEntry(key.toString(), List<String>.from(value)),
+              ),
+            )
+          : null,
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),

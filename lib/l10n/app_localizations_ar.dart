@@ -462,7 +462,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get itemAddedToCart => 'تم إضافة العنصر للسلة';
 
   @override
-  String get itemRemovedFromCart => 'تم حذف العنصر من السلة';
+  String get itemRemovedFromCart => 'تم إزالة المنتج من السلة';
 
   @override
   String get itemAddedToFavorites => 'تم إضافة العنصر للمفضلة';
@@ -1148,6 +1148,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addedToCartSuccessfully => 'تم إضافة العنصر للسلة بنجاح!';
 
   @override
+  String get cartQuantityIncreased => 'تم زيادة الكمية';
+
+  @override
+  String get cartQuantityReduced => 'تم تقليل كمية المنتج من السلة';
+
+  @override
   String get placeOrder => 'تأكيد الطلب';
 
   @override
@@ -1546,6 +1552,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get failedToAddItemToCart => 'فشل في إضافة العنصر إلى السلة';
+
+  @override
+  String maxOrderLimitReached(int max) {
+    return 'يمكنك طلب ما يصل إلى $max من هذا المنتج. هذا هو الحد الأقصى.';
+  }
 
   @override
   String get cartItemNotFound => 'عنصر السلة غير موجود';
