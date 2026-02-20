@@ -604,10 +604,10 @@ class ProductDetailsModel extends ProductDetails {
     }
     Map<String, dynamic>? colorAttr;
     for (final a in variantAttrs) {
-      if (a is Map) {
+      if (a != null && a is Map<String, dynamic>) {
         final n = (a['name'] ?? '').toString().toLowerCase();
         if (n == 'color' || n == 'colour' || n == 'اللون' || n == 'color name') {
-          colorAttr = a.cast<String, dynamic>();
+          colorAttr = a;
           break;
         }
       }
@@ -906,13 +906,31 @@ class ProductDetailsModel extends ProductDetails {
       // Parse related products
       List<RelatedProduct> _parseRelated(List<dynamic>? arr) {
         if (arr == null) return const [];
-        return arr.map((e) {
+        return arr
+            .where((e) => e != null && e is Map<String, dynamic>)
+            .map((e) {
           final m = e as Map<String, dynamic>;
           final img = (m['image'] as String?) ?? '';
           final imageUrl = img.startsWith('/') ? '${AppConstants.baseUrl}${img.substring(1)}' : img;
+          
+          // Parse brand - can be string or object with 'name' field
+          String brand = '';
+          final brandData = m['brand'];
+          if (brandData is String && brandData.isNotEmpty) {
+            brand = brandData;
+          } else if (brandData is Map) {
+            brand = (brandData['name'] ?? '').toString();
+          }
+          
+          // Fallback to "Unknown Brand" if brand is empty
+          if (brand.isEmpty) {
+            brand = 'Unknown Brand';
+          }
+          
           return RelatedProduct(
             id: (m['id'] ?? '').toString(),
             name: (m['name'] ?? '').toString(),
+            brand: brand,
             price: _parsePrice(m['price']),
             imageUrl: imageUrl,
             type: (m['type'] ?? 'template').toString(),
@@ -969,9 +987,13 @@ class ProductDetailsModel extends ProductDetails {
       alternativeProducts: _parseRelated(json['alternative_product_ids'] as List<dynamic>?),
       // Map raw variant combinations into entity models
       // Note: ProductDetails uses its own VariantCombination class (simpler version)
-      variantCombinations: (json['variant_combinations'] as List<dynamic>? ?? const []).map((v) {
+      variantCombinations: (json['variant_combinations'] as List<dynamic>? ?? const [])
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) {
         final mv = v as Map<String, dynamic>;
-        final attrs = (mv['attributes'] as List<dynamic>? ?? const []).map((a) {
+        final attrs = (mv['attributes'] as List<dynamic>? ?? const [])
+            .where((a) => a != null && a is Map<String, dynamic>)
+            .map((a) {
           final ma = a as Map<String, dynamic>;
           return VariantAttribute(
             attributeName: (ma['attribute_name'] ?? '').toString(),
@@ -1018,7 +1040,9 @@ class ProductDetailsModel extends ProductDetails {
       inStock: (json['in_stock'] ?? true) == true,
       selectedVariantQuantityAvailable: null, // Set by BLoC when variant is resolved
       // Parse product tags
-      tags: (json['product_tag_ids'] as List<dynamic>? ?? const []).map((tag) {
+      tags: (json['product_tag_ids'] as List<dynamic>? ?? const [])
+          .where((tag) => tag != null && tag is Map<String, dynamic>)
+          .map((tag) {
         final tagMap = tag as Map<String, dynamic>;
         return ProductTag(
           id: (tagMap['id'] ?? '').toString(),

@@ -1101,6 +1101,7 @@ class SizeOption extends Equatable {
 class RelatedProduct extends Equatable {
   final String id;
   final String name;
+  final String brand;
   final double price;
   final String imageUrl;
   final String type; // 'template' or 'variant'
@@ -1108,13 +1109,14 @@ class RelatedProduct extends Equatable {
   const RelatedProduct({
     required this.id,
     required this.name,
+    this.brand = '',
     required this.price,
     required this.imageUrl,
     required this.type,
   });
 
   @override
-  List<Object?> get props => [id, name, price, imageUrl, type];
+  List<Object?> get props => [id, name, brand, price, imageUrl, type];
 }
 
 class VariantCombination extends Equatable {

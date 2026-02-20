@@ -7,7 +7,6 @@ import '../bloc/product_details_bloc.dart';
 import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
 import '../widgets/dynamic_variant_selector.dart';
 import 'about_product_section.dart';
-import 'package:zalando_clone_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:zalando_clone_app/features/home/presentation/widgets/common/product_card.dart';
 import 'package:zalando_clone_app/features/home/domain/entities/product.dart'
     as HomeProduct;
@@ -442,81 +441,9 @@ class ProductInfoSection extends StatelessWidget {
             ],
             */
 
-            // Bottom spacing before recommendations
-            SizedBox(height: ResponsiveConstants.mdSpacing),
-
-            // Recommended Items (render only when available)
-            BlocBuilder<HomeBloc, HomeState>(
-              builder: (context, state) {
-                if (state is HomeLoaded) {
-                  final products = state.featuredProducts;
-                  debugPrint('recommended products in product details page ${products.length}');
-                  if (products.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-
-                  final cardWidth = ResponsiveConstants.productDetailsCardWidth;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResponsiveConstants.smPadding,
-                        ),
-                        child: Text(
-                          AppLocalizations.of(context)!.recommendedForYou,
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.mdFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: ResponsiveConstants.mdSpacing),
-                      SizedBox(
-                        height:
-                            ResponsiveConstants.productDetailsCompactListHeight,
-                        child: ListView.separated(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveConstants.smPadding,
-                          ),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: products.length,
-                          separatorBuilder: (_, __) => SizedBox(
-                            width:
-                                ResponsiveConstants.productDetailsGridSpacing,
-                          ),
-                          itemBuilder: (context, index) {
-                            final product = products[index];
-                            return SizedBox(
-                              width: cardWidth,
-                              height: ResponsiveConstants.productDetailsCompactListHeight,
-                              child: ProductCard(
-                                product: product,
-                                isCompact: true,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                if (state is HomeInitial || state is HomeLoading) {
-                  return const SizedBox.shrink();
-                }
-
-                if (state is HomeError) {
-                  return const SizedBox.shrink();
-                }
-
-                return const SizedBox.shrink();
-              },
-            ),
-
             // Optional products (horizontal list)
             if (productDetails.optionalProducts.isNotEmpty) ...[
+              SizedBox(height: ResponsiveConstants.mdSpacing),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResponsiveConstants.smPadding,
@@ -544,15 +471,7 @@ class ProductInfoSection extends StatelessWidget {
                   ),
                   itemBuilder: (context, index) {
                     final rp = productDetails.optionalProducts[index];
-                    final mapped = _mapRelatedToHomeProduct(
-                      RelatedProduct(
-                        id: rp.id,
-                        name: rp.name,
-                        price: rp.price,
-                        imageUrl: rp.imageUrl,
-                        type: 'template',
-                      ),
-                    );
+                    final mapped = _mapRelatedToHomeProduct(rp);
                     final cardWidth =
                         ResponsiveConstants.productDetailsCardWidth;
                     return SizedBox(
@@ -567,11 +486,11 @@ class ProductInfoSection extends StatelessWidget {
                   },
                 ),
               ),
-              SizedBox(height: ResponsiveConstants.mdSpacing),
             ],
 
             // Accessories (horizontal list)
             if (productDetails.accessoryProducts.isNotEmpty) ...[
+              SizedBox(height: ResponsiveConstants.mdSpacing),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResponsiveConstants.smPadding,
@@ -599,15 +518,7 @@ class ProductInfoSection extends StatelessWidget {
                   ),
                   itemBuilder: (context, index) {
                     final rp = productDetails.accessoryProducts[index];
-                    final mapped = _mapRelatedToHomeProduct(
-                      RelatedProduct(
-                        id: rp.id,
-                        name: rp.name,
-                        price: rp.price,
-                        imageUrl: rp.imageUrl,
-                        type: 'variant',
-                      ),
-                    );
+                    final mapped = _mapRelatedToHomeProduct(rp);
                     final cardWidth =
                         ResponsiveConstants.productDetailsCardWidth;
                     return SizedBox(
@@ -622,11 +533,11 @@ class ProductInfoSection extends StatelessWidget {
                   },
                 ),
               ),
-              SizedBox(height: ResponsiveConstants.mdSpacing),
             ],
 
             // Alternatives (horizontal list)
             if (productDetails.alternativeProducts.isNotEmpty) ...[
+              SizedBox(height: ResponsiveConstants.mdSpacing),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResponsiveConstants.smPadding,
@@ -654,19 +565,12 @@ class ProductInfoSection extends StatelessWidget {
                   ),
                   itemBuilder: (context, index) {
                     final rp = productDetails.alternativeProducts[index];
-                    final mapped = _mapRelatedToHomeProduct(
-                      RelatedProduct(
-                        id: rp.id,
-                        name: rp.name,
-                        price: rp.price,
-                        imageUrl: rp.imageUrl,
-                        type: 'template',
-                      ),
-                    );
+                    final mapped = _mapRelatedToHomeProduct(rp);
                     final cardWidth =
                         ResponsiveConstants.productDetailsCardWidth;
                     return SizedBox(
                       width: cardWidth,
+                      height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
                         productType: rp.type,
@@ -676,7 +580,6 @@ class ProductInfoSection extends StatelessWidget {
                   },
                 ),
               ),
-              SizedBox(height: ResponsiveConstants.mdSpacing),
             ],
 
             // Extra bottom spacing
@@ -688,6 +591,27 @@ class ProductInfoSection extends StatelessWidget {
   }
 
   // _sizeHint helper removed along with size recommendation UI
+}
+
+/// Helper function to map RelatedProduct to HomeProduct.Product for ProductCard
+HomeProduct.Product _mapRelatedToHomeProduct(RelatedProduct rp) {
+  return HomeProduct.Product(
+    id: rp.id,
+    name: rp.name,
+    description: '',
+    price: rp.price,
+    originalPrice: null,
+    images: rp.imageUrl.isNotEmpty ? [rp.imageUrl] : [],
+    category: '',
+    brand: rp.brand,
+    type: rp.type,
+    rating: 0,
+    reviewCount: 0,
+    isAvailable: true,
+    sizes: const [],
+    colors: const [],
+    createdAt: DateTime.now(),
+  );
 }
 
 /// Dynamic variant attributes section that uses attribute_id and value_id
@@ -1305,27 +1229,6 @@ class _StockBadge extends StatelessWidget {
       },
     );
   }
-}
-
-HomeProduct.Product _mapRelatedToHomeProduct(RelatedProduct rp) {
-  return HomeProduct.Product(
-    id: rp.id,
-    name: rp.name,
-    description: '',
-    price: rp.price,
-    originalPrice: null,
-    images: rp.imageUrl.isNotEmpty ? [rp.imageUrl] : [],
-    category: 'Recommended',
-    brand: '',
-    // Regardless of related type, ensure we open the variant API for better detail resolution
-    type: 'variant',
-    rating: 0,
-    reviewCount: 0,
-    isAvailable: true,
-    sizes: const [],
-    colors: const [],
-    createdAt: DateTime.now(),
-  );
 }
 
 class _ExpandableSection extends StatefulWidget {

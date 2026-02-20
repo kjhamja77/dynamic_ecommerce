@@ -20,7 +20,6 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../cart/presentation/widgets/cart_button_with_badge.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
-import '../../../home/presentation/bloc/home_bloc.dart';
 import '../../../../core/services/app_localization_service.dart';
 import '../../../../core/services/language_service.dart';
 
@@ -75,12 +74,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
       // Load product details with current language
       context.read<ProductDetailsBloc>().add(LoadProductDetails(widget.productId, productType: widget.productType));
-
-      // Ensure recommended products are loaded so "Recommended for you" shows every time (not only after language change)
-      final homeState = context.read<HomeBloc>().state;
-      if (homeState is! HomeLoaded || homeState.featuredProducts.isEmpty) {
-        context.read<HomeBloc>().add(LoadFeaturedProducts());
-      }
 
       final cartState = context.read<CartBloc>().state;
       if (cartState is! CartLoaded && cartState is! CartUpdating) {
