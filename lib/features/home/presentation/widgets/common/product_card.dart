@@ -311,27 +311,24 @@ class ProductCard extends StatelessWidget {
 
               SizedBox(height: verticalSpacing),
 
-              // Product name (description) - Flexible to prevent overflow
-              Flexible(
-                fit: FlexFit.loose,
-                child: Directionality(
-                  textDirection: nameTextDirection,
-                  child: Text(
-                    _getCleanProductName(product.name),
-                    style: AppFonts.getTextStyle(
-                      fontSize: _getResponsiveProductNameFontSize(),
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
-                      height: isConstrained ? 1.1 : 1.2,
-                    ),
-                    maxLines: isHorizontal ? 1 : 2, // Single line for horizontal, 2 for vertical
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: nameTextDirection == TextDirection.rtl
-                        ? TextAlign.right
-                        : TextAlign.left,
+              // Product name (description)
+              Directionality(
+                textDirection: nameTextDirection,
+                child: Text(
+                  _getCleanProductName(product.name),
+                  style: AppFonts.getTextStyle(
+                    fontSize: _getResponsiveProductNameFontSize(),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                    height: isConstrained ? 1.1 : 1.2,
                   ),
+                  maxLines: isHorizontal ? 1 : 2, // Single line for horizontal, 2 for vertical
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: nameTextDirection == TextDirection.rtl
+                      ? TextAlign.right
+                      : TextAlign.left,
                 ),
               ),
 
@@ -365,7 +362,6 @@ class ProductCard extends StatelessWidget {
               // Cart quantity button below price (product info section)
               // Hide in horizontal layout (horizontal lists)
               if (!isHorizontal) ...[
-                SizedBox(height: 5),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Directionality(
@@ -723,47 +719,22 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
                         size: ResponsiveConstants.lgIconSize,
                       ),
                     )
-                  : PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) => setState(() => _currentPage = index),
-                      itemCount: imageCount,
-                      itemBuilder: (context, index) => _ProductImageLoader(
-                        imageUrl: product.images[index],
-                      ),
-                    ),
+                  : widget.isHorizontal
+                      ? _ProductImageLoader(imageUrl: product.images.first)
+                      : PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (index) => setState(() => _currentPage = index),
+                          itemCount: imageCount,
+                          itemBuilder: (context, index) => _ProductImageLoader(
+                            imageUrl: product.images[index],
+                          ),
+                        ),
             ),
           ),
         ),
 
-        // Carousel dot indicators
-        // Position on bottom center for horizontal layout, bottom center for vertical layout
-        if (widget.isHorizontal)
-          // Horizontal layout: indicators at bottom center (horizontal row, centered)
-          // Positioned lower on the card
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 20, // Moved down from 40 for better positioning
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(imageCount, (index) {
-                final selected = index == _currentPage;
-                return Container(
-                  margin: EdgeInsets.symmetric(horizontal: _carouselDotSpacing / 2),
-                  width: _carouselDotSize,
-                  height: _carouselDotSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected
-                        ? colorScheme.onSurface
-                        : colorScheme.onSurface.withValues(alpha: 0.3),
-                  ),
-                );
-              }),
-            ),
-          )
-        else
-          // Vertical layout: indicators at bottom center (horizontal row)
+        // Carousel dot indicators - only for vertical layout (hidden in horizontal list)
+        if (!widget.isHorizontal && showDots)
           Positioned(
             left: 0,
             right: 0,
