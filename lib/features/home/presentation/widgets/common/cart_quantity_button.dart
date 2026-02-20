@@ -447,7 +447,7 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.shopping_cart_rounded,
+              Icons.shopping_cart_outlined,
               color: _operatorOrange,
               size: 16.w,
             ),
