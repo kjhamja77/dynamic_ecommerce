@@ -16,16 +16,20 @@ class OrderStatusHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       width: double.infinity,
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.2 : 0.06,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -50,6 +54,7 @@ class OrderStatusHeader extends StatelessWidget {
 
   Widget _buildDeliveryStatusRow(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final deliveryStatus = order.deliveryStatus!;
     final color = OrderConstants.getDeliveryStatusColor(deliveryStatus);
     final icon = OrderConstants.getDeliveryStatusIcon(deliveryStatus);
@@ -78,7 +83,7 @@ class OrderStatusHeader extends StatelessWidget {
                 loc.deliveryStatus,
                 style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
@@ -99,10 +104,10 @@ class OrderStatusHeader extends StatelessWidget {
 
   Widget _buildStatusRow(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final statusKey = order.status.name;
-    final color = OrderConstants.statusColors[statusKey] ?? Colors.grey;
+    final color = OrderConstants.statusColors[statusKey] ?? colorScheme.outline;
     final icon = OrderConstants.statusIcons[statusKey] ?? Icons.info_outline;
-    // Always use localized status for translation
     final text = OrderConstants.localizedStatus(context, order.status);
 
     return Row(
@@ -128,7 +133,7 @@ class OrderStatusHeader extends StatelessWidget {
                 loc.orderStatus,
                 style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
@@ -147,8 +152,9 @@ class OrderStatusHeader extends StatelessWidget {
 
   Widget _buildPaymentStatusRow(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final paymentStatusKey = order.paymentStatus.name;
-    final color = OrderConstants.paymentStatusColors[paymentStatusKey] ?? Colors.grey;
+    final color = OrderConstants.paymentStatusColors[paymentStatusKey] ?? colorScheme.outline;
     final icon = OrderConstants.paymentStatusIcons[paymentStatusKey] ?? Icons.info_outline;
     final text = OrderConstants.localizedPaymentStatus(context, order.paymentStatus);
 
@@ -175,7 +181,7 @@ class OrderStatusHeader extends StatelessWidget {
                 loc.paymentStatus,
                 style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
@@ -194,13 +200,14 @@ class OrderStatusHeader extends StatelessWidget {
 
   Widget _buildOrderDateRow(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final formatted = OrderDateUtils.formatDate(context, order.orderDate);
 
     return Row(
       children: [
         Icon(
           Icons.calendar_today_outlined,
-          color: Colors.grey.shade600,
+          color: colorScheme.onSurfaceVariant,
           size: ResponsiveConstants.smIconSize,
         ),
         SizedBox(width: ResponsiveConstants.smSpacing),
@@ -208,7 +215,7 @@ class OrderStatusHeader extends StatelessWidget {
           child: Text(
             loc.orderPlacedOn(formatted),
             style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-              color: Colors.grey.shade600,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ),

@@ -77,7 +77,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
             tax: cartLoaded.taxAmount,
             discount: 0.0, // No discount initially
             total: cartLoaded.total,
-            totalItems: cartLoaded.totalItems,
+            totalItems: cartLoaded.uniqueItemsCount, // Number of line items, not sum of quantities
           );
         } else {
           // Fallback calculation using cart items
@@ -89,10 +89,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
           final tax = subtotal * 0.08; // Estimate 8% tax
           final discount = 0.0;
           final total = subtotal + shipping + tax - discount;
-          final totalItems = checkoutItems.where((item) => item.isSelected).fold<int>(
-            0,
-            (sum, item) => sum + item.cartItem.quantity,
-          );
+          // Number of distinct line items (products), not sum of quantities
+          final totalItems = checkoutItems.where((item) => item.isSelected).length;
 
           checkoutSummary = CheckoutSummary(
             subtotal: subtotal,
@@ -251,11 +249,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
         0.0,
         (sum, item) => sum + (item.cartItem.totalPrice * (item.isSelected ? 1 : 0)),
       );
-      final totalItems = updatedItems.where((item) => item.isSelected).fold<int>(
-        0,
-        (sum, item) => sum + item.cartItem.quantity,
-      );
-      
+      final totalItems = updatedItems.where((item) => item.isSelected).length;
+
       emit(currentState.copyWith(
         items: updatedItems,
         summary: currentState.summary.copyWith(
@@ -286,11 +281,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
         0.0,
         (sum, item) => sum + (item.cartItem.totalPrice * (item.isSelected ? 1 : 0)),
       );
-      final totalItems = updatedItems.where((item) => item.isSelected).fold<int>(
-        0,
-        (sum, item) => sum + item.cartItem.quantity,
-      );
-      
+      final totalItems = updatedItems.where((item) => item.isSelected).length;
+
       emit(currentState.copyWith(
         items: updatedItems,
         summary: currentState.summary.copyWith(

@@ -20,12 +20,12 @@ class OrderActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
       child: Column(
         children: [
-          // Track order button (if tracking URL available)
           if (order.trackingPage != null && order.trackingPage!.isNotEmpty) ...[
             SizedBox(
               width: double.infinity,
@@ -35,7 +35,7 @@ class OrderActionButtons extends StatelessWidget {
                   await _openTrackingPage(context);
                 },
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.black),
+                  side: BorderSide(color: colorScheme.onSurface),
                   padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.mdPadding),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -45,24 +45,23 @@ class OrderActionButtons extends StatelessWidget {
                   loc.trackYourOrder,
                   style: AppFonts.getTextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
             ),
             SizedBox(height: ResponsiveConstants.smSpacing),
           ],
-
           if (order.canBeCancelled) ...[
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () async {
-          await HapticService.buttonClick();
-          _showCancelOrderDialog(context);
-        },
+                  await HapticService.buttonClick();
+                  _showCancelOrderDialog(context);
+                },
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.red),
+                  side: BorderSide(color: colorScheme.error),
                   padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.mdPadding),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -70,7 +69,8 @@ class OrderActionButtons extends StatelessWidget {
                 ),
                 child: Text(
                   loc.cancelOrder,
-                  style: AppFonts.getTextStyle(color: Colors.red,
+                  style: AppFonts.getTextStyle(
+                    color: colorScheme.error,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -78,17 +78,16 @@ class OrderActionButtons extends StatelessWidget {
             ),
             SizedBox(height: ResponsiveConstants.smSpacing),
           ],
-          
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
-        },
+                await HapticService.buttonClick();
+                Navigator.of(context).pop();
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
                 padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.mdPadding),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -96,7 +95,10 @@ class OrderActionButtons extends StatelessWidget {
               ),
               child: Text(
                 loc.backToOrders,
-                style: AppFonts.getTextStyle(fontWeight: FontWeight.w600),
+                style: AppFonts.getTextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimary,
+                ),
               ),
             ),
           ),
@@ -196,24 +198,26 @@ class OrderActionButtons extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
-        },
+              await HapticService.buttonClick();
+              Navigator.of(context).pop();
+            },
             child: Text(
               loc.keepOrder,
-              style: AppFonts.getTextStyle(color: Colors.grey.shade600),
+              style: AppFonts.getTextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           ElevatedButton(
             onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
+              await HapticService.buttonClick();
+              Navigator.of(context).pop();
               context.read<OrdersBloc>().add(CancelOrderEvent(order.id));
               Navigator.of(context).pop();
-        },
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             child: Text(
               loc.confirmCancelOrder,

@@ -391,7 +391,12 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
   }
 
   /// Starting stage: rounded button with plus only, light fill, subtle shadow.
+  /// Icon uses a dark color so the plus is visible on the light button in dark mode.
   Widget _buildInitialButton(BuildContext context, ColorScheme colorScheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark
+        ? Colors.black87
+        : colorScheme.onSurface.withValues(alpha: 0.6);
     return GestureDetector(
       key: const ValueKey<String>('initial'),
       onTap: _addToCart,
@@ -412,7 +417,7 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
         ),
         child: Icon(
           Icons.add,
-          color: colorScheme.onSurface.withValues(alpha: 0.6),
+          color: iconColor,
           size: 18.w,
         ),
       ),
@@ -508,7 +513,7 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
               ),
             ),
           ),
-          // Center: quantity or small loader while updating
+          // Center: quantity or small loader while updating (dark text on light bar for visibility in dark mode)
           Container(
             height: 28.h,
             constraints: BoxConstraints(minWidth: 28.w),
@@ -529,7 +534,9 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.smFontSize,
                       fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black87
+                          : colorScheme.onSurface,
                     ),
                   ),
           ),

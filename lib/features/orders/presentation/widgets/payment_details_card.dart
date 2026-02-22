@@ -27,16 +27,20 @@ class PaymentDetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Container(
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.2 : 0.06,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -50,7 +54,7 @@ class PaymentDetailsCard extends StatelessWidget {
             children: [
               if (!isRTL) Icon(
                 Icons.payment_outlined,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
                 size: ResponsiveConstants.mdIconSize,
               ),
               if (!isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
@@ -59,13 +63,13 @@ class PaymentDetailsCard extends StatelessWidget {
                 textAlign: isRTL ? TextAlign.right : TextAlign.left,
                 style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: colorScheme.onSurface,
                 ),
               ),
               if (isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
               if (isRTL) Icon(
                 Icons.payment_outlined,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
                 size: ResponsiveConstants.mdIconSize,
               ),
             ],
@@ -180,6 +184,7 @@ class PaymentDetailsCard extends StatelessWidget {
 
   Widget _buildInfoRow(BuildContext context, String label, String value) {
     final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.xsSpacing),
       child: Row(
@@ -193,7 +198,7 @@ class PaymentDetailsCard extends StatelessWidget {
               textAlign: isRTL ? TextAlign.right : TextAlign.left,
               style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -203,7 +208,7 @@ class PaymentDetailsCard extends StatelessWidget {
               textAlign: isRTL ? TextAlign.right : TextAlign.left,
               style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
               ),
             ),
           ),

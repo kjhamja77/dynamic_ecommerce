@@ -21,11 +21,9 @@ class CheckoutUtils {
         : 0.0;
     
     final total = subtotal + shipping + tax - discount;
-    
-    final totalItems = items.where((item) => item.isSelected).fold<int>(
-      0, 
-      (sum, item) => sum + item.cartItem.quantity
-    );
+
+    // Number of distinct line items (products), not sum of quantities
+    final totalItems = items.where((item) => item.isSelected).length;
 
     return CheckoutSummary(
       subtotal: subtotal,

@@ -20,6 +20,7 @@ class OrderHelpButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
+    final colorScheme = Theme.of(context).colorScheme;
     return FloatingActionButton.extended(
       onPressed: () async {
         await HapticService.buttonClick();
@@ -31,10 +32,11 @@ class OrderHelpButton extends StatelessWidget {
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.mdFontSize,
           fontWeight: FontWeight.w600,
+          color: colorScheme.onPrimary,
         ),
       ),
       backgroundColor: OrderConstants.primaryColor,
-      foregroundColor: Colors.white,
+      foregroundColor: colorScheme.onPrimary,
       elevation: 4,
     );
   }
@@ -85,14 +87,14 @@ class OrderHelpButton extends StatelessWidget {
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.lgFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         Text(
                           loc.orderNumberWithValue(order.orderNumber),
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.smFontSize,
-                            color: Colors.grey.shade600,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -240,10 +242,11 @@ class OrderHelpButton extends StatelessWidget {
   }
 
   void _showError(BuildContext context, String message) {
+    final colorScheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -269,15 +272,16 @@ class _HelpOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
       child: Container(
         padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
         ),
         child: Row(
           children: [
@@ -300,17 +304,15 @@ class _HelpOption extends StatelessWidget {
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.mdFontSize,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   SizedBox(height: ResponsiveConstants.xsSpacing / 2),
-                  // Force phone numbers to be LTR
                   Builder(
                     builder: (context) {
-                      // Check if subtitle looks like a phone number (contains + or starts with digits)
-                      final isPhoneNumber = icon == Icons.phone_outlined || 
-                                          subtitle.trim().startsWith('+') ||
-                                          (RegExp(r'^[\d\+\-\(\)\s]+$').hasMatch(subtitle.trim()) && subtitle.trim().length >= 7);
+                      final isPhoneNumber = icon == Icons.phone_outlined ||
+                          subtitle.trim().startsWith('+') ||
+                          (RegExp(r'^[\d\+\-\(\)\s]+$').hasMatch(subtitle.trim()) && subtitle.trim().length >= 7);
                       if (isPhoneNumber) {
                         return Directionality(
                           textDirection: TextDirection.ltr,
@@ -318,7 +320,7 @@ class _HelpOption extends StatelessWidget {
                             subtitle,
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.smFontSize,
-                              color: Colors.grey.shade600,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         );
@@ -327,7 +329,7 @@ class _HelpOption extends StatelessWidget {
                         subtitle,
                         style: AppFonts.getTextStyle(
                           fontSize: ResponsiveConstants.smFontSize,
-                          color: Colors.grey.shade600,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       );
                     },
@@ -338,7 +340,7 @@ class _HelpOption extends StatelessWidget {
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: Colors.grey.shade400,
+              color: colorScheme.onSurfaceVariant,
             ),
           ],
         ),

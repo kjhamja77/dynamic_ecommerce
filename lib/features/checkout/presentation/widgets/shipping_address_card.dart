@@ -31,19 +31,16 @@ class ShippingAddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayTitle = address.city.isNotEmpty 
-        ? address.city 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final displayTitle = address.city.isNotEmpty
+        ? address.city
         : (address.state.isNotEmpty ? address.state : AppLocalizations.of(context)!.address);
     final hasAddressDetails = address.fullAddress.trim().isNotEmpty;
 
-    // Determine tap behavior:
-    // - If only address: disable tap (always selected, can't unselect)
-    // - If incomplete: always go to edit
-    // - If complete: select address
     final VoidCallback? cardTapHandler = isOnlyAddress ? null : (_isIncomplete ? onEdit : onTap);
-    
-    // Force selection state if it's the only address
     final effectiveIsSelected = isOnlyAddress ? true : isSelected;
+    final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -51,17 +48,17 @@ class ShippingAddressCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: effectiveIsSelected 
-                ? CheckoutConstants.primaryColor 
-                : (_isIncomplete ? Colors.orange.shade300 : Colors.grey.shade200),
+            color: effectiveIsSelected
+                ? CheckoutConstants.primaryColor
+                : (_isIncomplete ? Colors.orange.shade300 : colorScheme.outline.withValues(alpha: 0.5)),
             width: effectiveIsSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: colorScheme.shadow.withValues(alpha: shadowAlpha),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -69,30 +66,26 @@ class ShippingAddressCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Selection indicator
             Container(
               width: 20.w,
               height: 20.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: effectiveIsSelected ? CheckoutConstants.primaryColor : Colors.grey.shade400,
-                width: 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: effectiveIsSelected ? CheckoutConstants.primaryColor : colorScheme.outline,
+                  width: 2,
+                ),
+                color: effectiveIsSelected ? CheckoutConstants.primaryColor : Colors.transparent,
               ),
-              color: effectiveIsSelected ? CheckoutConstants.primaryColor : Colors.transparent,
-            ),
               child: effectiveIsSelected
                   ? Icon(
                       Icons.check,
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                       size: 12.w,
                     )
                   : null,
             ),
-            
             SizedBox(width: ResponsiveConstants.mdSpacing),
-            
-            // Address details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,11 +95,11 @@ class ShippingAddressCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           displayTitle,
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.mdFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                          style: AppFonts.getTextStyle(
+                            fontSize: ResponsiveConstants.mdFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
                       // Incomplete warning badge

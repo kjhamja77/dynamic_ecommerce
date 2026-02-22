@@ -19,20 +19,23 @@ class PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: isSelected ? CheckoutConstants.primaryColor : Colors.grey.shade200,
+            color: isSelected ? CheckoutConstants.primaryColor : colorScheme.outline.withValues(alpha: 0.5),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: colorScheme.shadow.withValues(alpha: shadowAlpha),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -40,35 +43,28 @@ class PaymentMethodCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Selection indicator
             Container(
               width: 20.w,
               height: 20.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? CheckoutConstants.primaryColor : Colors.grey.shade400,
-                width: 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? CheckoutConstants.primaryColor : colorScheme.outline,
+                  width: 2,
+                ),
+                color: isSelected ? CheckoutConstants.primaryColor : Colors.transparent,
               ),
-              color: isSelected ? CheckoutConstants.primaryColor : Colors.transparent,
-            ),
               child: isSelected
                   ? Icon(
                       Icons.check,
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                       size: 12.w,
                     )
                   : null,
             ),
-            
             SizedBox(width: ResponsiveConstants.mdSpacing),
-            
-            // Payment method icon
             _buildPaymentIcon(),
-            
             SizedBox(width: ResponsiveConstants.mdSpacing),
-            
-            // Payment method details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,7 +74,7 @@ class PaymentMethodCard extends StatelessWidget {
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.mdFontSize,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   SizedBox(height: 4.h),
@@ -86,14 +82,12 @@ class PaymentMethodCard extends StatelessWidget {
                     method.displayName,
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.smFontSize,
-                      color: Colors.grey.shade700,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
-            
-            // Default badge
             if (method.isDefault)
               Container(
                 padding: EdgeInsets.symmetric(
@@ -107,7 +101,7 @@ class PaymentMethodCard extends StatelessWidget {
                 child: Text(
                   'افتراضي',
                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.xsFontSize,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

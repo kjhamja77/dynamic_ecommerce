@@ -87,7 +87,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final shipping = checkoutState.summary.shipping; // Preserve shipping if set
       final discount = checkoutState.summary.discount; // Preserve discount if set
       final total = cartState.total;
-      final totalItems = cartState.totalItems;
+      // Total Items = number of distinct line items (products), not sum of quantities
+      final totalItems = cartState.uniqueItemsCount;
 
       checkoutSummary = CheckoutSummary(
         subtotal: subtotal,
@@ -108,10 +109,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final tax = subtotal * 0.08;
       final discount = checkoutState.summary.discount;
     final total = subtotal + shipping + tax - discount;
-    final totalItems = checkoutItems.where((item) => item.isSelected).fold<int>(
-      0, 
-      (sum, item) => sum + item.cartItem.quantity
-    );
+    // Total Items = number of distinct line items (products), not sum of quantities
+    final totalItems = checkoutItems.where((item) => item.isSelected).length;
 
     checkoutSummary = CheckoutSummary(
       subtotal: subtotal,
@@ -254,7 +253,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               checkoutState.message,
                               style: AppFonts.getTextStyle(
                                 fontSize: ResponsiveConstants.mdFontSize,
-                                color: Colors.black87,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -264,10 +263,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             onPressed: () {
                               final cartBloc = context.read<CartBloc>();
                               final cartState = cartBloc.state;
-                              final cartItems = cartState is CartLoaded 
-                                  ? cartState.cartItems 
-                                  : (cartState is CartUpdating 
-                                      ? cartState.cartItems 
+                              final cartItems = cartState is CartLoaded
+                                  ? cartState.cartItems
+                                  : (cartState is CartUpdating
+                                      ? cartState.cartItems
                                       : widget.cartItems);
                               context.read<CheckoutBloc>().add(LoadCheckout(
                                 cartItems: cartItems,
@@ -276,7 +275,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: CheckoutConstants.primaryColor,
-                              foregroundColor: Colors.white,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
                             ),
                             child: Text(AppLocalizations.of(context)!.retry),
                           ),
@@ -314,8 +313,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       (isLoadingPhase || currentLoadedState == null);
 
                   if (showGlobalLoading) {
+                    final colorScheme = Theme.of(context).colorScheme;
                     return Scaffold(
-                      backgroundColor: Colors.grey.shade50,
+                      backgroundColor: colorScheme.surfaceContainerLowest,
                       appBar: _buildAppBar(context),
                       body: _buildFullPageShimmer(),
                     );
@@ -329,16 +329,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   
                   // Only show shimmer if we truly have no state (shouldn't happen after initial load)
                   if (currentLoadedState == null) {
+                    final colorScheme = Theme.of(context).colorScheme;
                     return Scaffold(
-                      backgroundColor: Colors.grey.shade50,
+                      backgroundColor: colorScheme.surfaceContainerLowest,
                       appBar: _buildAppBar(context),
                       body: _buildFullPageShimmer(),
                     );
                   }
-                  
-                  // Build content with all required BLoC states
+                  final colorScheme = Theme.of(context).colorScheme;
                   return Scaffold(
-                    backgroundColor: Colors.grey.shade50,
+                    backgroundColor: colorScheme.surfaceContainerLowest,
                     appBar: _buildAppBar(context),
                     body: BlocBuilder<CartBloc, CartState>(
                       builder: (cartContext, cartState) {
@@ -374,13 +374,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       elevation: 0,
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios,
-          color: Colors.black87,
+          color: colorScheme.onSurface,
           size: ResponsiveConstants.mdIconSize,
         ),
         onPressed: () => Navigator.of(context).pop(),
@@ -390,7 +391,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.lgFontSize,
           fontWeight: FontWeight.w600,
-          color: Colors.black87,
+          color: colorScheme.onSurface,
         ),
       ),
       centerTitle: true,
@@ -430,107 +431,109 @@ class _CheckoutPageState extends State<CheckoutPage> {
           
           SizedBox(height: ResponsiveConstants.mdSpacing),
           
-          // Shipping Method Card
-          Container(
-            padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(AppLocalizations.of(blocContext)!.shipping, Icons.local_shipping),
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-                _buildShippingSection(blocContext, cartState, checkoutState, rawCheckoutState),
-              ],
-            ),
+          Builder(
+            builder: (ctx) {
+              final theme = Theme.of(ctx);
+              final cs = theme.colorScheme;
+              final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.shadow.withValues(alpha: shadowAlpha),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(blocContext, AppLocalizations.of(blocContext)!.shipping, Icons.local_shipping),
+                        SizedBox(height: ResponsiveConstants.mdSpacing),
+                        _buildShippingSection(blocContext, cartState, checkoutState, rawCheckoutState),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  Container(
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.shadow.withValues(alpha: shadowAlpha),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildAddressSectionHeader(blocContext),
+                        SizedBox(height: ResponsiveConstants.mdSpacing),
+                        _buildAddressSection(addressState, blocContext, checkoutState),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  Container(
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.shadow.withValues(alpha: shadowAlpha),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(blocContext, AppLocalizations.of(blocContext)!.paymentMethod, Icons.payment),
+                        SizedBox(height: ResponsiveConstants.mdSpacing),
+                        checkoutState.paymentMethods.isEmpty
+                            ? _buildPaymentShimmerList()
+                            : Column(
+                                children: checkoutState.paymentMethods.map((method) =>
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
+                                    child: PaymentMethodCard(
+                                      method: method,
+                                      isSelected: method.id == checkoutState.selectedPaymentMethodId,
+                                      onTap: () => _handlePaymentMethodSelection(blocContext, method, orderId, checkoutState),
+                                    ),
+                                  ),
+                                ).toList(),
+                              ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  _buildPlaceOrderButton(blocContext, addressState, cartState, checkoutState, orderId),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                ],
+              );
+            },
           ),
-          
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          
-          // Shipping Address Card
-          Container(
-            padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAddressSectionHeader(blocContext),
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-                _buildAddressSection(addressState, blocContext, checkoutState),
-              ],
-            ),
-          ),
-          
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          
-          // Payment Method Card
-          Container(
-            padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(AppLocalizations.of(blocContext)!.paymentMethod, Icons.payment),
-                SizedBox(height: ResponsiveConstants.mdSpacing),
-                checkoutState.paymentMethods.isEmpty
-                    ? _buildPaymentShimmerList()
-                    : Column(
-                        children: checkoutState.paymentMethods.map((method) => 
-                          Padding(
-                            padding: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
-                            child: PaymentMethodCard(
-                method: method,
-                              isSelected: method.id == checkoutState.selectedPaymentMethodId,
-                              onTap: () => _handlePaymentMethodSelection(blocContext, method, orderId, checkoutState),
-                            ),
-                          ),
-                        ).toList(),
-                      ),
-              ],
-              ),
-            ),
-          
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          
-          // Place Order Button
-          _buildPlaceOrderButton(blocContext, addressState, cartState, checkoutState, orderId),
-          
-          SizedBox(height: ResponsiveConstants.mdSpacing),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
@@ -540,10 +543,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
           ),
           child: Icon(
-          icon,
-          color: CheckoutConstants.primaryColor,
-          size: ResponsiveConstants.mdIconSize,
-        ),
+            icon,
+            color: CheckoutConstants.primaryColor,
+            size: ResponsiveConstants.mdIconSize,
+          ),
         ),
         SizedBox(width: ResponsiveConstants.mdSpacing),
         Text(
@@ -551,7 +554,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           style: AppFonts.getTextStyle(
             fontSize: ResponsiveConstants.lgFontSize,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: colorScheme.onSurface,
           ),
         ),
       ],
@@ -580,7 +583,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.lgFontSize,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
@@ -1314,85 +1317,88 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ));
               checkoutBloc.add(ApplyShippingMethod(orderId: orderId, shippingMethodId: id));
             },
-            child: Container(
-              margin: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
-              padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-              decoration: BoxDecoration(
-                color: isSelected ? CheckoutConstants.primaryColor : Colors.white,
-              borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                border: Border.all(
-                  color: isSelected ? CheckoutConstants.primaryColor : Colors.grey.shade300,
-                width: isSelected ? 2 : 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: CheckoutConstants.primaryColor.withOpacity(0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? Colors.white : Colors.grey.shade400,
-                        width: 2,
-                      ),
-                      color: isSelected ? Colors.white : Colors.transparent,
+            child: Builder(
+              builder: (ctx) {
+                final cs = Theme.of(ctx).colorScheme;
+                return Container(
+                  margin: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
+                  padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                  decoration: BoxDecoration(
+                    color: isSelected ? CheckoutConstants.primaryColor : cs.surface,
+                    borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                    border: Border.all(
+                      color: isSelected ? CheckoutConstants.primaryColor : cs.outline.withValues(alpha: 0.5),
+                      width: isSelected ? 2 : 1.5,
                     ),
-                    child: Center(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 12,
-                        height: 12,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isSelected ? CheckoutConstants.primaryColor : cs.shadow).withValues(alpha: isSelected ? 0.2 : 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isSelected
-                              ? CheckoutConstants.primaryColor
-                              : Colors.transparent,
+                          border: Border.all(
+                            color: isSelected ? cs.onPrimary : cs.outline,
+                            width: 2,
+                          ),
+                          color: isSelected ? cs.onPrimary : Colors.transparent,
+                        ),
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSelected ? CheckoutConstants.primaryColor : Colors.transparent,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  SizedBox(width: ResponsiveConstants.smSpacing),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.mdFontSize,
-                            fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.white : Colors.black87,
-                          ),
+                      SizedBox(width: ResponsiveConstants.smSpacing),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.mdFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? cs.onPrimary : cs.onSurface,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              AppLocalizations.of(blocContext)!.shipping,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.xsFontSize,
+                                color: isSelected ? cs.onPrimary.withValues(alpha: 0.9) : cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                        AppLocalizations.of(blocContext)!.shipping,
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.xsFontSize,
-                          color: isSelected ? Colors.white.withOpacity(0.9) : Colors.grey.shade700,
-                          ),
+                      ),
+                      Text(
+                        currency.formatPrice(price.toDouble(), locale: Localizations.localeOf(blocContext)),
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.mdFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: isSelected ? cs.onPrimary : cs.onSurface,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Text(
-                  currency.formatPrice(price.toDouble(), locale: Localizations.localeOf(blocContext)),
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.mdFontSize,
-                      fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           );
         }).toList(),
@@ -1982,10 +1988,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           );
         } : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: canPlaceOrder ? CheckoutConstants.primaryColor : Colors.grey.shade400,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: Colors.grey.shade400,
-          disabledForegroundColor: Colors.white,
+          backgroundColor: canPlaceOrder ? CheckoutConstants.primaryColor : Theme.of(blocContext).colorScheme.surfaceContainerHighest,
+          foregroundColor: Theme.of(blocContext).colorScheme.onPrimary,
+          disabledBackgroundColor: Theme.of(blocContext).colorScheme.surfaceContainerHighest,
+          disabledForegroundColor: Theme.of(blocContext).colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8.r),
           ),

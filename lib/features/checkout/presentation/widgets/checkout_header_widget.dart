@@ -16,17 +16,20 @@ class CheckoutHeaderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shadowAlpha = theme.brightness == Brightness.dark ? 0.25 : 0.08;
     return Container(
       padding: EdgeInsets.all(CheckoutConstants.cardPadding),
       decoration: BoxDecoration(
-        color: CheckoutConstants.cardBackgroundColor,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(CheckoutConstants.cardBorderRadius),
           bottomRight: Radius.circular(CheckoutConstants.cardBorderRadius),
         ),
         boxShadow: [
           BoxShadow(
-            color: CheckoutConstants.shadowColor,
+            color: colorScheme.shadow.withValues(alpha: shadowAlpha),
             blurRadius: CheckoutConstants.cardShadowBlur,
             offset: Offset(0, CheckoutConstants.cardShadowOffset),
           ),
@@ -69,7 +72,7 @@ class CheckoutHeaderWidget extends StatelessWidget {
             Text(
               subtitle!,
               style: AppFonts.getTextStyle(fontSize: CheckoutConstants.captionFontSize,
-                color: Colors.grey.shade600,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],

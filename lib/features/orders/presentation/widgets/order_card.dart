@@ -25,9 +25,11 @@ class OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
-    final statusColor = OrderConstants.statusColors[order.status.name] ?? Colors.grey;
+    final statusColor = OrderConstants.statusColors[order.status.name] ?? colorScheme.outline;
     final statusText = OrderConstants.localizedStatus(context, order.status);
     final String? imageUrl = order.items.isNotEmpty && order.items.first.product.images.isNotEmpty
         ? order.items.first.product.images.first
@@ -40,11 +42,11 @@ class OrderCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: colorScheme.shadow.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.08),
                 blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
@@ -83,7 +85,7 @@ class OrderCard extends StatelessWidget {
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.mdFontSize,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                             ),
                           ),
                           SizedBox(height: ResponsiveConstants.xsSpacing),
@@ -92,7 +94,7 @@ class OrderCard extends StatelessWidget {
                               Icon(
                                 Icons.calendar_today_outlined,
                                 size: 14,
-                                color: Colors.white.withValues(alpha: 0.8),
+                                color: colorScheme.onPrimary.withValues(alpha: 0.8),
                               ),
                               SizedBox(width: ResponsiveConstants.xsSpacing),
                               Expanded(
@@ -102,7 +104,7 @@ class OrderCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: AppFonts.getTextStyle(
                                     fontSize: ResponsiveConstants.xsFontSize,
-                                    color: Colors.white.withValues(alpha: 0.8),
+                                    color: colorScheme.onPrimary.withValues(alpha: 0.8),
                                   ),
                                 ),
                               ),
@@ -130,7 +132,7 @@ class OrderCard extends StatelessWidget {
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.xsFontSize,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                             ),
                           ),
                         ),
@@ -140,7 +142,7 @@ class OrderCard extends StatelessWidget {
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.smFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: colorScheme.onPrimary,
                           ),
                         ),
                       ],
@@ -158,14 +160,13 @@ class OrderCard extends StatelessWidget {
                     if (order.items.isNotEmpty) ...[
                       Row(
                         children: [
-                          // Product image
                           ClipRRect(
                             borderRadius: BorderRadius.circular(
                               ResponsiveConstants.smRadius,
                             ),
                             child: imageUrl != null && imageUrl.isNotEmpty
                                 ? _OrderCardImageLoader(imageUrl: imageUrl)
-                                : _placeholderImage(),
+                                : _placeholderImage(context),
                           ),
                           SizedBox(width: ResponsiveConstants.mdSpacing),
                           Expanded(
@@ -177,7 +178,7 @@ class OrderCard extends StatelessWidget {
                                   style: AppFonts.getTextStyle(
                                     fontSize: ResponsiveConstants.mdFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
+                                    color: colorScheme.onSurface,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -190,7 +191,7 @@ class OrderCard extends StatelessWidget {
                                         '${loc.size}: ${order.items.first.selectedSize}',
                                         style: AppFonts.getTextStyle(
                                           fontSize: ResponsiveConstants.xsFontSize,
-                                          color: Colors.grey.shade600,
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                       SizedBox(
@@ -205,7 +206,7 @@ class OrderCard extends StatelessWidget {
                                         '${loc.color}: ${order.items.first.selectedColor}',
                                         style: AppFonts.getTextStyle(
                                           fontSize: ResponsiveConstants.xsFontSize,
-                                          color: Colors.grey.shade600,
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                   ],
@@ -215,7 +216,7 @@ class OrderCard extends StatelessWidget {
                                   '${loc.quantity}: ${order.items.first.quantity}',
                                   style: AppFonts.getTextStyle(
                                     fontSize: ResponsiveConstants.xsFontSize,
-                                    color: Colors.grey.shade600,
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -232,7 +233,7 @@ class OrderCard extends StatelessWidget {
                         Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 16,
-                          color: Colors.grey.shade400,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ),
@@ -246,14 +247,15 @@ class OrderCard extends StatelessWidget {
     );
   }
 
-  Widget _placeholderImage() {
+  Widget _placeholderImage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 60,
       height: 60,
-      color: Colors.grey.shade300,
+      color: colorScheme.surfaceContainerHighest,
       child: Icon(
         Icons.image_not_supported_outlined,
-        color: Colors.grey.shade400,
+        color: colorScheme.outline,
         size: ResponsiveConstants.smIconSize,
       ),
     );
@@ -298,6 +300,8 @@ class _OrderCardImageLoaderState extends State<_OrderCardImageLoader> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return FutureBuilder<Map<String, dynamic>>(
       future: _imageDataFuture,
       builder: (context, snapshot) {
@@ -305,10 +309,11 @@ class _OrderCardImageLoaderState extends State<_OrderCardImageLoader> {
           return Container(
             width: 60,
             height: 60,
-            color: Colors.grey.shade200,
-            child: const Center(
+            color: colorScheme.surfaceContainerHighest,
+            child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 1,
+                color: colorScheme.primary,
               ),
             ),
           );
@@ -320,20 +325,21 @@ class _OrderCardImageLoaderState extends State<_OrderCardImageLoader> {
 
         return CachedNetworkImage(
           imageUrl: imageUrl,
-          cacheKey: widget.imageUrl, // Use original URL as cache key for consistent caching
+          cacheKey: widget.imageUrl,
           width: 60,
           height: 60,
           fit: BoxFit.contain,
           httpHeaders: headers,
-          memCacheWidth: 120, // 2x for retina displays
+          memCacheWidth: 120,
           memCacheHeight: 120,
           placeholder: (context, url) => Container(
             width: 60,
             height: 60,
-            color: Colors.grey.shade200,
-            child: const Center(
+            color: colorScheme.surfaceContainerHighest,
+            child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 1,
+                color: colorScheme.primary,
               ),
             ),
           ),
@@ -342,10 +348,10 @@ class _OrderCardImageLoaderState extends State<_OrderCardImageLoader> {
             return Container(
               width: 60,
               height: 60,
-              color: Colors.grey.shade300,
+              color: colorScheme.surfaceContainerHighest,
               child: Icon(
                 Icons.image_not_supported_outlined,
-                color: Colors.grey.shade400,
+                color: colorScheme.outline,
                 size: ResponsiveConstants.smIconSize,
               ),
             );

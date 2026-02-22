@@ -409,14 +409,7 @@ class _ProfilePageState extends State<ProfilePage>
                       color: colorScheme.onBackground,
                     ),
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => BlocProvider(
-                                create: (context) => di.sl<SettingsBloc>(),
-                                child: const SettingsPage(),
-                              ),
-                            ),
-                          );
+                          Navigator.of(context).pushNamed('/settings');
                         },
                       ),
                     ],

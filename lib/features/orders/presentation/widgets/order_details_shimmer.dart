@@ -305,7 +305,7 @@ class OrderDetailsShimmer extends StatelessWidget {
             borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                color: colorScheme.shadow.withValues(alpha: isDark ? 0.3 : 0.08),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),

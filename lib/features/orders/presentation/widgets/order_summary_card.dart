@@ -17,6 +17,8 @@ class OrderSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
 
@@ -24,11 +26,13 @@ class OrderSummaryCard extends StatelessWidget {
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.2 : 0.06,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -41,7 +45,7 @@ class OrderSummaryCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.receipt_long_outlined,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
                 size: ResponsiveConstants.mdIconSize,
               ),
               SizedBox(width: ResponsiveConstants.smSpacing),
@@ -49,7 +53,7 @@ class OrderSummaryCard extends StatelessWidget {
                 loc.orderSummary,
                 style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -59,38 +63,25 @@ class OrderSummaryCard extends StatelessWidget {
           
           // Show currency if available
           if (order.currency != null && order.currency!.isNotEmpty) ...[
-            _buildInfoRow(
-              'Currency',
-              order.currency!,
-            ),
+            _buildInfoRow(context, 'Currency', order.currency!),
             SizedBox(height: ResponsiveConstants.smSpacing),
           ],
-          
           // Summary rows
-          _buildSummaryRow(
-            loc.itemsCount(order.itemCount),
+          _buildSummaryRow(context, loc.itemsCount(order.itemCount),
             currency.formatPrice(order.subtotal, locale: locale),
           ),
           if (order.orderLineCount != null && order.orderLineCount! > 0) ...[
-            _buildInfoRow(
-              'Order Lines',
-              order.orderLineCount.toString(),
-            ),
+            _buildInfoRow(context, 'Order Lines', order.orderLineCount.toString()),
             SizedBox(height: ResponsiveConstants.xsSpacing),
           ],
-          _buildSummaryRow(
-            loc.shipping,
+          _buildSummaryRow(context, loc.shipping,
             currency.formatPrice(order.shippingCost, locale: locale),
           ),
-          _buildSummaryRow(
-            loc.tax,
+          _buildSummaryRow(context, loc.tax,
             currency.formatPrice(order.taxAmount, locale: locale),
           ),
-          
           SizedBox(height: ResponsiveConstants.mdSpacing),
-          
-          _buildSummaryRow(
-            loc.totalAmount,
+          _buildSummaryRow(context, loc.totalAmount,
             currency.formatPrice(order.totalAmount, locale: locale),
             isTotal: true,
           ),
@@ -99,7 +90,8 @@ class OrderSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.xsSpacing),
       child: Row(
@@ -109,14 +101,14 @@ class OrderSummaryCard extends StatelessWidget {
             label,
             style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           Text(
             value,
             style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: colorScheme.onSurface,
             ),
           ),
         ],
@@ -124,7 +116,8 @@ class OrderSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildSummaryRow(BuildContext context, String label, String value, {bool isTotal = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.xsSpacing),
       child: Row(
@@ -134,14 +127,14 @@ class OrderSummaryCard extends StatelessWidget {
             label,
             style: AppFonts.getTextStyle(fontSize: isTotal ? ResponsiveConstants.mdFontSize : ResponsiveConstants.smFontSize,
               fontWeight: isTotal ? FontWeight.w600 : FontWeight.w500,
-              color: isTotal ? Colors.black87 : Colors.grey.shade700,
+              color: isTotal ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
             ),
           ),
           Text(
             value,
             style: AppFonts.getTextStyle(fontSize: isTotal ? ResponsiveConstants.mdFontSize : ResponsiveConstants.smFontSize,
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
-              color: isTotal ? Colors.black87 : Colors.grey.shade700,
+              color: isTotal ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
             ),
           ),
         ],

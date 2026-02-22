@@ -29,11 +29,13 @@ class DeliveryDetailsWidget extends StatelessWidget {
     final statusColor = _getStatusColor(status.status);
     final statusIcon = _getStatusIcon(status.status);
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         border: Border.all(
           color: statusColor.withValues(alpha: 0.3),
@@ -77,7 +79,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                       textAlign: isRTL ? TextAlign.right : TextAlign.left,
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.smFontSize,
-                        color: Colors.grey.shade600,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     SizedBox(height: ResponsiveConstants.xsSpacing),
@@ -113,69 +115,65 @@ class DeliveryDetailsWidget extends StatelessWidget {
 
           // Tracking Page Link
           if (status.trackingPage != null && status.trackingPage!.isNotEmpty) ...[
-            InkWell(
-              onTap: () async {
-                final uri = Uri.parse(status.trackingPage!);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
+            Builder(
+              builder: (context) {
+                final cs = Theme.of(context).colorScheme;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                final trackBg = isDark ? cs.primaryContainer : cs.primaryContainer;
+                final trackFg = cs.onPrimaryContainer;
+                return InkWell(
+                  onTap: () async {
+                    final uri = Uri.parse(status.trackingPage!);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    decoration: BoxDecoration(
+                      color: trackBg.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+                      border: Border.all(color: trackFg.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: isRTL ? MainAxisAlignment.end : MainAxisAlignment.start,
+                      textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+                      children: [
+                        if (!isRTL) Icon(Icons.track_changes_outlined, size: 20, color: trackFg),
+                        if (!isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: isRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loc.trackYourOrder,
+                                textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.smFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: trackFg,
+                                ),
+                              ),
+                              SizedBox(height: ResponsiveConstants.xsSpacing),
+                              Text(
+                                loc.viewDetailedTrackingInformation,
+                                textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.xsFontSize,
+                                  color: trackFg.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
+                        if (isRTL) Icon(Icons.track_changes_outlined, size: 20, color: trackFg),
+                        Icon(Icons.arrow_forward_ios, size: 16, color: trackFg),
+                      ],
+                    ),
+                  ),
+                );
               },
-              child: Container(
-                padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  mainAxisAlignment: isRTL ? MainAxisAlignment.end : MainAxisAlignment.start,
-                  textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-                  children: [
-                    if (!isRTL) Icon(
-                      Icons.track_changes_outlined,
-                      size: 20,
-                      color: Colors.blue.shade700,
-                    ),
-                    if (!isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: isRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            loc.trackYourOrder,
-                            textAlign: isRTL ? TextAlign.right : TextAlign.left,
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.smFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue.shade700,
-                            ),
-                          ),
-                          SizedBox(height: ResponsiveConstants.xsSpacing),
-                          Text(
-                            loc.viewDetailedTrackingInformation,
-                            textAlign: isRTL ? TextAlign.right : TextAlign.left,
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.xsFontSize,
-                              color: Colors.blue.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isRTL) SizedBox(width: ResponsiveConstants.smSpacing),
-                    if (isRTL) Icon(
-                      Icons.track_changes_outlined,
-                      size: 20,
-                      color: Colors.blue.shade700,
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Colors.blue.shade700,
-                    ),
-                  ],
-                ),
-              ),
             ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
           ],
@@ -191,7 +189,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ),
@@ -221,6 +219,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
     required bool isFirst,
   }) {
     final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final colorScheme = Theme.of(context).colorScheme;
     final statusColor = _getStatusColor(statusHistory.slug);
     final dateTime = statusHistory.createdAt;
 
@@ -235,28 +234,33 @@ class DeliveryDetailsWidget extends StatelessWidget {
           // Timeline indicator
           Column(
             children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 3,
-                  ),
-                ),
-                child: Icon(
-                  Icons.check,
-                  size: 14,
-                  color: Colors.white,
-                ),
+              Builder(
+                builder: (context) {
+                  final cs = Theme.of(context).colorScheme;
+                  return Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: cs.surface,
+                        width: 3,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  );
+                },
               ),
               if (!isLast)
                 Container(
                   width: 2,
                   height: 40,
-                  color: Colors.grey.shade300,
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                 ),
             ],
           ),
@@ -272,7 +276,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 if (statusHistory.merchantTitle.isNotEmpty &&
@@ -283,7 +287,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                     textAlign: isRTL ? TextAlign.right : TextAlign.left,
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.smFontSize,
-                      color: Colors.grey.shade600,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -295,7 +299,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                     if (!isRTL) Icon(
                       Icons.access_time,
                       size: 12,
-                      color: Colors.grey.shade500,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     if (!isRTL) SizedBox(width: ResponsiveConstants.xsSpacing),
                     Text(
@@ -303,14 +307,14 @@ class DeliveryDetailsWidget extends StatelessWidget {
                       textAlign: isRTL ? TextAlign.right : TextAlign.left,
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.xsFontSize,
-                        color: Colors.grey.shade600,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     if (isRTL) SizedBox(width: ResponsiveConstants.xsSpacing),
                     if (isRTL) Icon(
                       Icons.access_time,
                       size: 12,
-                      color: Colors.grey.shade500,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),
@@ -321,7 +325,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.all(ResponsiveConstants.xsPadding),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
                     ),
                     child: Row(
@@ -332,7 +336,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                         if (!isRTL) Icon(
                           Icons.message_outlined,
                           size: 12,
-                          color: Colors.grey.shade600,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         if (!isRTL) SizedBox(width: ResponsiveConstants.xsSpacing),
                         Expanded(
@@ -341,7 +345,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                             textAlign: isRTL ? TextAlign.right : TextAlign.left,
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.xsFontSize,
-                              color: Colors.grey.shade700,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -349,7 +353,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                         if (isRTL) Icon(
                           Icons.message_outlined,
                           size: 12,
-                          color: Colors.grey.shade600,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ),

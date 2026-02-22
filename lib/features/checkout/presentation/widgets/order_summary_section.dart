@@ -23,14 +23,17 @@ class OrderSummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shadowAlpha = theme.brightness == Brightness.dark ? 0.25 : 0.08;
     return Container(
       padding: EdgeInsets.all(CheckoutConstants.cardPadding),
       decoration: BoxDecoration(
-        color: CheckoutConstants.cardBackgroundColor,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(CheckoutConstants.cardBorderRadius),
         boxShadow: [
           BoxShadow(
-            color: CheckoutConstants.shadowColor,
+            color: colorScheme.shadow.withValues(alpha: shadowAlpha),
             blurRadius: CheckoutConstants.cardShadowBlur,
             offset: Offset(0, CheckoutConstants.cardShadowOffset),
           ),
@@ -56,15 +59,12 @@ class OrderSummarySection extends StatelessWidget {
               ),
             ],
           ),
-          
           SizedBox(height: CheckoutConstants.itemSpacing),
-          
-          // Items list
           Text(
             '${AppLocalizations.of(context)!.totalItems}: ${summary.totalItems}',
             style: AppFonts.getTextStyle(fontSize: CheckoutConstants.subtitleFontSize,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           SizedBox(height: ResponsiveConstants.mdSpacing),
@@ -72,11 +72,8 @@ class OrderSummarySection extends StatelessWidget {
           
           SizedBox(height: ResponsiveConstants.lgSpacing),
           
-          // Divider
-          Divider(color: CheckoutConstants.dividerColor),
-          
+          Divider(color: colorScheme.outline.withValues(alpha: 0.5)),
           SizedBox(height: CheckoutConstants.smallSpacing),
-          
           // Summary details
           _buildSummaryRow(AppLocalizations.of(context)!.subtotal, summary.subtotal, context),
           _buildSummaryRow(AppLocalizations.of(context)!.shipping, summary.shipping, context),
@@ -87,9 +84,8 @@ class OrderSummarySection extends StatelessWidget {
           SizedBox(height: CheckoutConstants.smallSpacing),
           
           // Total
-          Divider(color: CheckoutConstants.dividerColor),
+          Divider(color: colorScheme.outline.withValues(alpha: 0.5)),
           SizedBox(height: CheckoutConstants.smallSpacing),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -115,24 +111,24 @@ class OrderSummarySection extends StatelessWidget {
   }
 
   Widget _buildItemRow(BuildContext context, CheckoutItem item) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: EdgeInsets.only(bottom: ResponsiveConstants.mdSpacing),
       padding: EdgeInsets.all(ResponsiveConstants.smSpacing),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5), width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product image with cached network image
           Container(
             width: 70.w,
             height: 70.w,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10.r),
@@ -140,28 +136,28 @@ class OrderSummarySection extends StatelessWidget {
                   ? _CheckoutItemImageLoader(
                       imageUrl: item.cartItem.product.images.first,
                       placeholder: Container(
-                        color: Colors.grey.shade200,
+                        color: colorScheme.surfaceContainerHighest,
                         child: Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400),
+                            color: colorScheme.primary,
                           ),
                         ),
                       ),
                       errorWidget: Container(
-                        color: Colors.grey.shade200,
+                        color: colorScheme.surfaceContainerHighest,
                         child: Icon(
                           Icons.image,
-                          color: Colors.grey.shade400,
+                          color: colorScheme.outline,
                           size: 24.w,
                         ),
                       ),
                     )
                   : Container(
-                      color: Colors.grey.shade200,
+                      color: colorScheme.surfaceContainerHighest,
                       child: Icon(
                         Icons.image,
-                        color: Colors.grey.shade400,
+                        color: colorScheme.outline,
                         size: 24.w,
                       ),
                     ),
@@ -182,7 +178,7 @@ class OrderSummarySection extends StatelessWidget {
                   item.cartItem.product.name,
                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: colorScheme.onSurface,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -253,18 +249,18 @@ class OrderSummarySection extends StatelessWidget {
                   context.read<CurrencyProvider>().formatPrice(item.cartItem.totalPrice, locale: Localizations.localeOf(context)),
                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.end,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: ResponsiveConstants.xsSpacing),
-                if (item.cartItem.product.originalPrice != null && 
+                if (item.cartItem.product.originalPrice != null &&
                     item.cartItem.product.originalPrice! > item.cartItem.product.price)
                   Text(
                     context.read<CurrencyProvider>().formatPrice(item.cartItem.product.originalPrice!, locale: Localizations.localeOf(context)),
                     style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.xsFontSize,
-                      color: Colors.grey.shade500,
+                      color: colorScheme.onSurfaceVariant,
                       decoration: TextDecoration.lineThrough,
                     ),
                     textAlign: TextAlign.end,
@@ -279,16 +275,17 @@ class OrderSummarySection extends StatelessWidget {
   }
 
   Widget _buildVariantChip(BuildContext context, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveConstants.xsPadding + 2,
         vertical: ResponsiveConstants.xsPadding - 1,
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
         border: Border.all(
-          color: Colors.grey.shade300,
+          color: colorScheme.outline.withValues(alpha: 0.5),
           width: 0.5,
         ),
       ),
@@ -296,7 +293,7 @@ class OrderSummarySection extends StatelessWidget {
         label,
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.xsFontSize - 1,
-          color: Colors.grey.shade700,
+          color: colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -304,6 +301,7 @@ class OrderSummarySection extends StatelessWidget {
   }
 
   Widget _buildSummaryRow(String label, double amount, BuildContext context, {bool isDiscount = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
@@ -312,14 +310,14 @@ class OrderSummarySection extends StatelessWidget {
           Text(
             label,
             style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-              color: Colors.grey.shade600,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           Text(
             '${isDiscount ? '-' : ''}${context.read<CurrencyProvider>().formatPrice(amount.abs(), locale: Localizations.localeOf(context))}',
             style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
               fontWeight: FontWeight.w500,
-              color: isDiscount ? Colors.green.shade600 : Colors.black,
+              color: isDiscount ? colorScheme.tertiary : colorScheme.onSurface,
             ),
           ),
         ],
@@ -341,14 +339,17 @@ class CompactOrderSummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shadowAlpha = theme.brightness == Brightness.dark ? 0.25 : 0.08;
     return Container(
       padding: EdgeInsets.all(CheckoutConstants.cardPadding),
       decoration: BoxDecoration(
-        color: CheckoutConstants.cardBackgroundColor,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(CheckoutConstants.cardBorderRadius),
         boxShadow: [
           BoxShadow(
-            color: CheckoutConstants.shadowColor,
+            color: colorScheme.shadow.withValues(alpha: shadowAlpha),
             blurRadius: CheckoutConstants.cardShadowBlur,
             offset: Offset(0, CheckoutConstants.cardShadowOffset),
           ),
@@ -383,17 +384,14 @@ class CompactOrderSummarySection extends StatelessWidget {
                   '${AppLocalizations.of(context)!.totalItems}: ${summary.totalItems}',
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.xsFontSize,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-
           SizedBox(height: CheckoutConstants.smallSpacing),
-
-          // Items (compact rows)
           ...items.asMap().entries.map((entry) {
             final idx = entry.key;
             final item = entry.value;
@@ -402,17 +400,15 @@ class CompactOrderSummarySection extends StatelessWidget {
                 _compactItemRow(item),
                 if (idx != items.length - 1) ...[
                   SizedBox(height: 8.h),
-                  Divider(color: CheckoutConstants.dividerColor),
+                  Divider(color: colorScheme.outline.withValues(alpha: 0.5)),
                   SizedBox(height: 8.h),
                 ],
               ],
             );
           }),
-
           SizedBox(height: CheckoutConstants.smallSpacing),
-          Divider(color: CheckoutConstants.dividerColor),
+          Divider(color: colorScheme.outline.withValues(alpha: 0.5)),
           SizedBox(height: CheckoutConstants.smallSpacing),
-
           // Summary footer (pill rows)
           _compactPillRow(AppLocalizations.of(context)!.subtotal, summary.subtotal, context),
           _compactPillRow(AppLocalizations.of(context)!.shipping, summary.shipping, context),
@@ -435,7 +431,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                 style: AppFonts.getTextStyle(
                   fontSize: CheckoutConstants.titleFontSize,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -448,23 +444,23 @@ class CompactOrderSummarySection extends StatelessWidget {
   Widget _compactItemRow(CheckoutItem item) {
     return Builder(
       builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
         final currencyProvider = context.read<CurrencyProvider>();
         final unitPrice = item.cartItem.price;
         final quantity = item.cartItem.quantity;
         final totalPrice = item.cartItem.totalPrice;
-        
+
         return LayoutBuilder(
           builder: (context, constraints) {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image - Fixed width
                 Container(
                   width: 64.w,
                   height: 64.w,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
@@ -472,41 +468,39 @@ class CompactOrderSummarySection extends StatelessWidget {
                         ? _CheckoutItemImageLoader(
                             imageUrl: item.cartItem.product.images.first,
                             placeholder: Container(
-                              color: Colors.grey.shade200,
+                              color: colorScheme.surfaceContainerHighest,
                               child: Center(
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400),
+                                  color: colorScheme.primary,
                                 ),
                               ),
                             ),
                             errorWidget: Container(
-                              color: Colors.grey.shade200,
+                              color: colorScheme.surfaceContainerHighest,
                               child: Icon(
                                 Icons.image,
-                                color: Colors.grey.shade400,
+                                color: colorScheme.outline,
                                 size: 24.w,
                               ),
                             ),
                           )
                         : Container(
-                            color: Colors.grey.shade200,
+                            color: colorScheme.surfaceContainerHighest,
                             child: Icon(
                               Icons.image,
-                              color: Colors.grey.shade400,
+                              color: colorScheme.outline,
                               size: 24.w,
                             ),
                           ),
                   ),
                 ),
                 SizedBox(width: ResponsiveConstants.mdSpacing),
-                // Details - Expanded to take remaining space
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Product name - Ensure it doesn't overflow
                       Text(
                         item.cartItem.product.name,
                         maxLines: 2,
@@ -515,50 +509,30 @@ class CompactOrderSummarySection extends StatelessWidget {
                         style: AppFonts.getTextStyle(
                           fontSize: ResponsiveConstants.mdFontSize,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       SizedBox(height: ResponsiveConstants.xsSpacing),
-                      // Variant chips (Size, Color, Brand)
                       Builder(
                         builder: (context) {
                           final loc = AppLocalizations.of(context)!;
                           final variantChips = <Widget>[];
-                          
-                          // Add size chip if available
                           if (item.cartItem.selectedSize.isNotEmpty) {
                             variantChips.add(
-                              _buildVariantChip(
-                                context,
-                                '${loc.size}: ${item.cartItem.selectedSize}',
-                              ),
+                              _buildCompactVariantChip(context, '${loc.size}: ${item.cartItem.selectedSize}'),
                             );
                           }
-                          
-                          // Add color chip if available
                           if (item.cartItem.selectedColor.isNotEmpty) {
                             variantChips.add(
-                              _buildVariantChip(
-                                context,
-                                '${loc.color}: ${item.cartItem.selectedColor}',
-                              ),
+                              _buildCompactVariantChip(context, '${loc.color}: ${item.cartItem.selectedColor}'),
                             );
                           }
-                          
-                          // Add brand chip if available and not already in product name
                           if (item.cartItem.product.brand.isNotEmpty) {
                             variantChips.add(
-                              _buildVariantChip(
-                                context,
-                                '${loc.brand}: ${item.cartItem.product.brand}',
-                              ),
+                              _buildCompactVariantChip(context, '${loc.brand}: ${item.cartItem.product.brand}'),
                             );
                           }
-                          
-                          if (variantChips.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          
+                          if (variantChips.isEmpty) return const SizedBox.shrink();
                           return Wrap(
                             spacing: ResponsiveConstants.xsSpacing,
                             runSpacing: ResponsiveConstants.xsSpacing,
@@ -567,7 +541,6 @@ class CompactOrderSummarySection extends StatelessWidget {
                         },
                       ),
                       SizedBox(height: ResponsiveConstants.xsSpacing),
-                      // Quantity and Unit Price - Wrap in Flexible to prevent overflow
                       Row(
                         children: [
                           Flexible(
@@ -577,10 +550,10 @@ class CompactOrderSummarySection extends StatelessWidget {
                                 vertical: ResponsiveConstants.xsPadding,
                               ),
                               decoration: BoxDecoration(
-                                color: CheckoutConstants.primaryColor.withOpacity(0.1),
+                                color: CheckoutConstants.primaryColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
                                 border: Border.all(
-                                  color: CheckoutConstants.primaryColor.withOpacity(0.2),
+                                  color: CheckoutConstants.primaryColor.withOpacity(0.3),
                                   width: 1,
                                 ),
                               ),
@@ -601,7 +574,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                               '${currencyProvider.formatPrice(unitPrice, locale: Localizations.localeOf(context))} × $quantity',
                               style: AppFonts.getTextStyle(
                                 fontSize: ResponsiveConstants.xsFontSize,
-                                color: Colors.grey.shade700,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -612,11 +585,10 @@ class CompactOrderSummarySection extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: ResponsiveConstants.smSpacing),
-                // Total Price - Use minimum width constraint to prevent overflow
                 ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: 0,
-                    maxWidth: constraints.maxWidth * 0.25, // Max 25% of available width
+                    maxWidth: constraints.maxWidth * 0.25,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -627,7 +599,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                         style: AppFonts.getTextStyle(
                           fontSize: ResponsiveConstants.lgFontSize,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: colorScheme.onSurface,
                         ),
                         textAlign: TextAlign.end,
                         overflow: TextOverflow.ellipsis,
@@ -643,7 +615,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                           ),
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.xsFontSize,
-                            color: Colors.grey.shade500,
+                            color: colorScheme.onSurfaceVariant,
                             decoration: TextDecoration.lineThrough,
                           ),
                           textAlign: TextAlign.end,
@@ -662,18 +634,18 @@ class CompactOrderSummarySection extends StatelessWidget {
     );
   }
 
-
-  Widget _buildVariantChip(BuildContext context, String label) {
+  Widget _buildCompactVariantChip(BuildContext context, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveConstants.xsPadding + 2,
         vertical: ResponsiveConstants.xsPadding - 1,
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
         border: Border.all(
-          color: Colors.grey.shade300,
+          color: colorScheme.outline.withValues(alpha: 0.5),
           width: 0.5,
         ),
       ),
@@ -681,7 +653,7 @@ class CompactOrderSummarySection extends StatelessWidget {
         label,
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.xsFontSize - 1,
-          color: Colors.grey.shade700,
+          color: colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -689,6 +661,7 @@ class CompactOrderSummarySection extends StatelessWidget {
   }
 
   Widget _compactPillRow(String label, double amount, BuildContext context, {bool isDiscount = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
@@ -696,10 +669,10 @@ class CompactOrderSummarySection extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
-                color: Colors.grey.shade200,
+                color: colorScheme.outline.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -707,7 +680,7 @@ class CompactOrderSummarySection extends StatelessWidget {
               label,
               style: AppFonts.getTextStyle(
                 fontSize: ResponsiveConstants.xsFontSize,
-                color: Colors.grey.shade700,
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -718,7 +691,7 @@ class CompactOrderSummarySection extends StatelessWidget {
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.smFontSize,
               fontWeight: FontWeight.w600,
-              color: isDiscount ? Colors.green.shade700 : Colors.black87,
+              color: isDiscount ? colorScheme.tertiary : colorScheme.onSurface,
             ),
           ),
         ],

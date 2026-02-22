@@ -149,14 +149,17 @@ class ProductCard extends StatelessWidget {
               // border: Border.all(
               //   color: colorScheme.outline.withValues(alpha: 0.2),
               // ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade300,//.withValues(alpha: isDark ? 0.3 : 0.03)
-                  blurRadius: 2,
-                  spreadRadius: 0.5,
-                  offset: const Offset(0.5, 2),
-                ),
-              ],
+              // Only apply shadow in light mode; in dark mode it appears as white glow.
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 2,
+                        spreadRadius: 0.5,
+                        offset: const Offset(0.5, 2),
+                      ),
+                    ],
             ),
             // Remove outer padding so the image can touch the
             // card edges (top/left/right) as per design.

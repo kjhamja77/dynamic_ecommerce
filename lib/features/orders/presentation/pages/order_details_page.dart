@@ -77,20 +77,21 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               state is DeliveryStatusLoading;
 
           if (!hasLoadedOrder) {
+            final colorScheme = Theme.of(context).colorScheme;
             return Scaffold(
-              backgroundColor: Colors.grey.shade50,
+              backgroundColor: colorScheme.surfaceContainerLowest,
               appBar: AppBar(
                 title: Text(
                   AppLocalizations.of(context)!.orderHistory,
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.lgFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: colorScheme.onSurface,
                   ),
                 ),
-                backgroundColor: Colors.white,
+                backgroundColor: colorScheme.surface,
                 elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.black),
+                iconTheme: IconThemeData(color: colorScheme.onSurface),
                 centerTitle: true,
               ),
               body: const OrderDetailsShimmer(),
@@ -99,8 +100,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
           final currentOrder = _getCurrentOrder(state);
 
+          final colorScheme = Theme.of(context).colorScheme;
           return Scaffold(
-          backgroundColor: Colors.grey.shade50,
+          backgroundColor: colorScheme.surfaceContainerLowest,
           appBar: _buildAppBar(context, currentOrder),
           floatingActionButton: ValueListenableBuilder<bool>(
             valueListenable: _showFab,
@@ -186,13 +188,16 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     DeliveryStatusDto? deliveryStatus,
   ) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shadowOpacity = theme.brightness == Brightness.dark ? 0.25 : 0.08;
 
     return Container(
       width: double.infinity,
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         border: Border.all(
           color: OrderConstants.primaryColor.withValues(alpha: 0.15),
@@ -200,13 +205,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: colorScheme.shadow.withValues(alpha: shadowOpacity),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: colorScheme.shadow.withValues(alpha: shadowOpacity * 0.5),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
@@ -293,7 +298,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               Icon(
                 Icons.calendar_today_outlined,
                 size: 16,
-                color: Colors.grey.shade600,
+                color: colorScheme.onSurfaceVariant,
               ),
               SizedBox(width: ResponsiveConstants.xsSpacing),
               Expanded(
@@ -303,7 +308,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   overflow: TextOverflow.ellipsis,
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.smFontSize,
-                    color: Colors.grey.shade700,
+                    color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -316,7 +321,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     loc.totalAmount,
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.xsFontSize,
-                      color: Colors.grey.shade600,
+                      color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -326,7 +331,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.lgFontSize,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -342,12 +347,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   Widget _buildTabBar(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       child: TabBar(
-        labelColor: Colors.black,
-        unselectedLabelColor: Colors.grey.shade500,
-        indicatorColor: Colors.black,
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        indicatorColor: colorScheme.primary,
         indicatorWeight: 3,
         tabs: [
           Tab(text: loc.orderSummary),
@@ -409,36 +415,41 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Small intro header
-          Row(
-            children: [
-              Icon(
-                Icons.local_shipping_outlined,
-                color: Colors.black87,
-                size: ResponsiveConstants.mdIconSize,
-              ),
-              SizedBox(width: ResponsiveConstants.smSpacing),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          Builder(
+            builder: (context) {
+              final cs = Theme.of(context).colorScheme;
+              return Row(
                 children: [
-                  Text(
-                    loc.deliveryStatus,
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.mdFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    color: cs.onSurface,
+                    size: ResponsiveConstants.mdIconSize,
                   ),
-                  SizedBox(height: ResponsiveConstants.xsSpacing),
-                  Text(
-                    loc.viewDetailedTrackingInformation,
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.xsFontSize,
-                      color: Colors.grey.shade600,
-                    ),
+                  SizedBox(width: ResponsiveConstants.smSpacing),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc.deliveryStatus,
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.mdFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      SizedBox(height: ResponsiveConstants.xsSpacing),
+                      Text(
+                        loc.viewDetailedTrackingInformation,
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.xsFontSize,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
           SizedBox(height: ResponsiveConstants.mdSpacing),
 
@@ -453,15 +464,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   Widget _buildTrackingEmptyState(BuildContext context, Order order) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.2 : 0.06,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -477,11 +492,11 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.grey.shade100,
+                  color: colorScheme.surfaceContainerHighest,
                 ),
                 child: Icon(
                   Icons.help_outline,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                   size: 22,
                 ),
               ),
@@ -492,7 +507,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -503,7 +518,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             loc.orderOnWayMessage,
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.smFontSize,
-              color: Colors.grey.shade700,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -513,33 +528,38 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, Order order) {
     final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     return AppBar(
       title: Text(
         loc.orderNumberWithValue(order.orderNumber),
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.lgFontSize,
           fontWeight: FontWeight.w600,
-          color: Colors.black,
+          color: colorScheme.onSurface,
         ),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.black),
+      iconTheme: IconThemeData(color: colorScheme.onSurface),
       centerTitle: true,
     );
   }
 
   Widget _buildOrderItems(BuildContext context, Order order) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       margin: EdgeInsets.all(ResponsiveConstants.mdPadding),
       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.25 : 0.08,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -552,7 +572,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             children: [
               Icon(
                 Icons.shopping_bag_outlined,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
                 size: ResponsiveConstants.mdIconSize,
               ),
               SizedBox(width: ResponsiveConstants.smSpacing),
@@ -561,7 +581,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.lgFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -571,7 +591,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             loc.orderItemsSubtitle(order.itemCount),
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.smFontSize,
-              color: Colors.grey.shade600,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           SizedBox(height: ResponsiveConstants.mdSpacing),

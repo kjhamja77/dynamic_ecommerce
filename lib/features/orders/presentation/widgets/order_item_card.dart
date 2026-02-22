@@ -20,6 +20,8 @@ class OrderItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
     final String? imageUrl = item.product.images.isNotEmpty ? item.product.images.first : null;
@@ -27,45 +29,40 @@ class OrderItemCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: colorScheme.outline.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
       child: Row(
         children: [
-          // Product image
           ClipRRect(
             borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
             child: imageUrl != null && imageUrl.isNotEmpty
                 ? _OrderItemImageLoader(imageUrl: imageUrl)
-                : _buildImagePlaceholder(),
+                : _buildImagePlaceholder(context),
           ),
-          
           SizedBox(width: ResponsiveConstants.mdPadding),
-          
-          // Product details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.product.name,
-                  style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.mdFontSize,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: ResponsiveConstants.xsSpacing),
-                // Display variant details (color, size, brand, and other attributes if available)
                 Builder(
                   builder: (context) {
                     final variantChips = <Widget>[];
-                    
                     if (item.selectedSize.isNotEmpty) {
                       variantChips.add(
                         _buildVariantChip(
@@ -74,7 +71,6 @@ class OrderItemCard extends StatelessWidget {
                         ),
                       );
                     }
-                    
                     if (item.selectedColor.isNotEmpty) {
                       variantChips.add(
                         _buildVariantChip(
@@ -83,8 +79,6 @@ class OrderItemCard extends StatelessWidget {
                         ),
                       );
                     }
-                    
-                    // Add brand if available and not already in product name
                     if (item.product.brand.isNotEmpty) {
                       variantChips.add(
                         _buildVariantChip(
@@ -93,11 +87,9 @@ class OrderItemCard extends StatelessWidget {
                         ),
                       );
                     }
-                    
                     if (variantChips.isEmpty) {
                       return const SizedBox.shrink();
                     }
-                    
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -113,16 +105,18 @@ class OrderItemCard extends StatelessWidget {
                 ),
                 Text(
                   '${loc.quantity}: ${item.quantity}',
-                  style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-                    color: Colors.grey.shade600,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.smFontSize,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 SizedBox(height: ResponsiveConstants.smSpacing),
                 Text(
                   currency.formatPrice(item.price, locale: locale),
-                  style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.mdFontSize,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -133,30 +127,32 @@ class OrderItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImagePlaceholder() {
+  Widget _buildImagePlaceholder(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 80,
       height: 80,
-      color: Colors.grey.shade300,
+      color: colorScheme.surfaceContainerHighest,
       child: Icon(
         Icons.image_not_supported_outlined,
-        color: Colors.grey.shade400,
+        color: colorScheme.outline,
         size: ResponsiveConstants.smIconSize,
       ),
     );
   }
 
   Widget _buildVariantChip(BuildContext context, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveConstants.smPadding,
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
         border: Border.all(
-          color: Colors.grey.shade300,
+          color: colorScheme.outline.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -164,7 +160,7 @@ class OrderItemCard extends StatelessWidget {
         label,
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.xsFontSize,
-          color: Colors.grey.shade700,
+          color: colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w500,
         ),
         maxLines: 1,
@@ -212,6 +208,8 @@ class _OrderItemImageLoaderState extends State<_OrderItemImageLoader> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return FutureBuilder<Map<String, dynamic>>(
       future: _imageDataFuture,
       builder: (context, snapshot) {
@@ -219,11 +217,11 @@ class _OrderItemImageLoaderState extends State<_OrderItemImageLoader> {
           return Container(
             width: 80,
             height: 80,
-            color: Colors.grey.shade200,
+            color: colorScheme.surfaceContainerHighest,
             child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 1,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400),
+                color: colorScheme.primary,
               ),
             ),
           );
@@ -235,21 +233,21 @@ class _OrderItemImageLoaderState extends State<_OrderItemImageLoader> {
 
         return CachedNetworkImage(
           imageUrl: imageUrl,
-          cacheKey: widget.imageUrl, // Use original URL as cache key for consistent caching
+          cacheKey: widget.imageUrl,
           width: 80,
           height: 80,
           fit: BoxFit.contain,
           httpHeaders: headers,
-          memCacheWidth: 160, // 2x for retina displays
+          memCacheWidth: 160,
           memCacheHeight: 160,
           placeholder: (context, url) => Container(
             width: 80,
             height: 80,
-            color: Colors.grey.shade200,
+            color: colorScheme.surfaceContainerHighest,
             child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 1,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400),
+                color: colorScheme.primary,
               ),
             ),
           ),
@@ -258,10 +256,10 @@ class _OrderItemImageLoaderState extends State<_OrderItemImageLoader> {
             return Container(
               width: 80,
               height: 80,
-              color: Colors.grey.shade300,
+              color: colorScheme.surfaceContainerHighest,
               child: Icon(
                 Icons.image_not_supported_outlined,
-                color: Colors.grey.shade400,
+                color: colorScheme.outline,
                 size: ResponsiveConstants.smIconSize,
               ),
             );
