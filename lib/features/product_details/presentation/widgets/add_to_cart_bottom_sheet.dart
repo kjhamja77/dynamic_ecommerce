@@ -956,9 +956,10 @@ class AddToCartBottomSheet extends StatelessWidget {
     bool enabled = true,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    return GestureDetector(
+    const iconColorEnabled = Colors.orange;
+    final iconColorDisabled = theme.colorScheme.onSurface.withValues(alpha: 0.3);
+
+    return InkWell(
       onTap: enabled && onPressed != null ? () async {
         await HapticService.selectionClick();
         onPressed();
@@ -969,10 +970,8 @@ class AddToCartBottomSheet extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(
           icon,
-          size: 20,
-          color: enabled 
-              ? colorScheme.onSurface.withValues(alpha: 0.7)
-              : colorScheme.onSurface.withValues(alpha: 0.3),
+          size: 25,
+          color: enabled ? iconColorEnabled : iconColorDisabled,
         ),
       ),
     );

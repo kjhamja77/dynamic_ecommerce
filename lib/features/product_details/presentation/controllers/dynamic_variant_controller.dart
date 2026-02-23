@@ -107,20 +107,26 @@ class DynamicVariantController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Initialize selectedAttributes from the selected_variant in API response
-  /// CRITICAL: Always selects ALL attributes from the first in-stock variant
-  /// This ensures users start with a valid, purchasable combination
+  /// Initialize selectedAttributes from the selected_variant in API response.
+  /// First tries to use ProductDetails' current selection (e.g. from catalog variant match);
+  /// if that matches a variant, use it so the UI shows the same selection. Otherwise falls
+  /// back to first in-stock variant.
   void _initializeFromSelectedVariant() {
     if (_productDetails == null) return;
     
-    // Find the first in-stock variant (prioritized for initial selection)
+    // 1) Try to initialize from ProductDetails' current selection (BLoC may have set this
+    //    from catalog variant match). If it matches a variant, the UI will show that selection.
+    if (_tryInitializeFromProductDetailsSelection()) {
+      debugPrint('✅ DynamicVariantController: Initialized from ProductDetails selection (e.g. catalog variant)');
+      return;
+    }
+    
+    // 2) Fallback: first in-stock variant for initial selection
     final selectedVariant = _findSelectedVariantFromAPI();
     
     if (selectedVariant != null) {
       _selectedAttributes.clear();
       
-      // Extract ALL attributes from the selected variant
-      // This ensures we have a complete selection (size, color, material, etc.)
       for (final attr in selectedVariant.attributes) {
         final attrId = attr.attributeId;
         final valueId = attr.valueId;
@@ -132,7 +138,6 @@ class DynamicVariantController extends ChangeNotifier {
           if (parsedAttrId != null && parsedValueId != null) {
             _selectedAttributes[parsedAttrId] = parsedValueId;
             
-            // Debug: Log each attribute being selected
             final attrName = getAttributeNameById(parsedAttrId) ?? 'Attr$parsedAttrId';
             final valueName = getValueNameByIds(parsedAttrId, parsedValueId) ?? 'Val$parsedValueId';
             debugPrint('🎯 Initializing: $attrName = $valueName (attr_id: $parsedAttrId, value_id: $parsedValueId)');
@@ -145,9 +150,81 @@ class DynamicVariantController extends ChangeNotifier {
       debugPrint('   Variant ID: ${selectedVariant.variantId}, Stock: ${selectedVariant.inStock}, Qty: ${selectedVariant.quantityAvailable}');
     } else {
       debugPrint('⚠️ DynamicVariantController: No variant found, using fallback initialization');
-      // Fallback: Initialize from variantAttributeOptions if available
       _initializeFromVariantAttributeOptions();
     }
+  }
+
+  void _setAttributeFromValue(int parsedAttrId, VariantAttributeValue v, String attributeName) {
+    final parsedValueId = int.tryParse(v.id);
+    if (parsedValueId != null) {
+      _selectedAttributes[parsedAttrId] = parsedValueId;
+      debugPrint('🎯 From ProductDetails: $attributeName = ${v.name} (attr_id: $parsedAttrId, value_id: $parsedValueId)');
+    }
+  }
+
+  /// Try to build selectedAttributes from ProductDetails.variantAttributeOptions (current
+  /// selection from BLoC, e.g. catalog variant override). Returns true if we built a valid
+  /// selection that matches at least one variant (and updated state); false otherwise.
+  /// Works in both English and Arabic (color matched via name/displayName).
+  bool _tryInitializeFromProductDetailsSelection() {
+    if (_productDetails == null || _productDetails!.variantAttributeOptions.isEmpty) {
+      return false;
+    }
+    
+    _selectedAttributes.clear();
+    final pd = _productDetails!;
+    final norm = (String s) => s.toLowerCase().trim();
+    
+    for (final opt in pd.variantAttributeOptions) {
+      final attrIdStr = opt.attributeId;
+      if (attrIdStr == null || attrIdStr.isEmpty) continue;
+      final parsedAttrId = int.tryParse(attrIdStr);
+      if (parsedAttrId == null) continue;
+      
+      final selectedValue = opt.selectedValue;
+      if (selectedValue.isEmpty) continue;
+      
+      final targetNorm = norm(selectedValue);
+      final isColorAttr = opt.attributeName.toLowerCase().contains('color') ||
+          opt.attributeName.contains('اللون') ||
+          opt.attributeName.toLowerCase().contains('colour');
+      bool found = false;
+      for (final v in opt.values) {
+        if (norm(v.name) == targetNorm) {
+          _setAttributeFromValue(parsedAttrId, v, opt.attributeName);
+          found = true;
+          break;
+        }
+        // English/Arabic: for color, match via colorOptions (name or displayName)
+        if (isColorAttr && pd.colorOptions.isNotEmpty) {
+          for (final c in pd.colorOptions) {
+            if (c.id != v.id) continue;
+            final nameMatch = norm(c.name) == targetNorm;
+            final displayMatch = c.displayName != null && norm(c.displayName!) == targetNorm;
+            if (nameMatch || displayMatch) {
+              _setAttributeFromValue(parsedAttrId, v, opt.attributeName);
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+    }
+    
+    if (_selectedAttributes.isEmpty) return false;
+    
+    _updateMatchingVariant();
+    final hasMatch = _selectedVariant != null && _variantId.isNotEmpty;
+    if (hasMatch) {
+      // Stock (inStock, quantityAvailable) is now set from the matched variant — stock badge,
+      // add-to-cart button, and add-to-cart bottom sheet all read from the controller.
+      debugPrint('   Matched variant: variantId=$_variantId, inStock=$_inStock, qty=$_quantityAvailable (used for stock badge, add-to-cart button, bottom sheet)');
+    } else {
+      _selectedAttributes.clear();
+      debugPrint('   No variant matched ProductDetails selection; will use first in-stock variant');
+    }
+    return hasMatch;
   }
 
   /// Fallback: Initialize from variantAttributeOptions
@@ -346,6 +423,49 @@ class DynamicVariantController extends ChangeNotifier {
     }
   }
 
+  /// Returns true if [nameA] and [nameB] refer to the same color (works in English and Arabic).
+  /// Uses direct normalized match or ProductDetails.colorOptions (name/displayName) so
+  /// e.g. "Gray" and "رمادي" match when they share the same ColorOption.
+  bool _colorNamesReferToSameColor(String? nameA, String? nameB) {
+    if (nameA == null || nameB == null || nameA.isEmpty || nameB.isEmpty) return false;
+    final norm = (String s) => s.toLowerCase().trim();
+    if (norm(nameA) == norm(nameB)) return true;
+    if (_productDetails == null) return false;
+    for (final c in _productDetails!.colorOptions) {
+      final nName = norm(c.name);
+      final nDisplay = c.displayName != null ? norm(c.displayName!) : '';
+      final aMatch = nName == norm(nameA) || (nDisplay.isNotEmpty && nDisplay == norm(nameA));
+      final bMatch = nName == norm(nameB) || (nDisplay.isNotEmpty && nDisplay == norm(nameB));
+      if (aMatch && bMatch) return true;
+    }
+    return false;
+  }
+
+  /// When multiple variants match selectedAttributes, pick the one that matches
+  /// ProductDetails.selectedColor (and selectedSize) by value name so we don't
+  /// jump to the first in list (e.g. 3rd color when 4th was selected from catalog).
+  /// Works in both English and Arabic (color match via _colorNamesReferToSameColor).
+  VariantCombination _pickVariantMatchingProductDetailsSelection(
+    List<VariantCombination> matchingVariants,
+  ) {
+    if (_productDetails == null || matchingVariants.isEmpty) return matchingVariants.first;
+    if (matchingVariants.length == 1) return matchingVariants.first;
+    final pd = _productDetails!;
+    final norm = (String s) => s.toLowerCase().trim();
+    final targetColor = pd.selectedColor.trim();
+    final targetSize = pd.selectedSize.trim();
+    for (final v in matchingVariants) {
+      final variantColor = _getColorValue(v);
+      final variantSize = _getSizeValue(v);
+      final colorMatch = targetColor.isEmpty ||
+          (variantColor != null && _colorNamesReferToSameColor(targetColor, variantColor));
+      final sizeMatch = targetSize.isEmpty ||
+          (variantSize != null && norm(variantSize) == norm(targetSize));
+      if (colorMatch && sizeMatch) return v;
+    }
+    return matchingVariants.first;
+  }
+
   /// Update the matching variant based on current selectedAttributes
   void _updateMatchingVariant() {
     if (_productDetails == null) {
@@ -363,27 +483,27 @@ class DynamicVariantController extends ChangeNotifier {
     final matchingVariants = _findAllMatchingVariants();
     
     if (matchingVariants.isNotEmpty) {
-      // Use the first matching variant for price, images, and variantId
-      // But sum quantities from ALL matching variants
-      _selectedVariant = matchingVariants.first;
+      // When multiple match, prefer the variant that matches ProductDetails.selectedColor/selectedSize
+      // so catalog-driven selection (e.g. 4th color) is not overwritten by "first in list" (e.g. 3rd).
+      _selectedVariant = _pickVariantMatchingProductDetailsSelection(matchingVariants);
       // Use variant-specific price if available, otherwise fallback to template price
       _currentPrice = _selectedVariant?.price ?? _productDetails!.price;
       
-      // CRITICAL: Sum quantities from ALL matching variants
+      // CRITICAL: Sum quantities from ALL matching variants (stock badge, add-to-cart button, bottom sheet use these)
       int totalQuantity = 0;
       bool hasInStock = false;
       
       for (final variant in matchingVariants) {
-        final qty = variant.quantityAvailable ?? 0;
+        final qty = (variant.quantityAvailable ?? 0).round();
         if (variant.inStock && qty > 0) {
           hasInStock = true;
-          totalQuantity += qty.toInt();
+          totalQuantity += qty;
         }
       }
       
       _inStock = hasInStock && totalQuantity > 0;
       _quantityAvailable = totalQuantity;
-      _variantId = matchingVariants.first.variantId; // Use first variant's ID for cart operations
+      _variantId = _selectedVariant!.variantId; // Use picked variant (matches selectedColor/selectedSize when multiple match)
       
       // Update images
       _updateImages();

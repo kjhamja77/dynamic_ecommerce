@@ -300,11 +300,23 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     SelectShippingAddress event,
     Emitter<CheckoutState> emit,
   ) async {
+    // Allow address selection in any state that has checkout data (no dependency on shipping method being selected)
+    CheckoutLoaded? base;
     if (state is CheckoutLoaded) {
-      final currentState = state as CheckoutLoaded;
-      emit(currentState.copyWith(
-        selectedShippingAddressId: event.addressId,
-      ));
+      base = state as CheckoutLoaded;
+    } else if (state is ShippingMethodsLoaded) {
+      base = (state as ShippingMethodsLoaded).previousState;
+    } else if (state is ShippingMethodApplying) {
+      base = (state as ShippingMethodApplying).snapshot;
+    } else if (state is PaymentMethodApplying) {
+      base = (state as PaymentMethodApplying).snapshot;
+    } else if (state is PaymentMethodApplied) {
+      base = (state as PaymentMethodApplied).snapshot;
+    } else if (state is PaymentMethodFailure) {
+      base = (state as PaymentMethodFailure).snapshot;
+    }
+    if (base != null) {
+      emit(base.copyWith(selectedShippingAddressId: event.addressId));
     }
   }
 
@@ -312,11 +324,23 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     SelectPaymentMethod event,
     Emitter<CheckoutState> emit,
   ) async {
+    // Allow payment method selection in any state that has checkout data (no dependency on address/shipping)
+    CheckoutLoaded? base;
     if (state is CheckoutLoaded) {
-      final currentState = state as CheckoutLoaded;
-      emit(currentState.copyWith(
-        selectedPaymentMethodId: event.methodId,
-      ));
+      base = state as CheckoutLoaded;
+    } else if (state is ShippingMethodsLoaded) {
+      base = (state as ShippingMethodsLoaded).previousState;
+    } else if (state is ShippingMethodApplying) {
+      base = (state as ShippingMethodApplying).snapshot;
+    } else if (state is PaymentMethodApplying) {
+      base = (state as PaymentMethodApplying).snapshot;
+    } else if (state is PaymentMethodApplied) {
+      base = (state as PaymentMethodApplied).snapshot;
+    } else if (state is PaymentMethodFailure) {
+      base = (state as PaymentMethodFailure).snapshot;
+    }
+    if (base != null) {
+      emit(base.copyWith(selectedPaymentMethodId: event.methodId));
     }
   }
 

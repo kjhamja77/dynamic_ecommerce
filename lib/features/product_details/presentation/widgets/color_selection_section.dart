@@ -117,6 +117,9 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
   DynamicVariantController? _variantController;
   bool _scrollEndListenerAttached = false;
   ValueNotifier<bool>? _isScrollingNotifier;
+  /// Until the user taps a color or scrolls, we keep the list fixed on the selected index
+  /// so the catalog-driven selection is not overwritten by scroll position.
+  bool _hasUserInteractedWithColorList = false;
 
   @override
   void initState() {
@@ -151,6 +154,8 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
 
   void _onScrollEnd() {
     if (!mounted || _variantController == null) return;
+    // On initial load, do not sync selection from scroll position so catalog selection stays correct.
+    if (!_hasUserInteractedWithColorList) return;
     final colorAttributeId = _getColorAttributeId();
     if (colorAttributeId == null) return;
     final colorOptions = widget.productDetails.colorOptions;
@@ -184,13 +189,19 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
     if (idx < 0 || idx >= count) return;
     if (idx != _currentIndex) {
       setState(() => _currentIndex = idx);
-      _scrollToIndex(idx);
+      if (_hasUserInteractedWithColorList) {
+        _scrollToIndex(idx);
+      } else {
+        _jumpToIndex(idx);
+      }
     }
   }
 
   void _onScroll() {
     if (!mounted || !_listScrollController.hasClients) return;
     _attachScrollEndListener();
+    // On initial load, do not update _currentIndex from scroll so selected index stays correct.
+    if (!_hasUserInteractedWithColorList) return;
     final count = widget.productDetails.colorOptions.length;
     if (count <= 1) return;
     final extent = _colorCardWidth + ResponsiveConstants.mdSpacing;
@@ -229,6 +240,20 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+  }
+
+  /// Jumps to index without animation. Used on initial load so the list shows the selected
+  /// color and does not trigger scroll listeners that could change selection.
+  void _jumpToIndex(int index) {
+    if (!_listScrollController.hasClients) return;
+    final count = widget.productDetails.colorOptions.length;
+    if (count <= 1) return;
+    final extent = _colorCardWidth + ResponsiveConstants.mdSpacing;
+    final targetOffset = (index * extent).clamp(
+      0.0,
+      _listScrollController.position.maxScrollExtent,
+    );
+    _listScrollController.jumpTo(targetOffset);
   }
 
   @override
@@ -273,7 +298,13 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
             setState(() => _currentIndex = selectedColorIndex!);
             final isUserScrolling = _listScrollController.hasClients &&
                 _listScrollController.position.isScrollingNotifier.value;
-            if (!isUserScrolling) _scrollToIndex(selectedColorIndex!);
+            if (!isUserScrolling) {
+              if (_hasUserInteractedWithColorList) {
+                _scrollToIndex(selectedColorIndex!);
+              } else {
+                _jumpToIndex(selectedColorIndex!);
+              }
+            }
           });
         }
 
@@ -295,7 +326,9 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
                   child: ListView.separated(
                     controller: _listScrollController,
                     scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    physics: _hasUserInteractedWithColorList
+                        ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+                        : const NeverScrollableScrollPhysics(),
                     itemCount: count,
                     separatorBuilder: (_, __) => SizedBox(width: ResponsiveConstants.mdSpacing),
                     itemBuilder: (context, index) {
@@ -306,6 +339,9 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
                         scrollController: widget.pageScrollController,
                         itemIndex: index,
                         onSelected: (int selectedIndex) {
+                          if (!_hasUserInteractedWithColorList) {
+                            setState(() => _hasUserInteractedWithColorList = true);
+                          }
                           setState(() => _currentIndex = selectedIndex);
                           _scrollToIndex(selectedIndex);
                         },

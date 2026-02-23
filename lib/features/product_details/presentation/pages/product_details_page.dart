@@ -66,7 +66,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     
     // Listen to language changes
     localizationService.addListener(_onLanguageChanged);
-    
+    print('product id from the catalog list selected ${widget.productId}');
     // Ensure API language is synced with current app language before loading product
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final currentLanguage = localizationService.currentLocale.languageCode;
@@ -314,7 +314,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           pinned: true,
           elevation: 0,
           backgroundColor: colorScheme.background,
-          leading: _buildBackButton(),
+          leading: Padding(
+            padding: EdgeInsets.only(left: ResponsiveConstants.mdPadding),
+            child: _buildBackButton(),
+          ),
           title: _buildAppBarTitle(productDetails),
           iconTheme: IconThemeData(
             color: colorScheme.onBackground,
@@ -323,7 +326,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             _buildShareButton(),
             const CartButtonWithBadge(),
             Padding(
-              padding: EdgeInsets.only(right: ResponsiveConstants.smPadding),
+              padding: EdgeInsetsDirectional.only(end: ResponsiveConstants.mdPadding),
               child: FavoriteButton(
                 productId: productDetails.id,
                 productName: productDetails.name,

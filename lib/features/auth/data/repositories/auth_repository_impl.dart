@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/image_cache_utils.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
@@ -134,6 +135,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Clear user-specific cached data (favorites belong to the logged-in user)
       await sharedPreferences.remove(AppConstants.favoritesKey);
+
+      // Clear all cached images (memory + disk) so next user/session starts clean
+      await ImageCacheUtils.clearImageCache();
 
       await storage.deleteAll();
       debugPrint('AuthRepositoryImpl.logout → deleteAll complete');

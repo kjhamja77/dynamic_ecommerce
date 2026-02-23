@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../constants/app_constants.dart';
 import '../services/language_service.dart';
 
@@ -39,9 +41,22 @@ class ImageCacheUtils {
   
   /// Clear all cached images (use sparingly as it affects performance)
   static Future<void> clearImageCache() async {
-    // This would require importing the cached_network_image package
-    // and calling CachedNetworkImage.evictFromCache() for all URLs
-    // For now, we rely on cache busting URLs
+    // 1) Clear in-memory Flutter image cache
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      debugPrint('🧹 ImageCacheUtils.clearImageCache → Cleared in-memory image cache');
+    } catch (e) {
+      debugPrint('⚠️ ImageCacheUtils.clearImageCache → Failed to clear in-memory cache: $e');
+    }
+
+    // 2) Clear disk cache used by cached_network_image (DefaultCacheManager)
+    try {
+      await DefaultCacheManager().emptyCache();
+      debugPrint('🧹 ImageCacheUtils.clearImageCache → Cleared disk image cache');
+    } catch (e) {
+      debugPrint('⚠️ ImageCacheUtils.clearImageCache → Failed to clear disk cache: $e');
+    }
   }
 
   /// Evict cached image for a specific URL (useful when URL format changes)

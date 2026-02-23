@@ -22,27 +22,30 @@ class PaymentMethodCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: isSelected ? CheckoutConstants.primaryColor : colorScheme.outline.withValues(alpha: 0.5),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: shadowAlpha),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(
+              color: isSelected ? CheckoutConstants.primaryColor : colorScheme.outline.withValues(alpha: 0.5),
+              width: isSelected ? 2 : 1,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: shadowAlpha),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
             Container(
               width: 20.w,
               height: 20.w,
@@ -108,6 +111,7 @@ class PaymentMethodCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
       ),
     );
   }

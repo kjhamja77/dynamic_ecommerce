@@ -1020,41 +1020,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
         await HapticService.buttonClick();
         // Select the address
         blocContext.read<CheckoutBloc>().add(SelectShippingAddress(addressId: address.id));
-        
-        // Auto-select first shipping method if available and not already selected
-        if (_shippingMethods.isNotEmpty && checkoutState.selectedShippingMethodId == null) {
-          final firstMethod = _shippingMethods.first;
-          // Access properties as object properties, not Map keys
-          final methodId = (firstMethod as dynamic).id as int?;
-          if (methodId != null) {
-            final cartState = blocContext.read<CartBloc>().state;
-            final orderId = (cartState is CartLoaded && cartState.cartResponse != null)
-                ? cartState.cartResponse!.orderId
-                : null;
-            
-            if (orderId != null && orderId > 0) {
-              final checkoutBloc = blocContext.read<CheckoutBloc>();
-              final price = ((firstMethod as dynamic).price ?? 0.0) as num;
-              checkoutBloc.add(SelectShippingMethod(shippingMethodId: methodId));
-              checkoutBloc.add(const SetUseCartTotals(useCartTotals: false));
-              
-              // Update summary with shipping cost
-              final summary = checkoutState.summary;
-              final newShipping = price.toDouble();
-              final newTotal = summary.subtotal + newShipping + summary.tax - summary.discount;
-              final optimisticSummary = summary.copyWith(
-                shipping: newShipping,
-                total: newTotal,
-                totalItems: summary.totalItems,
-              );
-              checkoutBloc.add(UpdateCheckoutFromCart(
-                items: checkoutState.items,
-                summary: optimisticSummary,
-              ));
-              checkoutBloc.add(ApplyShippingMethod(orderId: orderId, shippingMethodId: methodId));
-            }
-          }
+        // If user had selected Cash (or any method) without an address, apply it now
+        final cartState = blocContext.read<CartBloc>().state;
+        final orderId = (cartState is CartLoaded && cartState.cartResponse != null)
+            ? cartState.cartResponse!.orderId
+            : null;
+        final paymentId = checkoutState.selectedPaymentMethodId != null
+            ? int.tryParse(checkoutState.selectedPaymentMethodId!)
+            : null;
+        if (orderId != null && orderId > 0 && paymentId != null) {
+          blocContext.read<CheckoutBloc>().add(
+            ApplyPaymentMethod(orderId: orderId, paymentMethodId: paymentId),
+          );
         }
+        // Shipping method is not auto-selected; user must choose it explicitly.
       } : null), // Incomplete: handled by cardTapHandler in widget
       onEdit: () async {
         await HapticService.buttonClick();
@@ -2373,10 +2352,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     int? orderId, 
     CheckoutLoaded checkoutState,
   ) async {
+    // Update selection immediately so UI switches (e.g. Al Qaseh -> Cash) without waiting for API
     blocContext.read<CheckoutBloc>().add(SelectPaymentMethod(methodId: method.id));
 
     final parsedId = int.tryParse(method.id);
     if (orderId == null || orderId == 0 || parsedId == null) {
+      return;
+    }
+
+    // For Cash (COD) with no address, only update UI; apply to order when user selects address later
+    final isCashNoAddress = method.type == PaymentType.cashOnDelivery &&
+        checkoutState.selectedShippingAddressId == null;
+    if (isCashNoAddress) {
       return;
     }
 

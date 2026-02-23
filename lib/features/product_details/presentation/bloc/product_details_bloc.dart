@@ -75,6 +75,16 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     return null;
   }
 
+  /// Get attribute value from a variant by trying multiple attribute names.
+  String? _getVariantAttributeValue(VariantCombination v, List<String> attrNames) {
+    for (final name in attrNames) {
+      if (name.isEmpty) continue;
+      final value = v.getAttributeValue(name);
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
   /// Returns true when variant's color value matches the selected value (handles Arabic/English).
   /// Variants from API typically have English; selectedValue may be Arabic when app is in Arabic.
   bool _colorValuesMatch(ProductDetails pd, String? variantValue, String selectedValue) {
@@ -1384,6 +1394,111 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
         
         String normalize(String s) => s.toLowerCase().trim();
+
+        // If we opened from catalog with a variant ID, match it in variant_combinations
+        // and use that variant's attributes as initial selection (so the same variant appears selected in UI).
+        String? overrideSelectedColor;
+        String? overrideSelectedSize;
+        String? overrideSelectedMaterial;
+        double? overrideSelectedHeelHeight;
+        List<VariantAttributeOption>? overrideVariantAttributeOptions;
+        final requestedId = event.productId.trim();
+        debugPrint('🔍 [Catalog→Details] ID we are sending (from catalog): "$requestedId" (type: ${requestedId.runtimeType})');
+        if (requestedId.isNotEmpty && productDetails.variantCombinations.isNotEmpty) {
+          debugPrint('🔍 [Catalog→Details] Looping variant_combinations (count: ${productDetails.variantCombinations.length}):');
+          VariantCombination? catalogVariant;
+          for (final v in productDetails.variantCombinations) {
+            final comboId = v.variantId.toString().trim();
+            final match = comboId == requestedId;
+            debugPrint('   - variant_id from combo: "$comboId" | requested: "$requestedId" | match: $match');
+            if (match) {
+              catalogVariant = v;
+              break;
+            }
+          }
+          if (catalogVariant != null) {
+            debugPrint('✅ [Catalog→Details] MATCH: variantId=$requestedId → using its attributes as initial selection');
+            debugPrint('🔍 [Catalog→Details] Values fetched from matched variant (variant_combinations entry):');
+            for (final attr in catalogVariant.attributes) {
+              debugPrint('   - ${attr.attributeName}: "${attr.valueName}" (value_id: ${attr.valueId})');
+            }
+            overrideSelectedColor = _getVariantColorValue(catalogVariant);
+            overrideSelectedSize = _getVariantAttributeValue(
+              catalogVariant,
+              [
+                productDetails.primaryVariantLabel,
+                'size',
+                'SIZE',
+                'القياس',
+              ].where((s) => s.isNotEmpty).toList(),
+            );
+            overrideSelectedMaterial = _getVariantAttributeValue(
+              catalogVariant,
+              ['material', 'materials', 'material name', 'MATERIALS', 'Material'],
+            );
+            final heightStr = _getVariantAttributeValue(
+              catalogVariant,
+              ['height', 'heel height', 'HEIGHT', 'heel height cm'],
+            );
+            if (heightStr != null && heightStr.isNotEmpty) {
+              overrideSelectedHeelHeight = double.tryParse(
+                heightStr.replaceAll(RegExp(r'[^0-9.]'), ''),
+              );
+            }
+            debugPrint(
+              '📤 [Catalog→Details] Override values extracted from matched variant: '
+              'color="$overrideSelectedColor", size="$overrideSelectedSize", '
+              'material="$overrideSelectedMaterial", height=${overrideSelectedHeelHeight?.toStringAsFixed(1) ?? "null"}',
+            );
+            // Build variantAttributeOptions with selection from the matched variant
+            final opts = <VariantAttributeOption>[];
+            for (final opt in productDetails.variantAttributeOptions) {
+              final attrNames = [
+                opt.apiAttributeName,
+                opt.attributeName,
+                if (opt.attributeName.toLowerCase().contains('color')) 'COLOR NAME',
+                if (opt.attributeName.toLowerCase().contains('size')) productDetails.primaryVariantLabel,
+                if (opt.attributeName.toLowerCase().contains('material')) 'MATERIALS',
+                if (opt.attributeName.toLowerCase().contains('height')) 'HEIGHT',
+              ].whereType<String>().where((s) => s.isNotEmpty).toList();
+              final valueFromVariant = _getVariantAttributeValue(catalogVariant, attrNames);
+              final selectedValue = (valueFromVariant != null && valueFromVariant.isNotEmpty)
+                  ? valueFromVariant
+                  : opt.selectedValue;
+              final normSelected = normalize(selectedValue);
+              final newValues = opt.values.map((v) {
+                final isSelected = normSelected.isNotEmpty && normalize(v.name) == normSelected;
+                return VariantAttributeValue(
+                  id: v.id,
+                  name: v.name,
+                  isAvailable: v.isAvailable,
+                  isSelected: isSelected,
+                );
+              }).toList();
+              final selectedValueName = newValues.where((v) => v.isSelected).map((v) => v.name).join(', ');
+              debugPrint(
+                '   [Catalog→Details] variantAttributeOption: "${opt.attributeName}" → valueFromVariant="$valueFromVariant", '
+                'selectedValue="$selectedValue", isSelected value(s): [$selectedValueName]',
+              );
+              opts.add(VariantAttributeOption(
+                attributeName: opt.attributeName,
+                values: newValues,
+                selectedValue: selectedValue,
+                apiAttributeName: opt.apiAttributeName,
+                attributeId: opt.attributeId,
+              ));
+            }
+            overrideVariantAttributeOptions = opts;
+          } else {
+            debugPrint('❌ [Catalog→Details] NO MATCH: no variant_combinations entry with variant_id == "$requestedId"');
+          }
+        } else {
+          if (requestedId.isEmpty) {
+            debugPrint('🔍 [Catalog→Details] Skipping match: requested ID is empty');
+          } else if (productDetails.variantCombinations.isEmpty) {
+            debugPrint('🔍 [Catalog→Details] Skipping match: variant_combinations is empty');
+          }
+        }
         
         // Update size options to reflect availability based on ALL variant combinations
         final updatedSizeOptions = productDetails.sizeOptions.map((size) {
@@ -1413,9 +1528,9 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }).toList();
         
         // Stored selection: at initial load use first value of each attribute when empty.
+        // If we matched a catalog variant, use its attributes; otherwise use API/model defaults.
         // These variables are used to filter and get the variant (inStock, quantity_available).
-        // On any attribute click we update only the clicked attribute and keep the rest.
-        String? initialSelectedSize = productDetails.selectedSize;
+        String? initialSelectedSize = overrideSelectedSize ?? productDetails.selectedSize;
         if (initialSelectedSize.isEmpty) {
           for (final opt in productDetails.variantAttributeOptions) {
             final attrNameLower = opt.attributeName.toLowerCase();
@@ -1442,7 +1557,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
 
-        String initialSelectedColor = productDetails.selectedColor;
+        String initialSelectedColor = overrideSelectedColor ?? productDetails.selectedColor;
         if (initialSelectedColor.isEmpty && productDetails.colorOptions.isNotEmpty) {
           initialSelectedColor = productDetails.colorOptions.first.name;
         }
@@ -1459,8 +1574,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         }
 
         // Declare material/height early so we can log them; they are updated in the loop below.
-        String? initialSelectedMaterial = productDetails.selectedMaterial;
-        double? initialSelectedHeelHeight = productDetails.selectedHeelHeightCm;
+        String? initialSelectedMaterial = overrideSelectedMaterial ?? productDetails.selectedMaterial;
+        double? initialSelectedHeelHeight = overrideSelectedHeelHeight ?? productDetails.selectedHeelHeightCm;
 
         debugPrint(
           '📌 Initial stored selection (first value of each attribute): '
@@ -1468,8 +1583,10 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           'material="${initialSelectedMaterial ?? ''}", height=${initialSelectedHeelHeight?.toStringAsFixed(1) ?? "null"}',
         );
         
-        // Align variantAttributeOptions (SIZE attribute) with the initial selected size
+        // Align variantAttributeOptions (SIZE attribute) with the initial selected size.
+        // If we matched a catalog variant, we already have options with correct selection from override.
         final List<VariantAttributeOption> updatedVariantAttributeOptions =
+            overrideVariantAttributeOptions ??
             productDetails.variantAttributeOptions.map((opt) {
           final attrNameLower = opt.attributeName.toLowerCase();
           final bool isSizeAttribute =
@@ -1701,6 +1818,18 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
 
         // Stored selection: use these four for variant filter (findVariantMatchingSelectionByValueName).
         // On attribute click we update only the clicked attribute and keep the rest.
+        debugPrint(
+          '📤 [Catalog→Details] Data going into copyWith (to UI): '
+          'selectedColor="$initialSelectedColor", selectedSize="${initialSelectedSize ?? productDetails.selectedSize}", '
+          'selectedMaterial="${initialSelectedMaterial ?? productDetails.selectedMaterial}", '
+          'selectedHeelHeightCm=${initialSelectedHeelHeight?.toStringAsFixed(1) ?? productDetails.selectedHeelHeightCm?.toStringAsFixed(1) ?? "null"}, '
+          'usingOverrideVariantOptions=${overrideVariantAttributeOptions != null}',
+        );
+        if (overrideVariantAttributeOptions != null) {
+          for (final o in updatedVariantAttributeOptions) {
+            debugPrint('   → variantAttributeOption "${o.attributeName}": selectedValue="${o.selectedValue}", values.selected: ${o.values.where((v) => v.isSelected).map((v) => v.name).toList()}');
+          }
+        }
         var updatedProduct = productDetails.copyWith(
           sizeOptions: updatedSizeOptions,
           colorOptions: updatedColorOptions,
@@ -1766,6 +1895,14 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
         
+        debugPrint(
+          '📤 [Catalog→Details] Final data passed to UI (ProductDetailsLoaded): '
+          'selectedColor="${updatedProduct.selectedColor}", selectedSize="${updatedProduct.selectedSize}", '
+          'selectedMaterial="${updatedProduct.selectedMaterial}", selectedHeelHeightCm=${updatedProduct.selectedHeelHeightCm?.toStringAsFixed(1) ?? "null"}',
+        );
+        for (final o in updatedProduct.variantAttributeOptions) {
+          debugPrint('   → UI option "${o.attributeName}": selectedValue="${o.selectedValue}"');
+        }
         emit(ProductDetailsLoaded(updatedProduct, quantity: initialQuantity, isAdding: false));
       },
     );
