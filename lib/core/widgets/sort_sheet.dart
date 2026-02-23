@@ -65,15 +65,18 @@ class _SortBottomSheetContentState extends State<_SortBottomSheetContent> {
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
-      removeBottom: true,
-      child: FractionallySizedBox(
-        heightFactor: 0.6,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.mdPadding),
-              child: Column(
+      removeBottom: false,
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: FractionallySizedBox(
+          heightFactor: 0.6,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.mdPadding),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -173,6 +176,7 @@ class _SortBottomSheetContentState extends State<_SortBottomSheetContent> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

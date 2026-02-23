@@ -284,17 +284,15 @@ class ProductCard extends StatelessWidget {
 
         final verticalSpacing = isHorizontal 
             ? 3.h // Tighter spacing for horizontal layout
-            : (isConstrained ? 4.h : 5.h);
+            : (isConstrained ? 5.h : 5.h);
 
-        return Container(
-          padding: padding,
-          child: Column(
-            crossAxisAlignment:
-                useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Brand name
-              Directionality(
+        final columnContent = Column(
+          crossAxisAlignment:
+              useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Brand name
+            Directionality(
                 textDirection: brandTextDirection,
                 child: Text(
                   product.brand,
@@ -314,25 +312,46 @@ class ProductCard extends StatelessWidget {
 
               SizedBox(height: verticalSpacing),
 
-              // Product name (description)
-              Directionality(
-                textDirection: nameTextDirection,
-                child: Text(
-                  _getCleanProductName(product.name),
-                  style: AppFonts.getTextStyle(
-                    fontSize: _getResponsiveProductNameFontSize(),
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.7),
-                    height: isConstrained ? 1.1 : 1.2,
-                  ),
-                  maxLines: isHorizontal ? 1 : 2, // Single line for horizontal, 2 for vertical
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: nameTextDirection == TextDirection.rtl
-                      ? TextAlign.right
-                      : TextAlign.left,
-                ),
+              // Product name (description) - fixed height for 2 lines in vertical layout
+              // so all cards have the same height (e.g. Arabic 1-line vs 2-line descriptions).
+              // Extra buffer (4.h) ensures Arabic/second line is never clipped by font metrics.
+              Builder(
+                builder: (context) {
+                  final nameFontSize = _getResponsiveProductNameFontSize();
+                  final lineHeightMultiplier = isConstrained ? 1.1 : 1.2;
+                  final twoLineHeight = (2 * nameFontSize * lineHeightMultiplier) + 4.h;
+
+                  final nameContent = Directionality(
+                    textDirection: nameTextDirection,
+                    child: Text(
+                      _getCleanProductName(product.name),
+                      style: AppFonts.getTextStyle(
+                        fontSize: nameFontSize,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.7),
+                        height: lineHeightMultiplier,
+                      ),
+                      maxLines: isHorizontal ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: nameTextDirection == TextDirection.rtl
+                          ? TextAlign.right
+                          : TextAlign.left,
+                    ),
+                  );
+
+                  if (isHorizontal) return nameContent;
+                  return SizedBox(
+                    height: twoLineHeight,
+                    child: Align(
+                      alignment: useRtlValue
+                          ? Alignment.topRight
+                          : Alignment.topLeft,
+                      child: nameContent,
+                    ),
+                  );
+                },
               ),
 
               SizedBox(height: verticalSpacing),
@@ -350,7 +369,6 @@ class ProductCard extends StatelessWidget {
                           locale: Localizations.localeOf(context),
                         )
                       : null;
-
                   return _PriceBlock(
                     priceText: formattedPrice,
                     originalText: formattedOriginalPrice,
@@ -362,11 +380,11 @@ class ProductCard extends StatelessWidget {
                 },
               ),
 
-              // Cart quantity button below price (product info section)
-              // Hide in horizontal layout (horizontal lists)
+              // Add to cart button below price: left for Arabic, right for English
               if (!isHorizontal) ...[
+                SizedBox(height: ResponsiveConstants.smSpacing),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: useRtlValue ? Alignment.centerLeft : Alignment.centerRight,
                   child: Directionality(
                     textDirection: TextDirection.ltr,
                     child: CartQuantityButton(
@@ -375,10 +393,21 @@ class ProductCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: ResponsiveConstants.smSpacing), // Add space below cart button
+                SizedBox(height: isConstrained ? (ResponsiveConstants.smSpacing - 2).clamp(2.0, double.infinity) : ResponsiveConstants.smSpacing),
               ],
             ],
-          ),
+          );
+
+        return Container(
+          padding: padding,
+          child: isConstrained && constraints.maxHeight.isFinite
+              ? SizedBox(
+                  height: constraints.maxHeight,
+                  child: ClipRect(
+                    child: columnContent,
+                  ),
+                )
+              : columnContent,
         );
       },
     );

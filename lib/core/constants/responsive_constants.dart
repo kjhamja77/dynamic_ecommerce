@@ -302,17 +302,17 @@ class ResponsiveConstants {
   }
 
   static double _getGridChildAspectRatio() {
-    if (1.sw >= _desktopBreakpoint) return 0.75; // better proportions on desktop
-    if (1.sw >= _tabletBreakpoint) return 0.70;  // better proportions on tablet
-    if (1.sw >= _mobileBreakpoint) return 0.65;  // better proportions on large phones
-    return 0.60;                                  // better proportions on small phones
+    if (1.sw >= _desktopBreakpoint) return 0.73; // slightly taller to avoid overflow
+    if (1.sw >= _tabletBreakpoint) return 0.68;
+    if (1.sw >= _mobileBreakpoint) return 0.63;
+    return 0.58; // slightly taller on small phones
   }
 
   static double _getCatalogGridChildAspectRatio() {
-    if (1.sw >= _desktopBreakpoint) return 0.52; // taller card – more room for info
-    if (1.sw >= _tabletBreakpoint) return 0.48;
-    if (1.sw >= _mobileBreakpoint) return 0.45;
-    return 0.525;                                  // tallest on small phones
+    if (1.sw >= _desktopBreakpoint) return 0.50; // slightly taller – more room for info
+    if (1.sw >= _tabletBreakpoint) return 0.46;
+    if (1.sw >= _mobileBreakpoint) return 0.43;
+    return 0.51; // slightly taller on small phones
   }
 
   // Responsive edge insets

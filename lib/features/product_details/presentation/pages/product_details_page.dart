@@ -17,6 +17,7 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/navigation/navigation_service.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../cart/presentation/widgets/cart_button_with_badge.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
@@ -289,49 +290,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildErrorState(String message) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: ResponsiveConstants.errorIconSize,
-            color: colorScheme.error,
-          ),
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          Text(
-            AppLocalizations.of(context)!.somethingWentWrong,
-            style: AppFonts.getTextStyle(
-              fontSize: ResponsiveConstants.xlFontSize,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          Text(
-            message,
-            style: AppFonts.getTextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          ElevatedButton(
-            onPressed: () async {
-              await HapticService.buttonClick();
-              context.read<ProductDetailsBloc>().add(LoadProductDetails(widget.productId));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-            ),
-            child: Text(AppLocalizations.of(context)!.tryAgain),
-          ),
-        ],
-      ),
+    return AppErrorView(
+      message: message,
+      onRetry: () async {
+        await HapticService.buttonClick();
+        context.read<ProductDetailsBloc>().add(
+              LoadProductDetails(widget.productId, productType: widget.productType),
+            );
+      },
     );
   }
 

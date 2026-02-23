@@ -48,16 +48,16 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _handleRegister() {
     if (_formKey.currentState!.validate()) {
-      final rawPhone = _phoneController.text.trim();
-      final phoneWithCode = rawPhone.isEmpty ? null : (_phoneFieldKey.currentState?.fullPhoneNumber ?? rawPhone);
+      // Send national number only (no country code prefix); country_code is sent separately.
+      final nationalPhone = _phoneController.text.trim().replaceAll(RegExp(r'\s+'), '');
       final selectedCountry = _phoneFieldKey.currentState?.selectedCountry;
-      final countryCode = selectedCountry?.countryCode; // ISO code like 'US', 'AE'
+      final countryCode = selectedCountry?.countryCode; // ISO e.g. 'IQ', 'AE'
       context.read<AuthBloc>().add(RegisterRequested(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
-            phone : phoneWithCode,
+            phone: nationalPhone.isEmpty ? null : nationalPhone,
             countryCode: countryCode,
           ));
     }

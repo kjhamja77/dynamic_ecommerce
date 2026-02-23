@@ -66,39 +66,26 @@ class ColorSelectionSection extends StatelessWidget {
         
         SizedBox(height: ResponsiveConstants.mdSpacing),
         
-        // Color options - Single line with horizontal scrolling
+        // Color options - Single line with horizontal scrolling + scroll indicators
         Consumer<DynamicVariantController>(
           builder: (context, variantController, _) {
             return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
               builder: (context, state) {
                 // Get the latest product details from state
-                final currentProductDetails = state is ProductDetailsLoaded 
-                    ? state.productDetails 
+                final currentProductDetails = state is ProductDetailsLoaded
+                    ? state.productDetails
                     : productDetails;
-                
+
                 debugPrint('🎨 ColorSelectionSection: Rendering ${currentProductDetails.colorOptions.length} colors');
-                
+
                 if (currentProductDetails.colorOptions.isEmpty) {
                   debugPrint('⚠️ ColorSelectionSection: No color options available');
                   return const SizedBox.shrink();
                 }
-                
-                return SizedBox(
-                  height: 140, // Reduced height - no "out of stock" text, just icon overlay
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: currentProductDetails.colorOptions.length,
-                    separatorBuilder: (context, index) => SizedBox(width: ResponsiveConstants.mdSpacing),
-                    itemBuilder: (context, index) {
-                      final colorOption = currentProductDetails.colorOptions[index];
-                      debugPrint('🎨 ColorSelectionSection: Building color card ${index + 1}/${currentProductDetails.colorOptions.length}: "${colorOption.displayNameOrName}" (id: ${colorOption.id})');
-                      return _ColorOptionCard(
-                        colorOption: colorOption,
-                        productDetails: currentProductDetails,
-                        scrollController: scrollController,
-                      );
-                    },
-                  ),
+
+                return _ColorListWithIndicators(
+                  productDetails: currentProductDetails,
+                  pageScrollController: scrollController,
                 );
               },
             );
@@ -109,15 +96,292 @@ class ColorSelectionSection extends StatelessWidget {
   }
 }
 
+/// Horizontal color list with scroll position indicators (dots).
+/// Indicator count is dynamic from [productDetails.colorOptions.length].
+class _ColorListWithIndicators extends StatefulWidget {
+  final ProductDetails productDetails;
+  final ScrollController? pageScrollController;
+
+  const _ColorListWithIndicators({
+    required this.productDetails,
+    this.pageScrollController,
+  });
+
+  @override
+  State<_ColorListWithIndicators> createState() => _ColorListWithIndicatorsState();
+}
+
+class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
+  late ScrollController _listScrollController;
+  static const double _colorCardWidth = 100;
+  DynamicVariantController? _variantController;
+  bool _scrollEndListenerAttached = false;
+  ValueNotifier<bool>? _isScrollingNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _listScrollController = ScrollController();
+    _listScrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = context.read<DynamicVariantController>();
+    if (controller != _variantController) {
+      _variantController?.removeListener(_onVariantSelectionChanged);
+      _variantController = controller;
+      _variantController!.addListener(_onVariantSelectionChanged);
+    }
+    _attachScrollEndListener();
+  }
+
+  void _attachScrollEndListener() {
+    if (_scrollEndListenerAttached || !_listScrollController.hasClients) return;
+    _isScrollingNotifier = _listScrollController.position.isScrollingNotifier;
+    _isScrollingNotifier!.addListener(_onScrollingChanged);
+    _scrollEndListenerAttached = true;
+  }
+
+  void _onScrollingChanged() {
+    if (_listScrollController.position.isScrollingNotifier.value) return;
+    _onScrollEnd();
+  }
+
+  void _onScrollEnd() {
+    if (!mounted || _variantController == null) return;
+    final colorAttributeId = _getColorAttributeId();
+    if (colorAttributeId == null) return;
+    final colorOptions = widget.productDetails.colorOptions;
+    final count = colorOptions.length;
+    if (count <= 1) return;
+    final extent = _colorCardWidth + ResponsiveConstants.mdSpacing;
+    final offset = _listScrollController.offset.clamp(0.0, double.infinity);
+    final index = (offset / extent).round().clamp(0, count - 1);
+    final selectedValueId = _variantController!.selectedAttributes[colorAttributeId];
+    final colorAtIndex = colorOptions[index];
+    final valueIdAtIndex = int.tryParse(colorAtIndex.id);
+    if (valueIdAtIndex != null && valueIdAtIndex != selectedValueId) {
+      _variantController!.selectAttributeValue(colorAttributeId, valueIdAtIndex);
+    }
+  }
+
+  void _onVariantSelectionChanged() {
+    if (!mounted) return;
+    if (_listScrollController.hasClients &&
+        _listScrollController.position.isScrollingNotifier.value) {
+      return;
+    }
+    final colorAttributeId = _getColorAttributeId();
+    if (colorAttributeId == null || _variantController == null) return;
+    final selectedValueId = _variantController!.selectedAttributes[colorAttributeId];
+    if (selectedValueId == null) return;
+    final colorOptions = widget.productDetails.colorOptions;
+    final count = colorOptions.length;
+    if (count <= 1) return;
+    final idx = colorOptions.indexWhere((c) => int.tryParse(c.id) == selectedValueId);
+    if (idx < 0 || idx >= count) return;
+    if (idx != _currentIndex) {
+      setState(() => _currentIndex = idx);
+      _scrollToIndex(idx);
+    }
+  }
+
+  void _onScroll() {
+    if (!mounted || !_listScrollController.hasClients) return;
+    _attachScrollEndListener();
+    final count = widget.productDetails.colorOptions.length;
+    if (count <= 1) return;
+    final extent = _colorCardWidth + ResponsiveConstants.mdSpacing;
+    final offset = _listScrollController.offset.clamp(0.0, double.infinity);
+    final index = (offset / extent).round().clamp(0, count - 1);
+    if (index != _currentIndex) {
+      setState(() => _currentIndex = index);
+    }
+  }
+
+  int _currentIndex = 0;
+
+  int? _getColorAttributeId() {
+    for (final opt in widget.productDetails.variantAttributeOptions) {
+      final n = opt.attributeName.toLowerCase();
+      if (n == 'color name' || n == 'color' || n == 'colour' || n == 'اللون') {
+        final id = int.tryParse(opt.attributeId ?? '');
+        if (id != null) return id;
+        break;
+      }
+    }
+    return null;
+  }
+
+  void _scrollToIndex(int index) {
+    if (!_listScrollController.hasClients) return;
+    final count = widget.productDetails.colorOptions.length;
+    if (count <= 1) return;
+    final extent = _colorCardWidth + ResponsiveConstants.mdSpacing;
+    final targetOffset = (index * extent).clamp(
+      0.0,
+      _listScrollController.position.maxScrollExtent,
+    );
+    _listScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _isScrollingNotifier?.removeListener(_onScrollingChanged);
+    _isScrollingNotifier = null;
+    _scrollEndListenerAttached = false;
+    _variantController?.removeListener(_onVariantSelectionChanged);
+    _variantController = null;
+    _listScrollController.removeListener(_onScroll);
+    _listScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorOptions = widget.productDetails.colorOptions;
+    final count = colorOptions.length;
+
+    return Consumer<DynamicVariantController>(
+      builder: (context, variantController, _) {
+        final colorAttributeId = _getColorAttributeId();
+        int? selectedColorIndex;
+        if (colorAttributeId != null) {
+          final selectedValueId = variantController.selectedAttributes[colorAttributeId];
+          if (selectedValueId != null) {
+            final idx = colorOptions.indexWhere(
+              (c) => int.tryParse(c.id) == selectedValueId,
+            );
+            if (idx >= 0) selectedColorIndex = idx;
+          }
+        }
+
+        // When selection changes from tap (top or bottom), update indicator and scroll list
+        // Skip programmatic scroll if user is currently dragging so the list doesn't retract
+        if (selectedColorIndex != null &&
+            selectedColorIndex! >= 0 &&
+            selectedColorIndex! < count &&
+            selectedColorIndex != _currentIndex) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() => _currentIndex = selectedColorIndex!);
+            final isUserScrolling = _listScrollController.hasClients &&
+                _listScrollController.position.isScrollingNotifier.value;
+            if (!isUserScrolling) _scrollToIndex(selectedColorIndex!);
+          });
+        }
+
+        final effectiveIndex = (selectedColorIndex ?? _currentIndex).clamp(0, count - 1);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final maxW = constraints.maxWidth;
+                final width = maxW.isFinite && maxW > 0
+                    ? maxW
+                    : MediaQuery.sizeOf(context).width;
+                return SizedBox(
+                  width: width,
+                  height: 140,
+                  child: ListView.separated(
+                    controller: _listScrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    itemCount: count,
+                    separatorBuilder: (_, __) => SizedBox(width: ResponsiveConstants.mdSpacing),
+                    itemBuilder: (context, index) {
+                      final colorOption = colorOptions[index];
+                      return _ColorOptionCard(
+                        colorOption: colorOption,
+                        productDetails: widget.productDetails,
+                        scrollController: widget.pageScrollController,
+                        itemIndex: index,
+                        onSelected: (int selectedIndex) {
+                          setState(() => _currentIndex = selectedIndex);
+                          _scrollToIndex(selectedIndex);
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+            if (count > 1) ...[
+              SizedBox(height: ResponsiveConstants.smSpacing),
+              _ScrollIndicators(
+                itemCount: count,
+                currentIndex: effectiveIndex,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Dot indicators for horizontal list scroll position.
+class _ScrollIndicators extends StatelessWidget {
+  final int itemCount;
+  final int currentIndex;
+
+  const _ScrollIndicators({
+    required this.itemCount,
+    required this.currentIndex,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        itemCount,
+        (index) {
+          final isActive = index == currentIndex;
+          return Container(
+            margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.xsSpacing / 2),
+            width: isActive ? 8 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive
+                  ? primary
+                  : onSurface.withValues(alpha: 0.3),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ColorOptionCard extends StatelessWidget {
   final ColorOption colorOption;
   final ProductDetails productDetails;
   final ScrollController? scrollController;
+  final int itemIndex;
+  final void Function(int index)? onSelected;
 
   const _ColorOptionCard({
     required this.colorOption,
     required this.productDetails,
     this.scrollController,
+    required this.itemIndex,
+    this.onSelected,
   });
 
   /// Get the English color name for matching
@@ -548,9 +812,10 @@ class _ColorOptionCard extends StatelessWidget {
                   debugPrint('🎨 ColorSelectionSection (Bottom): Tapped color "${colorOption.displayNameOrName}" (value_id: $colorValueId, attribute_id: $colorAttributeId)');
                   await HapticService.buttonClick();
                   // Update controller (single source of truth)
-                  // This immediately updates selection and triggers Consumer rebuilds
                   variantController.selectAttributeValue(colorAttributeId!, colorValueId!);
-                  
+                  // Update indicator and scroll list to bring selected color into view
+                  onSelected?.call(itemIndex);
+
                   // Animate scroll to top (main image area)
                   if (scrollController != null && scrollController!.hasClients) {
                     scrollController!.animateTo(
@@ -559,9 +824,6 @@ class _ColorOptionCard extends StatelessWidget {
                       curve: Curves.easeInOut,
                     );
                   }
-                  
-                  // Note: BLoC event removed to prevent double-click issue
-                  // Controller handles selection, images update via controller.currentImages
                 }
               : null,
       child: AnimatedContainer(

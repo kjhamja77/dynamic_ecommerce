@@ -221,6 +221,8 @@ class _ProfileHeaderState extends State<ProfileHeader> {
           ),
           IconButton(
             onPressed: () async {
+              // Load latest profile from API so edit page shows current country_code (and other fields)
+              context.read<ProfileBloc>().add(LoadUserProfile());
               final result = await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => BlocProvider.value(

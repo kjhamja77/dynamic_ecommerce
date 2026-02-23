@@ -168,13 +168,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String countryCode,
   }) async {
     try {
-      // Normalize and concatenate country code with phone number
-      // We only want to keep '+' and digits, and drop any country prefix like 'AE'.
-      // Example:
-      //   countryCode: "AE+971", phone: "501829827"  -> fullPhone: "+971501829827"
-      //   countryCode: "AE",      phone: "+971501829827" -> fullPhone: "+971501829827"
-      final String combined = '$countryCode$phone'.replaceAll(RegExp(r'\s+'), '');
-      final String fullPhone = combined.replaceAll(RegExp(r'[^0-9+]'), '');
+      // Phone is national number only (no country code). country_code is sent separately.
+      final String nationalPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
       final response = await api.requestRpc(
         Endpoints.register,
@@ -184,7 +179,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'last_name': lastName,
           'email': email,
           'password': password,
-          'phone': fullPhone,
+          'phone': nationalPhone,
+          'country_code': countryCode,
         },
       );
 

@@ -108,7 +108,12 @@ class _CatalogPageState extends State<CatalogPage> {
             
             return Scaffold(
               backgroundColor: colorScheme.background,
-              body: BlocBuilder<CatalogBloc, CatalogState>(
+              body: SafeArea(
+                bottom: true,
+                top: false,
+                left: false,
+                right: false,
+                child: BlocBuilder<CatalogBloc, CatalogState>(
                 builder: (context, state) {
                   if (state is CatalogInitial || state is CatalogLoading) {
                     return const CatalogShimmer();
@@ -828,6 +833,7 @@ class _CatalogPageState extends State<CatalogPage> {
               ),
             );
               },
+            ),
             ),
             floatingActionButton: BlocBuilder<CompareCubit, CompareState>(
               builder: (context, cState) {

@@ -50,13 +50,16 @@ class UserProfileModel extends UserProfile {
     // Image from API: key "image" (base64 string); fallback to other keys
     String? avatarUrl = _imageFromApiJson(json);
 
+    // Country code: accept from API (dial e.g. "964" or "964", ISO e.g. "IQ", or int 964)
+    final String? countryCode = _parseCountryCodeFromApi(json);
+
     final profile = UserProfileModel(
       id: (json['user_id'] ?? json['id']).toString(),
       name: (json['name'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       avatarUrl: avatarUrl,
       phoneNumber: json['phone'] as String?,
-      countryCode: json['country_code'] as String?,
+      countryCode: countryCode,
       address: addressString,
       // Backend doesn't provide timestamps here; use now for required fields
       createdAt: DateTime.now(),
@@ -79,6 +82,26 @@ class UserProfileModel extends UserProfile {
     // --- END DEBUG ---
 
     return profile;
+  }
+
+  /// Parses country code from get user profile API response.
+  /// Accepts: "country_code" (and optional fallbacks), value as String ("IQ", "964", "+964") or int (964).
+  /// Returned value is used by the UI country code selector (PhoneInputField accepts ISO or dial code).
+  static String? _parseCountryCodeFromApi(Map<String, dynamic> json) {
+    const keys = ['country_code', 'phone_country_code', 'country'];
+    for (final key in keys) {
+      final raw = json[key];
+      if (raw == null) continue;
+      if (raw is int) {
+        final s = raw.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+      if (raw is String) {
+        final s = raw.trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+    return null;
   }
 
   /// Reads image from API response. API key is "image" (base64 string or list of bytes). Normalizes to String for UI.

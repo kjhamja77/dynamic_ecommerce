@@ -689,6 +689,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
     );
   }
 
+  /// Toggle tile for "Set as default address" – used on both add and edit address.
   Widget _buildSwitchTile({
     required String title,
     required String subtitle,
@@ -699,7 +700,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -708,37 +709,82 @@ class _EditAddressPageState extends State<EditAddressPage> {
           color: colorScheme.outline.withValues(alpha: 0.2),
         ),
       ),
-      child: SwitchListTile(
-        title: Text(
-          title,
-          style: AppFonts.getTextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            await HapticService.selectionClick();
+            onChanged(!value);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveConstants.mdPadding,
+              vertical: ResponsiveConstants.smPadding,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isDark ? Colors.amber.shade400 : Colors.amber.shade600,
+                  size: 24,
+                ),
+                SizedBox(width: ResponsiveConstants.smSpacing),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: AppFonts.getTextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: AppFonts.getTextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: value,
+                  onChanged: (v) async {
+                    await HapticService.selectionClick();
+                    onChanged(v);
+                  },
+                  // Track uses same color as Save button (primary) in both light and dark
+                  trackColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return colorScheme.primary;
+                    }
+                    return colorScheme.surfaceContainerHighest;
+                  }),
+                  trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return Colors.transparent;
+                    }
+                    return colorScheme.outline;
+                  }),
+                  // Indicator: on = light (onPrimary), off = grey (outline) so on/off are clearly different
+                  thumbColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return colorScheme.onPrimary;
+                    }
+                    return colorScheme.outline;
+                  }),
+                ),
+              ],
+            ),
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: AppFonts.getTextStyle(
-            fontSize: 14,
-            color: colorScheme.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
-        value: value,
-        onChanged: (value) async {
-          await HapticService.selectionClick();
-          onChanged(value);
-        },
-        secondary: SizedBox(
-          width: 24,
-          height: 24,
-          child: Icon(
-            icon, 
-            color: Colors.amber.shade600,
-          ),
-        ),
-        activeColor: colorScheme.primary,
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }

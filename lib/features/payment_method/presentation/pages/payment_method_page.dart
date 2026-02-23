@@ -8,6 +8,7 @@ import '../bloc/payment_method_state.dart';
 import '../widgets/payment_method_card.dart';
 import 'add_payment_method_page.dart';
 import '../../../../core/theme/app_fonts.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../l10n/app_localizations.dart';
 
@@ -211,60 +212,12 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
   }
 
   Widget _buildErrorState(String message) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 80,
-            color: colorScheme.error,
-          ),
-          SizedBox(height: ResponsiveConstants.lgSpacing),
-          Text(
-            AppLocalizations.of(context)!.somethingWentWrong,
-            style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.titleFontSize,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.error,
-            ),
-          ),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          Text(
-            message,
-            style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.mdFontSize,
-              color: colorScheme.onSurface.withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: ResponsiveConstants.lgSpacing),
-          ElevatedButton.icon(
-            onPressed: () async {
-          await HapticService.buttonClick();
-          context.read<PaymentMethodBloc>().add(LoadPaymentMethods());
-        },
-            icon: const Icon(Icons.refresh),
-            label: Text(
-              AppLocalizations.of(context)!.tryAgain,
-              style: AppFonts.getTextStyle(fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveConstants.lgPadding,
-                vertical: ResponsiveConstants.mdPadding,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppErrorView(
+      message: message,
+      onRetry: () async {
+        await HapticService.buttonClick();
+        context.read<PaymentMethodBloc>().add(LoadPaymentMethods());
+      },
     );
   }
 

@@ -68,6 +68,9 @@ class _SearchInputPageState extends State<SearchInputPage> {
       appBar: AppBar(
         backgroundColor: colorScheme.background,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios,
@@ -99,7 +102,8 @@ class _SearchInputPageState extends State<SearchInputPage> {
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.08),
+                  width: 1,
                 ),
               ),
               child: TextField(

@@ -11,6 +11,7 @@ import '../widgets/favorites_shimmer.dart';
 import '../widgets/empty_favorites_widget.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/widgets/app_pull_to_refresh.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/navigation/navigation_service.dart';
@@ -297,52 +298,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   Widget _buildErrorState(String message) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: colorScheme.error,
-          ),
-          SizedBox(height: ResponsiveConstants.mdSpacing),
-          Text(
-            AppLocalizations.of(context)!.somethingWentWrong,
-            style: AppFonts.getTextStyle(
-              fontSize: ResponsiveConstants.lgFontSize,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          Text(
-            message,
-            style: AppFonts.getTextStyle(
-              fontSize: ResponsiveConstants.mdFontSize,
-              color: colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: ResponsiveConstants.lgSpacing),
-          ElevatedButton(
-            onPressed: () {
-              context.read<FavoritesBloc>().add(LoadFavorites());
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveConstants.lgPadding,
-                vertical: ResponsiveConstants.mdPadding,
-              ),
-            ),
-            child: Text(AppLocalizations.of(context)!.tryAgain),
-          ),
-        ],
-      ),
+    return AppErrorView(
+      message: message,
+      onRetry: () => context.read<FavoritesBloc>().add(LoadFavorites()),
     );
   }
 

@@ -592,7 +592,7 @@ class _SkeletonGrid extends StatelessWidget {
         padding: EdgeInsets.zero,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.55,
+          childAspectRatio: 0.53, // slightly taller to avoid content overflow
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),

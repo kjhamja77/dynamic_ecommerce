@@ -134,13 +134,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
     }
     
-    // Update country code in phone field
-    if (profile.countryCode != null && _phoneFieldKey.currentState != null) {
+    // Update country code in phone field so UI shows value from get user profile response
+    if (profile.countryCode != null && profile.countryCode!.trim().isNotEmpty) {
+      final code = profile.countryCode!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _phoneFieldKey.currentState?.setCountryCode(profile.countryCode!);
+        if (!mounted) return;
+        _phoneFieldKey.currentState?.setCountryCode(code);
       });
     }
-    
+
     debugPrint('EditProfilePage: Updated form fields from profile');
   }
 
@@ -689,19 +691,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
       showDragHandle: true,
       isDismissible: true,
       enableDrag: true,
-      useSafeArea: true, // keep sheet above system nav buttons
+      useSafeArea: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      builder: (context) => SafeArea(
+        top: false,
+        bottom: true,
+        child: Container(
+          padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             Text(
               AppLocalizations.of(context)!.choosePhoto,
               style: AppFonts.getTextStyle(
@@ -765,6 +770,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
