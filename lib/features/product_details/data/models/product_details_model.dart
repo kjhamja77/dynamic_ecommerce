@@ -90,7 +90,9 @@ class ProductDetailsModel extends ProductDetails {
       print('🔍 ProductDetailsModel: Parsing API response for product: ${json['name']}');
       
       // Parse variant combinations and build options for all variant attributes
-      final variantCombinations = json['variant_combinations'] as List<dynamic>? ?? [];
+      // Backend can return variant_combinations either as a List or as a Map.
+      // Normalize to a List for the rest of the logic.
+      final variantCombinations = _normalizeVariantCombinations(json['variant_combinations']);
       final variantAttributes = json['variant_attributes'] as List<dynamic>? ?? [];
       
       List<SizeOptionModel> sizeOptions = [];
@@ -430,16 +432,27 @@ class ProductDetailsModel extends ProductDetails {
 
     // Preselect attribute values from an initial variant:
     // 1) Prefer explicit selected_variant from the API when present.
-    // 2) Otherwise, fall back to the first entry in variant_combinations.
+    // 2) Otherwise, fall back to this_variant_attributes (new API shape).
+    // 3) Finally, fall back to the first entry in variant_combinations.
     // This ensures that, on first load, the UI reflects a real variant
-    // combination instead of arbitrary \"first available\" values per attribute.
+    // combination instead of arbitrary "first available" values per attribute.
     double? selectedHeelHeightFromVariant;
     Map<String, dynamic>? initialVariant =
         json['selected_variant'] as Map<String, dynamic>?;
 
+    // New API: this_variant_attributes is a flat list of attributes for the
+    // currently selected variant. Wrap it into a pseudo-variant structure
+    // compatible with the old path so the rest of the logic continues to work.
+    if (initialVariant == null && json['this_variant_attributes'] is List) {
+      final attrs = (json['this_variant_attributes'] as List<dynamic>?) ?? const [];
+      initialVariant = {
+        'attributes': attrs,
+      };
+    }
+
     if (initialVariant == null) {
       final List<dynamic> combos =
-          (json['variant_combinations'] as List<dynamic>?) ?? const [];
+          _normalizeVariantCombinations(json['variant_combinations']);
       if (combos.isNotEmpty && combos.first is Map<String, dynamic>) {
         initialVariant = combos.first as Map<String, dynamic>;
       }
@@ -515,7 +528,7 @@ class ProductDetailsModel extends ProductDetails {
     final Map<String, String> variantIdToColor = {};
     final Map<String, String> canonicalVariantIdByColor = {};
     final Map<String, String> variantIdToImage = {};
-    for (final v in (json['variant_combinations'] as List<dynamic>? ?? const [])) {
+    for (final v in _normalizeVariantCombinations(json['variant_combinations'])) {
       if (v is Map) {
         final id = (v['variant_id'] ?? '').toString();
         String colorName = '';
@@ -757,7 +770,7 @@ class ProductDetailsModel extends ProductDetails {
       }
     } else {
       // Fallback: derive colors from variant combinations' attributes named Color (supports localized synonyms)
-      final List<dynamic> vc = json['variant_combinations'] as List<dynamic>? ?? const [];
+      final List<dynamic> vc = _normalizeVariantCombinations(json['variant_combinations']);
       final Set<String> colors = {};
       for (final v in vc) {
         final attrs = (v is Map) ? (v['attributes'] as List<dynamic>? ?? const []) : const [];
@@ -987,7 +1000,7 @@ class ProductDetailsModel extends ProductDetails {
       alternativeProducts: _parseRelated(json['alternative_product_ids'] as List<dynamic>?),
       // Map raw variant combinations into entity models
       // Note: ProductDetails uses its own VariantCombination class (simpler version)
-      variantCombinations: (json['variant_combinations'] as List<dynamic>? ?? const [])
+      variantCombinations: _normalizeVariantCombinations(json['variant_combinations'])
           .where((v) => v != null && v is Map<String, dynamic>)
           .map((v) {
         final mv = v as Map<String, dynamic>;
@@ -1141,6 +1154,26 @@ class ProductDetailsModel extends ProductDetails {
     if (price is num) return price.toDouble();
     if (price is String) return double.tryParse(price) ?? 0.0;
     return 0.0;
+  }
+
+  /// Normalize backend variant_combinations payload into a List that the
+  /// existing variant/stock/price logic can consume.
+  ///
+  /// Supports both the old list shape:
+  ///   "variant_combinations": [ { ... }, { ... } ]
+  /// and the new map shape:
+  ///   "variant_combinations": { "2863": { ... }, "2864": { ... } }
+  static List<dynamic> _normalizeVariantCombinations(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List) return raw;
+    if (raw is Map) {
+      try {
+        return raw.values.toList();
+      } catch (_) {
+        return const [];
+      }
+    }
+    return const [];
   }
 
   /// Check if a string contains Arabic characters

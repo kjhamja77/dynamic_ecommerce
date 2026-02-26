@@ -108,7 +108,16 @@ class ComparePage extends StatelessWidget {
                             final p = state.selected[i];
                             Navigator.of(context).pushNamed(
                               '/product-details',
-                              arguments: {'productId': p.id, 'productType': p.type},
+                              arguments: {
+                                'productId': p.id,
+                                'productType': p.type,
+                                'cardPreview': {
+                                  'imageUrl': p.images.isNotEmpty ? p.images.first : null,
+                                  'brand': p.brand,
+                                  'productTitle': p.name,
+                                  'price': p.price,
+                                },
+                              },
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -207,6 +216,12 @@ class _HeaderColumn extends StatelessWidget {
                         'productId': product.id,
                         'productType': product.type,
                         'openAddToCart': true,
+                        'cardPreview': {
+                          'imageUrl': product.images.isNotEmpty ? product.images.first : null,
+                          'brand': product.brand,
+                          'productTitle': product.name,
+                          'price': product.price,
+                        },
                       },
                     );
                   },

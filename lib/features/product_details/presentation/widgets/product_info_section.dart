@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../domain/entities/product_details.dart';
+import '../../domain/entities/product_details_card_preview.dart';
 import '../bloc/product_details_bloc.dart';
 import '../controllers/dynamic_variant_controller.dart' show DynamicVariantController, ValueState;
 import '../widgets/dynamic_variant_selector.dart';
@@ -17,38 +19,298 @@ import '../utils/attribute_label_helper.dart';
 import 'color_selection_section.dart';
 
 class ProductInfoSection extends StatelessWidget {
-  final ProductDetails productDetails;
+  /// When null, [cardPreview] must be provided (loading state with preview data).
+  final ProductDetails? productDetails;
   final ScrollController? scrollController;
+  /// When product details are loading, pass card preview to show image/brand/title/price;
+  /// sections without data show skeleton loaders until API responds.
+  final ProductDetailsCardPreview? cardPreview;
 
   const ProductInfoSection({
     super.key,
-    required this.productDetails,
+    this.productDetails,
     this.scrollController,
-  });
+    this.cardPreview,
+  }) : assert(productDetails != null || cardPreview != null,
+            'Either productDetails or cardPreview must be provided');
+
+  bool get _isPreviewMode => productDetails == null && cardPreview != null;
 
   @override
   Widget build(BuildContext context) {
+    if (_isPreviewMode) {
+      return _buildPreviewWithSkeletons(context);
+    }
+    return _buildFullContent(context, productDetails!);
+  }
+
+  SliverToBoxAdapter _buildPreviewWithSkeletons(BuildContext context) {
+    final preview = cardPreview!;
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = colorScheme.primary;
+    final formattedPrice = currencyProvider.formatPrice(preview.price);
+
+    return SliverToBoxAdapter(
+      child: Container(
+        color: isDark ? colorScheme.background : colorScheme.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: ResponsiveConstants.mdSpacing),
+            // Header card with preview data; stock = skeleton
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+              padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              preview.brand,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.mdFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            SizedBox(height: ResponsiveConstants.xsSpacing),
+                            Text(
+                              preview.productTitle,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.lgFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: ResponsiveConstants.smSpacing),
+                      _shimmerLine(context, height: 24, width: 72, radius: 12),
+                    ],
+                  ),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  Text(
+                    formattedPrice,
+                    style: AppFonts.getTextStyle(
+                      fontSize: ResponsiveConstants.xlFontSize,
+                      fontWeight: FontWeight.w700,
+                      color: primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
+            _shimmerVariantAttributesCard(context),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
+            _shimmerColorSelectionCard(context),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
+            _shimmerAboutCard(context),
+            SizedBox(height: ResponsiveConstants.lgSpacing),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Skeleton that matches the variant attributes card (e.g. Size / attribute chips).
+  Widget _shimmerVariantAttributesCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _shimmerLine(context, height: 18, width: 80, radius: 8),
+          SizedBox(height: ResponsiveConstants.mdSpacing),
+          Row(
+            children: [
+              for (int i = 0; i < 5; i++) ...[
+                if (i > 0) SizedBox(width: ResponsiveConstants.smSpacing),
+                _shimmerLine(context, height: 40, width: 64, radius: 8),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton that matches the color selection card: "Color: [skeleton]" + list of image placeholders.
+  Widget _shimmerColorSelectionCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    const double colorThumbSize = 100;
+    const int placeholderCount = 4;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "Color: [skeleton]" - same structure as real "Color: black"
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '${l10n.color}: ',
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.mdFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              _shimmerLine(context, height: 16, width: 56, radius: 6),
+            ],
+          ),
+          SizedBox(height: ResponsiveConstants.mdSpacing),
+          // Skeleton image thumbnails below - like the real color images list
+          SizedBox(
+            height: colorThumbSize,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: placeholderCount,
+              separatorBuilder: (_, __) => SizedBox(width: ResponsiveConstants.mdSpacing),
+              itemBuilder: (_, index) {
+                return _shimmerLine(
+                  context,
+                  height: colorThumbSize,
+                  width: colorThumbSize,
+                  radius: ResponsiveConstants.smRadius,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton that matches the about product card.
+  Widget _shimmerAboutCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _shimmerLine(context, height: 18, width: 160, radius: 8),
+          SizedBox(height: ResponsiveConstants.mdSpacing),
+          _shimmerLine(context, height: 14, width: double.infinity, radius: 6),
+          SizedBox(height: ResponsiveConstants.xsSpacing),
+          _shimmerLine(context, height: 14, width: double.infinity, radius: 6),
+          SizedBox(height: ResponsiveConstants.xsSpacing),
+          _shimmerLine(context, height: 14, width: 220, radius: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _shimmerLine(BuildContext context,
+      {required double height, required double width, required double radius}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.3)
+        : Colors.grey.shade300;
+    final highlightColor =
+        isDark ? colorScheme.outline.withValues(alpha: 0.5) : Colors.grey.shade100;
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Container(
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+
+  SliverToBoxAdapter _buildFullContent(BuildContext context, ProductDetails productDetails) {
     final currencyProvider = context.watch<CurrencyProvider>();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final primary = colorScheme.primary;
 
-    // Read lightweight loading flag from BLoC so we can show a loader while
-    // variant/attribute combinations are being recomputed (e.g. after a
-    // color or attribute change).
     final pdState = context.watch<ProductDetailsBloc>().state;
     final bool isVariantFilterLoading =
         pdState is ProductDetailsLoaded ? pdState.isVariantFilterLoading : false;
 
     return SliverToBoxAdapter(
       child: Container(
-        // Follow page background in dark mode, subtle surface tint in light mode.
         color: isDark ? colorScheme.background : colorScheme.surface,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top spacing
             SizedBox(height: ResponsiveConstants.mdSpacing),
 
             // Product Header Card (Brand, Name, Price, Stock)
@@ -75,7 +337,6 @@ class ProductInfoSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Brand and Name
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -107,17 +368,14 @@ class ProductInfoSection extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: ResponsiveConstants.smSpacing),
-                      // Stock badge
                       _StockBadge(productDetails: productDetails),
                     ],
                   ),
 
                   SizedBox(height: ResponsiveConstants.mdSpacing),
 
-                  // Price Section - Use DynamicVariantController for variant-specific price
                   Consumer<DynamicVariantController>(
                     builder: (context, variantController, _) {
-                      // Use variant-specific price if available, otherwise fallback to template price
                       final displayPrice = variantController.currentPrice > 0 
                           ? variantController.currentPrice 
                           : productDetails.price;
@@ -271,35 +529,35 @@ class ProductInfoSection extends StatelessWidget {
 
             SizedBox(height: ResponsiveConstants.mdSpacing),
 
-            // Color Selection Card (visual swatches)
-            if (productDetails.colorOptions.isNotEmpty) ...[
-              Container(
-                margin: EdgeInsets.symmetric(
-                  horizontal: ResponsiveConstants.smPadding,
-                ),
-                padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveConstants.mdRadius,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.35 : 0.06,
-                      ),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+            // Color Selection Card (visual swatches) - always show; use skeleton when no colors
+            productDetails.colorOptions.isNotEmpty
+                ? Container(
+                    margin: EdgeInsets.symmetric(
+                      horizontal: ResponsiveConstants.smPadding,
                     ),
-                  ],
-                ),
-                child: ColorSelectionSection(
-                  productDetails: productDetails,
-                  scrollController: scrollController,
-                ),
-              ),
-              SizedBox(height: ResponsiveConstants.mdSpacing),
-            ],
+                    padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveConstants.mdRadius,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.35 : 0.06,
+                          ),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ColorSelectionSection(
+                      productDetails: productDetails,
+                      scrollController: scrollController,
+                    ),
+                  )
+                : _shimmerColorSelectionCard(context),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
 
             // About Product Card
             if (productDetails.description.isNotEmpty) ...[

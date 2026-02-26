@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/product_details.dart';
+import '../../domain/entities/product_details_card_preview.dart';
 import '../../domain/usecases/get_product_details.dart';
 import '../../domain/usecases/toggle_favorite.dart';
 import '../../domain/usecases/select_color.dart';
@@ -1366,7 +1367,7 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
     LoadProductDetails event,
     Emitter<ProductDetailsState> emit,
   ) async {
-    emit(ProductDetailsLoading());
+    emit(ProductDetailsLoading(cardPreview: event.cardPreview));
     
     debugPrint('🔄 ProductDetailsBloc: Loading product details');
     debugPrint('  - Product ID: ${event.productId}');

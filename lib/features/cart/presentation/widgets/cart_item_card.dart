@@ -570,11 +570,18 @@ class CartItemCard extends StatelessWidget {
   }
 
   void _navigateToProductDetails(BuildContext context) {
+    final p = cartItem.product;
     Navigator.of(context).pushNamed(
       '/product-details',
       arguments: {
-        'productId': cartItem.product.id,
+        'productId': p.id,
         'productType': 'variant',
+        'cardPreview': {
+          'imageUrl': p.images.isNotEmpty ? p.images.first : null,
+          'brand': p.brand,
+          'productTitle': p.name,
+          'price': cartItem.price,
+        },
       },
     );
   }

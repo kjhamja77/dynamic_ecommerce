@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../bloc/product_details_bloc.dart';
 import '../controllers/dynamic_variant_controller.dart';
 import '../../domain/entities/product_details.dart';
@@ -23,22 +24,20 @@ class ColorSelectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (productDetails.colorOptions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
     return Positioned(
-      bottom: ResponsiveConstants.mdSpacing, // Responsive positioning
+      bottom: ResponsiveConstants.mdSpacing,
       left: ResponsiveConstants.mdSpacing,
       right: ResponsiveConstants.mdSpacing,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildColorLabel(context),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          _buildColorThumbnails(context),
-        ],
-      ),
+      child: productDetails.colorOptions.isEmpty
+          ? _ColorSelectionSkeleton(colorScheme: Theme.of(context).colorScheme)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildColorLabel(context),
+                SizedBox(height: ResponsiveConstants.smSpacing),
+                _buildColorThumbnails(context),
+              ],
+            ),
     );
   }
 
@@ -320,6 +319,60 @@ class ColorSelectionWidget extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Skeleton for the color selection overlay when no color data is available.
+/// Matches the layout of the real widget (label + horizontal thumbnails).
+class _ColorSelectionSkeleton extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _ColorSelectionSkeleton({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.35)
+        : Colors.grey.shade300;
+    final highlightColor =
+        isDark ? colorScheme.outline.withValues(alpha: 0.5) : Colors.grey.shade100;
+    final thumbSize = ResponsiveConstants.productDetailsColorThumbnailSize;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 14,
+            width: 90,
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          SizedBox(height: ResponsiveConstants.smSpacing),
+          Row(
+            children: [
+              for (int i = 0; i < 3; i++) ...[
+                if (i > 0) SizedBox(width: ResponsiveConstants.productDetailsColorThumbnailSpacing),
+                Container(
+                  width: thumbSize,
+                  height: thumbSize,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

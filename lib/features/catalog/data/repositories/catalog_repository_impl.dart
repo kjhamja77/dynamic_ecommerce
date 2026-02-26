@@ -10,6 +10,7 @@ import '../../../filters/domain/entities/filter_criteria.dart';
 import '../../../filters/data/datasources/filter_remote_data_source.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/image_cache_utils.dart';
+import '../catalog_products_isolate.dart';
 
 // Repository that uses real APIs for product and category data
 class CatalogRepositoryImpl implements CatalogRepository {
@@ -359,80 +360,132 @@ class CatalogRepositoryImpl implements CatalogRepository {
       // Initialize attributeIds with any existing ones (do NOT add categoryIds here)
       // Category IDs should only be sent in category_ids field, not attribute_values
       Set<int> attributeIds = {...effectiveCriteria.attributeIds};
-      
-      try {
-        final attrs = await filterRemoteDataSource.getAttributes(page: 1, limit: 200);
-        // Build a reverse lookup for ALL attribute values: name(lowercased) -> id
-        final Map<String, int> valueNameToId = {};
-        for (final a in attrs) {
-          for (final v in a.values) {
-            final key = v.name.trim().toLowerCase();
-            if (key.isNotEmpty) valueNameToId[key] = v.id;
-          }
-        }
 
-        // Collect all selected values across supported groups (extensible)
-        final Set<String> selectedValues = {
-          ...colors.map((e) => e.trim().toLowerCase()),
-          ...materials.map((e) => e.trim().toLowerCase()),
-          ...sizes.map((e) => e.trim().toLowerCase()),
-          ...seasons.map((e) => e.trim().toLowerCase()),
-          ...genders.map((e) => e.trim().toLowerCase()),
-        }..removeWhere((e) => e.isEmpty || e == 'all');
-        for (final entry in extraAttributes.values) {
-          for (final val in entry) {
-            final normalized = val.trim().toLowerCase();
-            if (normalized.isNotEmpty && normalized != 'all') {
-              selectedValues.add(normalized);
+      // Determine whether we actually need attributes/brands mapping for this call.
+      final bool hasValueFilters =
+          colors.isNotEmpty ||
+          materials.isNotEmpty ||
+          sizes.isNotEmpty ||
+          seasons.isNotEmpty ||
+          genders.isNotEmpty ||
+          extraAttributes.isNotEmpty;
+
+      // Start from any explicit brandIds / criteria.brandIds
+      List<int>? finalBrandIds =
+          brandIds ?? (effectiveCriteria.brandIds.isNotEmpty ? effectiveCriteria.brandIds : null);
+
+      final bool needsBrandMappingFromName =
+          (finalBrandIds == null || finalBrandIds.isEmpty) &&
+          (brand != null && brand != 'All');
+
+      if (hasValueFilters || needsBrandMappingFromName) {
+        try {
+          final attrs = await filterRemoteDataSource.getAttributes(page: 1, limit: 200);
+          // Build a reverse lookup for ALL attribute values: name(lowercased) -> id
+          final Map<String, int> valueNameToId = {};
+          for (final a in attrs) {
+            for (final v in a.values) {
+              final key = v.name.trim().toLowerCase();
+              if (key.isNotEmpty) valueNameToId[key] = v.id;
             }
           }
-        }
 
-        // Map selected values to attribute IDs
-        for (final val in selectedValues) {
-          final id = valueNameToId[val];
-          if (id != null) attributeIds.add(id);
-        }
-
-      // Set brandIds - preserve from parameter if provided (from filter page), otherwise try to map from brand string
-      List<int>? finalBrandIds = brandIds ?? (effectiveCriteria.brandIds.isNotEmpty ? effectiveCriteria.brandIds : null);
-      if (finalBrandIds == null || finalBrandIds.isEmpty) {
-        // Only try to map from brand string if brandIds not provided
-        if ((brand ?? '').isNotEmpty && brand != 'All') {
-          try {
-            // Fetch all pages to ensure we can find the brand (some pages omit brands like VIZZANO)
-            int page = 1;
-            final List<dynamic> collected = [];
-            while (true) {
-              final pageBrands = await filterRemoteDataSource.getBrands(page: page, limit: 200);
-              if (pageBrands.isEmpty) break;
-              collected.addAll(pageBrands);
-              // Stop if fewer than limit returned (no has_next flag on this path), or reached safety cap
-              if (pageBrands.length < 200 || page >= 10) break;
-              page += 1;
-            }
-            final match = collected.cast<dynamic>().firstWhere(
-              (b) => (b.name as String).trim().toLowerCase() == brand!.trim().toLowerCase(),
-              orElse: () => null,
-            );
-            if (match != null && match.id is int && match.id > 0) {
-              finalBrandIds = [match.id as int];
-            } else {
-              // Fallback: try attributes BRAND values map
-              final brandAttrId = valueNameToId[brand!.trim().toLowerCase()];
-              if (brandAttrId != null) {
-                finalBrandIds = [brandAttrId];
-              } else {
-                // Ensure we do not pass a stale/wrong brand id
-                finalBrandIds = [];
-                print('⚠️ CatalogRepository: Brand "$brand" not found in brands API or attributes; omitting brand_ids');
+          // Collect all selected values across supported groups (extensible)
+          final Set<String> selectedValues = {
+            ...colors.map((e) => e.trim().toLowerCase()),
+            ...materials.map((e) => e.trim().toLowerCase()),
+            ...sizes.map((e) => e.trim().toLowerCase()),
+            ...seasons.map((e) => e.trim().toLowerCase()),
+            ...genders.map((e) => e.trim().toLowerCase()),
+          }..removeWhere((e) => e.isEmpty || e == 'all');
+          for (final entry in extraAttributes.values) {
+            for (final val in entry) {
+              final normalized = val.trim().toLowerCase();
+              if (normalized.isNotEmpty && normalized != 'all') {
+                selectedValues.add(normalized);
               }
             }
-          } catch (_) {}
+          }
+
+          // Map selected values to attribute IDs
+          for (final val in selectedValues) {
+            final id = valueNameToId[val];
+            if (id != null) attributeIds.add(id);
+          }
+
+          // Set brandIds - preserve from parameter if provided (from filter page),
+          // otherwise try to map from brand string using brands API / attributes.
+          if (finalBrandIds == null || finalBrandIds.isEmpty) {
+            if (needsBrandMappingFromName) {
+              try {
+                // Fetch all pages to ensure we can find the brand (some pages omit brands like VIZZANO)
+                int page = 1;
+                final List<dynamic> collected = [];
+                while (true) {
+                  final pageBrands =
+                      await filterRemoteDataSource.getBrands(page: page, limit: 200);
+                  if (pageBrands.isEmpty) break;
+                  collected.addAll(pageBrands);
+                  // Stop if fewer than limit returned (no has_next flag on this path), or reached safety cap
+                  if (pageBrands.length < 200 || page >= 10) break;
+                  page += 1;
+                }
+                final match = collected.cast<dynamic>().firstWhere(
+                      (b) =>
+                          (b.name as String).trim().toLowerCase() ==
+                          brand!.trim().toLowerCase(),
+                      orElse: () => null,
+                    );
+                if (match != null && match.id is int && match.id > 0) {
+                  finalBrandIds = [match.id as int];
+                } else {
+                  // Fallback: try attributes BRAND values map
+                  final brandAttrId = valueNameToId[brand!.trim().toLowerCase()];
+                  if (brandAttrId != null) {
+                    finalBrandIds = [brandAttrId];
+                  } else {
+                    // Ensure we do not pass a stale/wrong brand id
+                    finalBrandIds = [];
+                    print(
+                        '⚠️ CatalogRepository: Brand "$brand" not found in brands API or attributes; omitting brand_ids');
+                  }
+                }
+              } catch (_) {}
+            }
+          } else {
+            print(
+                '✅ CatalogRepository: Using brandIds directly from filter page: $finalBrandIds');
+          }
+
+          // Preserve sort parameters if provided directly
+          final finalSortByField = sortByField ?? effectiveCriteria.sortByField;
+          final finalSortOrder = sortOrder ?? effectiveCriteria.sortOrder;
+
+          effectiveCriteria = effectiveCriteria.copyWith(
+            attributeIds: attributeIds.toList(),
+            brandIds: finalBrandIds ?? [],
+            sortByField: finalSortByField,
+            sortOrder: finalSortOrder,
+          );
+
+          print('📋 CatalogRepository: Final filter criteria before API call:');
+          print('   ==========================================');
+          print('   Category IDs: ${effectiveCriteria.categoryIds}');
+          print('   Brand IDs: ${effectiveCriteria.brandIds}');
+          print('   Attribute Values (IDs): ${effectiveCriteria.attributeIds}');
+          print('   Price Range: ${effectiveCriteria.minPrice} - ${effectiveCriteria.maxPrice}');
+          print('   Search Query: ${effectiveCriteria.searchQuery ?? "null"}');
+          print('   Sort: ${effectiveCriteria.sortByField} (${effectiveCriteria.sortOrder})');
+          print('   Pagination: page=${effectiveCriteria.page}, limit=${effectiveCriteria.limit}');
+          print('   ==========================================');
+        } catch (e) {
+          print('⚠️ CatalogRepository: Failed to build dynamic attribute/brand IDs: $e');
+          // Category IDs are already in effectiveCriteria.categoryIds and will be sent in category_ids field
+          // No need to add them to attribute_values
         }
       } else {
-        print('✅ CatalogRepository: Using brandIds directly from filter page: $finalBrandIds');
-      }
+        // No value filters and no need to derive brandIds; just normalize brandIds list.
+        finalBrandIds = finalBrandIds ?? [];
 
         // Preserve sort parameters if provided directly
         final finalSortByField = sortByField ?? effectiveCriteria.sortByField;
@@ -440,25 +493,10 @@ class CatalogRepositoryImpl implements CatalogRepository {
 
         effectiveCriteria = effectiveCriteria.copyWith(
           attributeIds: attributeIds.toList(),
-          brandIds: finalBrandIds ?? [],
+          brandIds: finalBrandIds,
           sortByField: finalSortByField,
           sortOrder: finalSortOrder,
         );
-        
-        print('📋 CatalogRepository: Final filter criteria before API call:');
-        print('   ==========================================');
-        print('   Category IDs: ${effectiveCriteria.categoryIds}');
-        print('   Brand IDs: ${effectiveCriteria.brandIds}');
-        print('   Attribute Values (IDs): ${effectiveCriteria.attributeIds}');
-        print('   Price Range: ${effectiveCriteria.minPrice} - ${effectiveCriteria.maxPrice}');
-        print('   Search Query: ${effectiveCriteria.searchQuery ?? "null"}');
-        print('   Sort: ${effectiveCriteria.sortByField} (${effectiveCriteria.sortOrder})');
-        print('   Pagination: page=${effectiveCriteria.page}, limit=${effectiveCriteria.limit}');
-        print('   ==========================================');
-      } catch (e) {
-        print('⚠️ CatalogRepository: Failed to build dynamic attribute/brand IDs: $e');
-        // Category IDs are already in effectiveCriteria.categoryIds and will be sent in category_ids field
-        // No need to add them to attribute_values
       }
 
       // Call the filter-search API
@@ -476,8 +514,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
 
       print('✅ CatalogRepository: API response - ${items.length} products, total: $totalCount, hasNext: $hasNext');
 
-      // Convert API response items to HomeProduct.Product
-      final products = items.map((item) => _convertFromApiResponse(item as Map<String, dynamic>)).toList();
+      // Convert API response items to HomeProduct.Product on a background isolate
+      final products = await parseCatalogProductsInBackground(items);
 
       // Apply post-processing filters that the API doesn't support
       List<HomeProduct.Product> filtered = products.where((p) {
@@ -534,8 +572,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
 
       print('✅ CatalogRepository: API response - ${items.length} products, total: $totalCount, hasNext: $hasNext');
 
-      // Convert API response items to HomeProduct.Product
-      final products = items.map((item) => _convertFromApiResponse(item as Map<String, dynamic>)).toList();
+      // Convert API response items to HomeProduct.Product on a background isolate
+      final products = await parseCatalogProductsInBackground(items);
 
       // Apply post-processing filters that the API doesn't support
       List<HomeProduct.Product> filtered = products.where((p) {
@@ -590,13 +628,6 @@ class CatalogRepositoryImpl implements CatalogRepository {
     final productType = item['type'] as String? ?? 'variant';
     final productId = item['id']?.toString() ?? '';
     
-    print('🔍 Catalog API Response for: ${item['name']}');
-    print('  - type: $productType');
-    print('  - id: $productId');
-    print('  - images: ${item['images']}');
-    print('  - main_image: ${item['main_image']}');
-    print('  - image_1920: ${item['image_1920']}');
-    
     // Build variant_id to color mapping from variant_combinations
     final Map<String, String> variantIdToColor = {};
     final Map<String, String> canonicalVariantIdByColor = {};
@@ -627,6 +658,10 @@ class CatalogRepositoryImpl implements CatalogRepository {
     // Build color to images mapping
     final Map<String, List<String>> colorToImages = {};
     String? templateImage;
+    // Keep separate variant/template buckets so we can merge them with
+    // variant images first, then template images for catalog product cards.
+    final List<String> variantImages = [];
+    final List<String> templateImages = [];
     
     if (item['images'] != null && (item['images'] as List).isNotEmpty) {
       final imagesList = item['images'] as List<dynamic>;
@@ -641,15 +676,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
       }
       
       if (hasTypeField) {
-        // OLD FORMAT: Handle images with type and variant_id fields
-        // BUSINESS RULE FOR CATALOG/LIST VIEW:
-        // For VARIANT products: Show ALL template images and template_gallery images WITHOUT variant_id
-        //   - type='template' (all of them, multiple if they exist)
-        //   - type='template_gallery' with empty variant_id (general gallery images)
-        //   - DO NOT show variant-specific images (variant, variant_gallery, template_gallery with variant_id)
-        // For TEMPLATE products: Show all template and template_gallery images
-        // This ensures we show multiple images when they exist, but avoid variant-specific duplicates
-        
+        // Typed format: handle images that carry both `type` and `variant_id`
         for (final img in imagesList) {
           if (img is! Map<String, dynamic>) continue;
           
@@ -661,46 +688,46 @@ class CatalogRepositoryImpl implements CatalogRepository {
           
           final imageType = (img['type'] ?? '').toString().toLowerCase();
           final variantId = (img['variant_id'] ?? '').toString();
-          
-          // Store first template image for reference
-          if (imageType == 'template' && variantId.isEmpty && templateImage == null) {
+
+          // Classify into variant‑scoped vs template‑scoped buckets.
+          final bool isVariantScopedImage =
+              imageType == 'variant' ||
+              imageType == 'variant_gallery' ||
+              (imageType == 'template_gallery' && variantId.isNotEmpty);
+
+          final bool isTemplateScopedImage =
+              imageType == 'template' ||
+              (imageType == 'template_gallery' && variantId.isEmpty) ||
+              imageType.isEmpty;
+
+          // Remember first template image as a generic fallback.
+          if (isTemplateScopedImage && templateImage == null) {
             templateImage = imageUrl;
           }
-          
-          // Determine if this image should be added to product images
-          // For variants: template images OR template_gallery without variant_id
-          // For templates: template images OR template_gallery (with or without variant_id)
-          final isTemplateImage = imageType == 'template' && variantId.isEmpty;
-          final isGeneralTemplateGallery = imageType == 'template_gallery' && variantId.isEmpty;
-          final isVariantSpecificImage = imageType == 'variant' || 
-                                         imageType == 'variant_gallery' ||
-                                         (imageType == 'template_gallery' && variantId.isNotEmpty);
-          
-          final shouldAddToProductImages = isVariantSpecificImage
-              ? false  // Never add variant-specific images to product images
-              : (productType == 'variant'
-                  ? (isTemplateImage || isGeneralTemplateGallery)  // Variants: template + general template_gallery
-                  : (isTemplateImage || imageType == 'template_gallery' || imageType.isEmpty));  // Templates: all template images
-          
-          if (shouldAddToProductImages && !images.contains(imageUrl)) {
-            images.add(imageUrl);
-            print('  - Added product image (type: $imageType, variant_id: $variantId): $imageUrl');
+
+          if (isVariantScopedImage) {
+            if (!variantImages.contains(imageUrl)) {
+              variantImages.add(imageUrl);
+            }
+          } else if (isTemplateScopedImage) {
+            if (!templateImages.contains(imageUrl)) {
+              templateImages.add(imageUrl);
+            }
           }
           
-          // Map variant-specific images to colors for color swatches (but don't add to product images)
-          if (isVariantSpecificImage && variantId.isNotEmpty) {
+          // Map variant-specific images to colors for color swatches
+          if (isVariantScopedImage && variantId.isNotEmpty) {
             final color = variantIdToColor[variantId];
             if (color != null && canonicalVariantIdByColor[color] == variantId) {
               colorToImages.putIfAbsent(color, () => <String>[]);
               if (!colorToImages[color]!.contains(imageUrl)) {
                 colorToImages[color]!.add(imageUrl);
-                print('  - Added color image for "$color" (variant_id: $variantId): $imageUrl');
               }
             }
           }
         }
       } else {
-        // NEW FORMAT: Simple images array - add all images to product images
+        // Simple format: only an `image` field, no type/variant_id metadata
         for (final img in imagesList) {
           if (img is! Map<String, dynamic>) continue;
           
@@ -709,44 +736,40 @@ class CatalogRepositoryImpl implements CatalogRepository {
           
           final imageUrl = _constructImageUrl(imagePath);
           if (imageUrl.isEmpty) continue;
-          
-          if (!images.contains(imageUrl)) {
-            images.add(imageUrl);
-            print('  - Added product image: $imageUrl');
+
+          // Without type information we treat these as template‑scoped.
+          if (!templateImages.contains(imageUrl)) {
+            templateImages.add(imageUrl);
           }
-          
-          // Store first image as template image for reference
+
           if (templateImage == null) {
             templateImage = imageUrl;
           }
         }
       }
 
-      print('  - Using images array: ${images.length} images');
+      // Merge into the final images list: variant images first, then template images.
+      images
+        ..addAll(variantImages)
+        ..addAll(templateImages);
     } else if (item['main_image'] != null && item['main_image'].toString().isNotEmpty) {
       // Fallback to main_image if images array is empty
       final mainImageUrl = _constructImageUrl(item['main_image'] as String);
       if (mainImageUrl.isNotEmpty) {
         images.add(mainImageUrl);
       }
-      print('  - Using main_image: $mainImageUrl');
     } else if (item['image_1920'] != null && item['image_1920'].toString().isNotEmpty) {
       // Fallback to image_1920 (common in Odoo)
       final imageUrl = _constructImageUrl(item['image_1920'] as String);
       if (imageUrl.isNotEmpty) {
         images.add(imageUrl);
       }
-      print('  - Using image_1920: $imageUrl');
     } else {
-      print('  - No images found, using placeholder');
       images.add('https://via.placeholder.com/300x300?text=No+Image');
     }
 
-    // BUSINESS RULE FOR CATALOG/LIST VIEW:
-    // For VARIANT products, the card should show the TEMPLATE image first,
-    // not the per-variant image. The backend provides this through
-    // product_template.image_1920 and/or a "type": "template" entry.
-    // Only add fallback template image if we don't already have any images
+    // If we still don't have any images, fall back to the template image
+    // (this is mainly relevant for variant products with incomplete data).
     if (productType == 'variant' && images.isEmpty) {
       final productTemplate = item['product_template'] as Map<String, dynamic>?;
       String? templateImageUrl;
@@ -897,13 +920,6 @@ class CatalogRepositoryImpl implements CatalogRepository {
     } catch (_) {
       finalName = item['name'] as String;
     }
-
-    print('═══════════════════════════════════════════════════════');
-    print('🔧 _convertFromApiResponse: Creating Product from API response');
-    print('  📦 Product ID: $productId');
-    print('  📛 Product Name: $finalName');
-    print('  🏷️  API productType: $productType');
-    print('═══════════════════════════════════════════════════════');
     
     final product = HomeProduct.Product(
       id: productId,
@@ -930,21 +946,11 @@ class CatalogRepositoryImpl implements CatalogRepository {
       saleBadge: saleBadge,
     );
     
-    print('✅ Product created: ID=${product.id}, Images=${product.images.length}, FirstImage=${product.images.isNotEmpty ? product.images.first : 'none'}');
     return product;
   }
 
   /// Convert ProductEntity.Product to HomeProduct.Product
   HomeProduct.Product _convertToHomeProduct(ProductEntity.Product productEntity) {
-    print('═══════════════════════════════════════════════════════');
-    print('🔧 _convertToHomeProduct: Converting ProductEntity to HomeProduct');
-    print('  📦 Product ID: ${productEntity.id}');
-    print('  📛 Product Name: ${productEntity.name}');
-    print('  🏷️  ProductEntity.type from API: ${productEntity.type}');
-    print('  🖼️  images.length: ${productEntity.images.length}');
-    print('  🖼️  mainImage: ${productEntity.mainImage}');
-    print('═══════════════════════════════════════════════════════');
-    
     // Extract sizes and colors from variant attributes
     final sizes = <String>[];
     final colors = <String>[];
@@ -994,20 +1000,17 @@ class CatalogRepositoryImpl implements CatalogRepository {
         if (productEntity.images.isNotEmpty) {
           final imageUrls = productEntity.images.map((img) => _constructImageUrl(img.url)).toList();
           images.addAll(imageUrls.where((url) => url.isNotEmpty));
-          print('  - Using images array: $images');
         } else if (productEntity.mainImage != null) {
           final mainImageUrl = _constructImageUrl(productEntity.mainImage!);
           if (mainImageUrl.isNotEmpty) {
             images.add(mainImageUrl);
           }
-          print('  - Using mainImage: $mainImageUrl');
         }
         
         // Ensure we always have at least one image
         if (images.isEmpty) {
           final fallbackUrl = _constructImageUrl('/web/image/product.template/${productEntity.id}/image_1920');
           images.add(fallbackUrl);
-          print('  - Added fallback image: $fallbackUrl');
         }
         
         return images;

@@ -48,7 +48,13 @@ class FavoriteProductCard extends StatelessWidget {
             arguments: {
               'productId': product.id,
               'productType': 'variant',
-        },
+              'cardPreview': {
+                'imageUrl': product.imageUrl,
+                'brand': product.brand,
+                'productTitle': product.name,
+                'price': product.price,
+              },
+            },
           );
         },
         child: Builder(

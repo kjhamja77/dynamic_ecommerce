@@ -23,6 +23,86 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
     on<UpdateSortOption>(_onUpdateSortOption);
   }
 
+  /// Fetch all available brands from API instead of just from current products.
+  /// This runs in parallel with other metadata calls.
+  Future<List<String>> _loadAllBrands(List<Product> items) async {
+    List<String> brands = ['All'];
+    try {
+      print('🔄 CatalogBloc: Fetching all available brands from API...');
+      final apiBrands = await filterDataSource.getBrands(page: 1, limit: 100);
+      final brandNames = apiBrands.map((brand) => brand.name).toList();
+      brands = ['All', ...brandNames];
+      print('✅ CatalogBloc: Loaded ${brandNames.length} brands from API: ${brandNames.join(', ')}');
+      
+      // Initialize and update BrandMappingService with fetched brands
+      BrandMappingService().initialize(filterDataSource);
+      final brandMap = <String, int>{};
+      for (final brand in apiBrands) {
+        brandMap[brand.name] = brand.id;
+      }
+      BrandMappingService().updateMapping(brandMap);
+      print('🗺️ CatalogBloc: Updated BrandMappingService with ${brandMap.length} brands');
+    } catch (e) {
+      print('⚠️ CatalogBloc: Failed to fetch brands from API, using fallback: $e');
+      // Fallback to brands from current products
+      brands = ['All', ...{...items.map((p) => p.brand)}];
+      
+      // Still try to initialize the service for future use
+      try {
+        BrandMappingService().initialize(filterDataSource);
+      } catch (initError) {
+        print('⚠️ CatalogBloc: Failed to initialize BrandMappingService: $initError');
+      }
+    }
+    return brands;
+  }
+
+  /// Fetch colors from attributes API (COLOR NAME) to populate color menu comprehensively.
+  /// Falls back to colors present in products if the API fails.
+  Future<_ColorMetadata> _loadAllColors(List<Product> items) async {
+    List<String> availableColors = ['All'];
+    try {
+      final attrs = await filterDataSource.getAttributes(page: 1, limit: 100);
+      print('🎨 CatalogBloc: Fetched ${attrs.length} attributes from API');
+      for (final a in attrs) {
+        final name = a.name.toLowerCase();
+        final type = a.type.toLowerCase();
+        print('🎨 CatalogBloc: Checking attribute - name: "${a.name}", type: "${a.type}"');
+        // Match "COLOR NAME" attribute (type: "color" or name contains "color")
+        if ((type == 'color' || name.contains('color name') || name == 'color name')) {
+          final colorValues = a.values.map((v) => v.name).where((n) => n.trim().isNotEmpty).toList();
+          print('🎨 CatalogBloc: Found COLOR NAME attribute with ${colorValues.length} color values');
+          availableColors.addAll(colorValues);
+        }
+      }
+      // make unique while preserving order
+      final seen = <String>{};
+      availableColors = availableColors.where((c) => seen.add(c)).toList();
+      print('🎨 CatalogBloc: Total unique colors: ${availableColors.length} (including All)');
+    } catch (e) {
+      print('⚠️ CatalogBloc: Failed to fetch colors from attributes API: $e');
+      // fallback to colors present in items
+      availableColors = ['All', ...{...items.expand((p) => p.colors)}];
+      print('🎨 CatalogBloc: Using fallback colors from products: ${availableColors.length}');
+    }
+    return _ColorMetadata(availableColors);
+  }
+
+  /// Fetch price bounds from filter-options API.
+  Future<_PriceBounds> _loadPriceBounds() async {
+    double? minBound;
+    double? maxBound;
+    try {
+      final opts = await filterDataSource.getFilterOptions();
+      minBound = opts.priceRange?.minPrice;
+      maxBound = opts.priceRange?.maxPrice;
+      print('💰 CatalogBloc: Price bounds from API min=$minBound max=$maxBound');
+    } catch (e) {
+      print('⚠️ CatalogBloc: Failed to fetch filter-options: $e');
+    }
+    return _PriceBounds(minPrice: minBound, maxPrice: maxBound);
+  }
+
   Future<void> _onLoad(LoadCatalog event, Emitter<CatalogState> emit) async {
     // Extract categoryIds from initialFilters if present, otherwise use categoryId from args
     List<int>? categoryIds = event.args.initialFilters?.categoryIds;
@@ -52,79 +132,17 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
     final List<Product> items = resp.items;
     final List<String> categories = ['All', ...{...items.map((p) => p.category)}];
 
-    // Fetch all available brands from API instead of just from current products
-    List<String> brands = ['All'];
-    try {
-      print('🔄 CatalogBloc: Fetching all available brands from API...');
-      final apiBrands = await filterDataSource.getBrands(page: 1, limit: 100);
-      final brandNames = apiBrands.map((brand) => brand.name).toList();
-      brands = ['All', ...brandNames];
-      print('✅ CatalogBloc: Loaded ${brandNames.length} brands from API: ${brandNames.join(', ')}');
-      
-      // Initialize and update BrandMappingService with fetched brands
-      BrandMappingService().initialize(filterDataSource);
-      final brandMap = <String, int>{};
-      for (final brand in apiBrands) {
-        brandMap[brand.name] = brand.id;
-      }
-      BrandMappingService().updateMapping(brandMap);
-      print('🗺️ CatalogBloc: Updated BrandMappingService with ${brandMap.length} brands');
-    } catch (e) {
-      print('⚠️ CatalogBloc: Failed to fetch brands from API, using fallback: $e');
-      // Fallback to brands from current products
-      brands = ['All', ...{...items.map((p) => p.brand)}];
-      
-      // Still try to initialize the service for future use
-      try {
-        BrandMappingService().initialize(filterDataSource);
-      } catch (initError) {
-        print('⚠️ CatalogBloc: Failed to initialize BrandMappingService: $initError');
-      }
-    }
-    
-    // Fetch colors from attributes API (COLOR NAME) to populate color menu comprehensively
-    List<String> availableColors = ['All'];
-    try {
-      final attrs = await filterDataSource.getAttributes(page: 1, limit: 100);
-      print('🎨 CatalogBloc: Fetched ${attrs.length} attributes from API');
-      for (final a in attrs) {
-        final name = a.name.toLowerCase();
-        final type = a.type.toLowerCase();
-        print('🎨 CatalogBloc: Checking attribute - name: "${a.name}", type: "${a.type}"');
-        // Match "COLOR NAME" attribute (type: "color" or name contains "color")
-        if ((type == 'color' || name.contains('color name') || name == 'color name')) {
-          final colorValues = a.values.map((v) => v.name).where((n) => n.trim().isNotEmpty).toList();
-          print('🎨 CatalogBloc: Found COLOR NAME attribute with ${colorValues.length} color values');
-          availableColors.addAll(colorValues);
-        }
-      }
-      // make unique while preserving order
-      final seen = <String>{};
-      availableColors = availableColors.where((c) => seen.add(c)).toList();
-      print('🎨 CatalogBloc: Total unique colors: ${availableColors.length} (including All)');
-    } catch (e) {
-      print('⚠️ CatalogBloc: Failed to fetch colors from attributes API: $e');
-      // fallback to colors present in items
-      availableColors = ['All', ...{...items.expand((p) => p.colors)}];
-      print('🎨 CatalogBloc: Using fallback colors from products: ${availableColors.length}');
-    }
+    // Kick off metadata calls in parallel – do NOT await them yet so we can
+    // show the catalog products immediately.
+    final brandsFuture = _loadAllBrands(items);
+    final colorsFuture = _loadAllColors(items);
+    final priceBoundsFuture = _loadPriceBounds();
 
-    // Fetch price bounds from filter-options API
-    double? minBound;
-    double? maxBound;
-    try {
-      final opts = await filterDataSource.getFilterOptions();
-      minBound = opts.priceRange?.minPrice;
-      maxBound = opts.priceRange?.maxPrice;
-      print('💰 CatalogBloc: Price bounds from API min=$minBound max=$maxBound');
-    } catch (e) {
-      print('⚠️ CatalogBloc: Failed to fetch filter-options: $e');
-    }
-
+    // Emit initial state with minimal metadata so UI can render the grid
     emit(CatalogLoaded(
       products: items,
       categories: categories,
-      brands: brands,
+      brands: const ['All'],
       selectedCategory: event.args.category ?? 'All',
       selectedCategoryId: event.args.categoryId,
       categoryIds: categoryIds, // Store categoryIds from initialFilters
@@ -136,17 +154,37 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
       totalCount: resp.totalCount, // Use total count from API response
       minPrice: null,
       maxPrice: null,
-      priceMinBound: minBound,
-      priceMaxBound: maxBound,
+      priceMinBound: null,
+      priceMaxBound: null,
       minRating: null,
       onSale: false,
       inStock: false,
       sizes: const [],
-      colors: availableColors,
+      colors: const ['All'],
       selectedColors: const [],
       materials: const [],
       seasons: const [],
       genders: const [],
+    ));
+
+    // Wait for the three metadata calls to complete in parallel.
+    // Even though we await here, the UI already has CatalogLoaded above.
+    final brands = await brandsFuture;
+    final colorData = await colorsFuture;
+    final priceBounds = await priceBoundsFuture;
+
+    // Safely read latest state and update with freshly loaded metadata.
+    final currentState = state;
+    if (currentState is! CatalogLoaded) {
+      // State changed (e.g., user navigated away); skip metadata update.
+      return;
+    }
+
+    emit(currentState.copyWith(
+      brands: brands,
+      colors: colorData.colors,
+      priceMinBound: priceBounds.minPrice,
+      priceMaxBound: priceBounds.maxPrice,
     ));
   }
 
@@ -493,4 +531,16 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
   }
 }
 
+/// Lightweight container for color data loaded in the background.
+class _ColorMetadata {
+  final List<String> colors;
+  const _ColorMetadata(this.colors);
+}
+
+/// Lightweight container for price bounds data.
+class _PriceBounds {
+  final double? minPrice;
+  final double? maxPrice;
+  const _PriceBounds({this.minPrice, this.maxPrice});
+}
 

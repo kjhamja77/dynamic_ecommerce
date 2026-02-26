@@ -110,6 +110,30 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
     );
   }
 
+  void _showOutOfStockSnackbar() {
+    if (!mounted) return;
+    final message = AppLocalizations.of(context)!.outOfStock;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.inventory_2_outlined, color: Colors.white, size: 20),
+            SizedBox(width: ResponsiveConstants.smSpacing),
+            Expanded(
+              child: Text(
+                message,
+                style: AppFonts.getTextStyle(),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _checkCartQuantity() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -136,6 +160,13 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
 
   void _addToCart() async {
     await HapticService.buttonClick();
+
+    // Validate stock/availability before triggering add-to-cart (plus / not-in-cart stage only)
+    if (!widget.product.isAvailable) {
+      _showOutOfStockSnackbar();
+      return;
+    }
+
     setState(() {
       _isAdding = true;
       _pendingSnackbarAction = _CartSnackbarAction.add;
@@ -152,13 +183,12 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
     );
     context.read<CartBloc>().add(AddItemToCart(cartItem: cartItem));
 
+    // Loader in button runs until we get CartLoaded / CartError / CartStockError and show result snackbar.
+    // Do not optimistically set quantity or show success here.
+    // Wait for CartLoaded to update UI to "cart 1" and show success snackbar; on failure stay on plus and show error/stock snackbar.
     setState(() {
-      _quantity = 1;
-      _showFullControls = true; // Open expanded bar on first add
       _isUpdating = true;
     });
-    _startAutoCollapseTimer();
-    _showSuccessSnackbar(AppLocalizations.of(context)!.addedToCartSuccessfully);
   }
 
   void _increment() async {
@@ -290,7 +320,9 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
           }
 
           if (state is CartLoaded) {
-            if (_pendingSnackbarAction == _CartSnackbarAction.increment && mounted) {
+            if (_pendingSnackbarAction == _CartSnackbarAction.add && mounted) {
+              _showSuccessSnackbar(AppLocalizations.of(context)!.addedToCartSuccessfully);
+            } else if (_pendingSnackbarAction == _CartSnackbarAction.increment && mounted) {
               _showSuccessSnackbar(AppLocalizations.of(context)!.cartQuantityIncreased);
             }
             _isAdding = false;
@@ -304,10 +336,17 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
           }
         } else if (state is CartError) {
           if (_isAdding || _isUpdating || _pendingSnackbarAction != null) {
+            final wasInitialAdd = _isAdding && _quantity == 0;
             _isAdding = false;
             _isUpdating = false;
             _pendingSnackbarAction = null;
             if (mounted) {
+              if (wasInitialAdd) {
+                setState(() {
+                  _quantity = 0;
+                  _showFullControls = false;
+                });
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
@@ -334,21 +373,31 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
           if (mounted) _checkCartQuantity();
         } else if (state is CartStockError) {
           // Revert UI to server quantity (e.g. 3) so we never show over stock (e.g. 4)
+          // If initial add failed (item not in cart), revert to plus and show out-of-stock snackbar once (only for the button that was loading).
           final itemIndex = state.cartItems.indexWhere(
             (item) => item.product.id == widget.product.id,
           );
+          final wasInitialAdd = itemIndex == -1;
+          final wasThisButtonLoading = _isAdding || _isUpdating;
           if (itemIndex != -1 && mounted) {
             final serverQuantity = state.cartItems[itemIndex].quantity;
             setState(() {
               _quantity = serverQuantity;
               _showFullControls = false;
             });
+          } else if (wasInitialAdd && mounted) {
+            setState(() {
+              _quantity = 0;
+              _showFullControls = false;
+            });
           }
-          if (_isAdding || _isUpdating || _pendingSnackbarAction != null) {
-            _isAdding = false;
-            _isUpdating = false;
-            _pendingSnackbarAction = null;
-            if (mounted) {
+          _isAdding = false;
+          _isUpdating = false;
+          _pendingSnackbarAction = null;
+          if (mounted) {
+            if (wasInitialAdd && wasThisButtonLoading) {
+              _showOutOfStockSnackbar();
+            } else if (!wasInitialAdd) {
               final cartBloc = context.read<CartBloc>();
               final maxQty = cartBloc.getMaxQuantity(widget.product.id);
               final message = maxQty != null
@@ -374,6 +423,7 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
                 ),
               );
             }
+            setState(() {}); // Ensure loader is cleared after flags updated
           }
         }
       },
@@ -391,34 +441,50 @@ class _CartQuantityButtonState extends State<CartQuantityButton> {
   }
 
   /// Starting stage: rounded button with plus only, light fill, subtle shadow.
-  /// Icon uses a dark color so the plus is visible on the light button in dark mode.
+  /// When add is in progress (_isAdding), shows a loader. When product has no stock, button is greyed.
   Widget _buildInitialButton(BuildContext context, ColorScheme colorScheme) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final iconColor = isDark
-        ? Colors.black87
-        : colorScheme.onSurface.withValues(alpha: 0.6);
+    final hasStock = widget.product.isAvailable;
+    final isLoading = _quantity == 0 && (_isAdding || _isUpdating);
+    final iconColor = hasStock
+        ? (isDark ? Colors.black87 : colorScheme.onSurface.withValues(alpha: 0.6))
+        : colorScheme.onSurface.withValues(alpha: 0.35);
     return GestureDetector(
       key: const ValueKey<String>('initial'),
-      onTap: _addToCart,
-      child: Container(
-        height: 28.h,
-        width: 28.w,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 4,
-              spreadRadius: 1.5,
-              offset: const Offset(0, 1.5),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.add,
-          color: iconColor,
-          size: 18.w,
+      onTap: isLoading ? null : _addToCart,
+      child: Opacity(
+        opacity: hasStock ? 1.0 : 0.65,
+        child: Container(
+          height: 28.h,
+          width: 28.w,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: hasStock ? 0.85 : 0.6),
+            borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 4,
+                spreadRadius: 1.5,
+                offset: const Offset(0, 1.5),
+              ),
+            ],
+          ),
+          child: isLoading
+              ? Center(
+                  child: SizedBox(
+                    width: 16.w,
+                    height: 16.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(_operatorOrange),
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.add,
+                  color: iconColor,
+                  size: 18.w,
+                ),
         ),
       ),
     );

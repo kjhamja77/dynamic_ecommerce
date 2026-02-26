@@ -10,11 +10,18 @@ abstract class ProductDetailsEvent extends Equatable {
 class LoadProductDetails extends ProductDetailsEvent {
   final String productId;
   final String productType;
+  /// Optional preview from the product card (image, brand, title, price)
+  /// to show immediately while full details are loading.
+  final ProductDetailsCardPreview? cardPreview;
 
-  const LoadProductDetails(this.productId, {this.productType = 'variant'});
+  const LoadProductDetails(
+    this.productId, {
+    this.productType = 'variant',
+    this.cardPreview,
+  });
 
   @override
-  List<Object?> get props => [productId, productType];
+  List<Object?> get props => [productId, productType, cardPreview];
 }
 
 class ToggleFavoriteEvent extends ProductDetailsEvent {

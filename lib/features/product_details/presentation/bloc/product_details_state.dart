@@ -9,7 +9,16 @@ abstract class ProductDetailsState extends Equatable {
 
 class ProductDetailsInitial extends ProductDetailsState {}
 
-class ProductDetailsLoading extends ProductDetailsState {}
+class ProductDetailsLoading extends ProductDetailsState {
+  /// When navigating from a product card, show this data immediately
+  /// (image, brand, title, price) and skeleton for the rest until API responds.
+  final ProductDetailsCardPreview? cardPreview;
+
+  const ProductDetailsLoading({this.cardPreview});
+
+  @override
+  List<Object?> get props => [cardPreview];
+}
 
 class ProductDetailsLoaded extends ProductDetailsState {
   final ProductDetails productDetails;

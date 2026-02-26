@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/image_cache_utils.dart';
@@ -326,9 +327,9 @@ class _ColorListWithIndicatorsState extends State<_ColorListWithIndicators> {
                   child: ListView.separated(
                     controller: _listScrollController,
                     scrollDirection: Axis.horizontal,
-                    physics: _hasUserInteractedWithColorList
-                        ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
-                        : const NeverScrollableScrollPhysics(),
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     itemCount: count,
                     separatorBuilder: (_, __) => SizedBox(width: ResponsiveConstants.mdSpacing),
                     itemBuilder: (context, index) {
@@ -400,6 +401,35 @@ class _ScrollIndicators extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Skeleton placeholder shown while a color thumbnail image is loading.
+class _ColorImageSkeleton extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _ColorImageSkeleton({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.3)
+        : Colors.grey.shade300;
+    final highlightColor =
+        isDark ? colorScheme.outline.withValues(alpha: 0.5) : Colors.grey.shade100;
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius - 1),
+        ),
       ),
     );
   }
@@ -813,17 +843,24 @@ class _ColorOptionCard extends StatelessWidget {
         final colorValueId = int.tryParse(colorOption.id);
         
         // Get selected value_id for color attribute
-        final selectedColorValueId = colorAttributeId != null 
-            ? variantController.selectedAttributes[colorAttributeId] 
+        final selectedColorValueId = colorAttributeId != null
+            ? variantController.selectedAttributes[colorAttributeId]
             : null;
-        
-        // Check availability using dynamic variant controller
-        final isAvailable = colorAttributeId != null && colorValueId != null
-            ? variantController.getValueState(colorAttributeId, colorValueId) == ValueState.fullyAvailable
-            : true; // Default to available if we can't determine
-        
-        final isSelected = selectedColorValueId == colorValueId;
+
+        // Determine value state from the dynamic variant controller.
+        // - fullyAvailable: in-stock and compatible with current selection
+        // - existsButIncompatible: in-stock somewhere, but not with current selection
+        // - doesNotExist: no in-stock variants for this value at all
+        final ValueState valueState =
+            colorAttributeId != null && colorValueId != null
+                ? variantController.getValueState(colorAttributeId, colorValueId)
+                : ValueState.fullyAvailable;
+
+        // Treat both fullyAvailable and existsButIncompatible as "available" for selection.
+        // Only values that truly do not exist in any in-stock variant are disabled.
+        final bool isAvailable = valueState != ValueState.doesNotExist;
         final bool isDisabled = !isAvailable;
+        final bool isSelected = selectedColorValueId == colorValueId;
         final imageUrl = _getColorImageUrl();
         
         debugPrint('🎨 ColorSelection: "${colorOption.displayNameOrName}" (value_id: $colorValueId)');
@@ -831,19 +868,15 @@ class _ColorOptionCard extends StatelessWidget {
         debugPrint('   Selected value_id in controller: $selectedColorValueId');
         debugPrint('   Controller selectedAttributes: ${variantController.selectedAttributes}');
 
-        // Unclickable when: only one color, or only one available (no meaningful choice)
-        final availableCount = productDetails.colorOptions.where((c) {
-          final cValueId = int.tryParse(c.id);
-          return cValueId != null && colorAttributeId != null
-              ? variantController.getValueState(colorAttributeId, cValueId) == ValueState.fullyAvailable
-              : true;
-        }).length;
-        final hasMultipleChoices =
-            productDetails.colorOptions.length > 1 && availableCount > 1;
+        // Allow tap on any available color (exists in at least one in-stock variant),
+        // even if it is currently incompatible with the chosen size/material.
+        // This lets the user switch from an out-of-stock color to another color.
+        final bool canTap =
+            colorAttributeId != null && colorValueId != null && isAvailable;
         
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: hasMultipleChoices && colorAttributeId != null && colorValueId != null
+          onTap: canTap
               ? () async {
                   debugPrint('🎨 ColorSelectionSection (Bottom): Tapped color "${colorOption.displayNameOrName}" (value_id: $colorValueId, attribute_id: $colorAttributeId)');
                   await HapticService.buttonClick();
@@ -932,16 +965,8 @@ class _ColorOptionCard extends StatelessWidget {
                               imageUrl: imageUrl,
                               cacheKey: imageUrl, // Use normalized URL as cache key
                               fit: BoxFit.fill,
-                              placeholder: (context, url) => Container(
-                                color: colorScheme.surface,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
+                              placeholder: (context, url) => _ColorImageSkeleton(
+                                colorScheme: colorScheme,
                               ),
                               errorWidget: (context, url, error) => Container(
                                 color: colorScheme.surface,

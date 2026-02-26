@@ -676,6 +676,7 @@ class _CatalogPageState extends State<CatalogPage> {
                                     duration: const Duration(milliseconds: 300),
                                     curve: Curves.easeOut,
                                     builder: (context, value, child) {
+                                      debugPrint('product card test ${s.products[index].images} ${s.products[index].images.length}');
                                       return Transform.translate(
                                         offset: Offset(0, (1 - value) * 12),
                                         child: Opacity(opacity: value, child: child),

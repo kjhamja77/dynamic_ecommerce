@@ -16,6 +16,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/bloc/biometric_bloc.dart';
 import '../../features/product_details/presentation/pages/product_details_page.dart';
 import '../../features/product_details/presentation/bloc/product_details_bloc.dart';
+import '../../features/product_details/domain/entities/product_details_card_preview.dart';
 import '../navigation/page_transitions.dart';
 import '../di/injection_container.dart' as di;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -111,6 +112,9 @@ class AppRouter {
       case '/product-details':
         // Product details - MaterialPageRoute for native Hero animation support
         final args = settings.arguments as Map<String, dynamic>;
+        final cardPreview = ProductDetailsCardPreview.fromMap(
+          args['cardPreview'] as Map<String, dynamic>?,
+        );
         print('🚀 AppRouter: Creating ProductDetailsPage');
         print('  - Product ID: ${args['productId']}');
         print('  - Product Type: ${args['productType']}');
@@ -120,6 +124,8 @@ class AppRouter {
             child: ProductDetailsPage(
               productId: args['productId'] as String,
               productType: args['productType'] as String? ?? 'variant',
+              openAddToCart: args['openAddToCart'] as bool? ?? false,
+              cardPreview: cardPreview,
             ),
           ),
           settings: settings,

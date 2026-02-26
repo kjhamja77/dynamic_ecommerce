@@ -133,6 +133,12 @@ class ProductCard extends StatelessWidget {
           arguments: {
             'productId': product.id,
             'productType': productType,
+            'cardPreview': {
+              'imageUrl': product.images.isNotEmpty ? product.images.first : null,
+              'brand': product.brand,
+              'productTitle': _getCleanProductName(product.name),
+              'price': product.price,
+            },
           },
         );
       },

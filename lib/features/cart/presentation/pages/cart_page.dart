@@ -11,7 +11,6 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../checkout/presentation/constants/checkout_constants.dart';
-import '../../../../core/widgets/app_snackbar.dart';
 
 class CartPage extends StatefulWidget {
   final Function(int)? onTabChanged;
@@ -123,10 +122,10 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
   Widget _buildBody() {
     return BlocListener<CartBloc, CartState>(
       listener: (context, state) {
-        // Show snackbar for stock errors without replacing the cart UI
-        if (state is CartStockError) {
-          AppSnackBar.error(context, state.message);
-        }
+        // Do not show snackbar for CartStockError here. The UI that triggered add-to-cart
+        // (e.g. product card CartQuantityButton) shows the localized out-of-stock message.
+        // Showing here too caused a duplicate: first (incorrect) snackbar from this listener,
+        // then the correct one from the product card.
       },
       child: BlocBuilder<CartBloc, CartState>(
         builder: (context, state) {

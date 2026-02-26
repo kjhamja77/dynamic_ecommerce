@@ -156,16 +156,23 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   Future<void> _onAddItemToCart(AddItemToCart event, Emitter<CartState> emit) async {
     final currentState = state;
-    if (currentState is CartLoaded) {
+    // Treat CartLoaded and CartStockError the same: we have current cart items to work from
+    final (List<CartItem>? currentCartItems, CartResponseModel? currentCartResponse) = switch (currentState) {
+      CartLoaded() => (currentState.cartItems, currentState.cartResponse),
+      CartStockError() => (currentState.cartItems, currentState.cartResponse),
+      _ => (null, null),
+    };
+
+    if (currentCartItems != null) {
       // Find existing item or add new one optimistically
-      final existingItemIndex = currentState.cartItems.indexWhere(
+      final existingItemIndex = currentCartItems.indexWhere(
         (item) => item.product.id == event.cartItem.product.id,
       );
-      
+
       List<CartItem> updatedCartItems;
       if (existingItemIndex != -1) {
         // Item exists - update quantity optimistically
-        updatedCartItems = currentState.cartItems.map((item) {
+        updatedCartItems = currentCartItems.map((item) {
           if (item.product.id == event.cartItem.product.id) {
             return item.copyWith(quantity: item.quantity + event.cartItem.quantity);
           }
@@ -173,16 +180,16 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         }).toList();
       } else {
         // New item - add to cart optimistically
-        updatedCartItems = List<CartItem>.from(currentState.cartItems);
+        updatedCartItems = List<CartItem>.from(currentCartItems);
         updatedCartItems.add(event.cartItem);
       }
-      
+
       emit(CartUpdating(
         cartItems: updatedCartItems,
-        cartResponse: currentState.cartResponse,
+        cartResponse: currentCartResponse,
         updatingProductId: event.cartItem.product.id,
       ));
-      
+
       try {
         final result = await _addToCart(AddToCartParams(cartItem: event.cartItem));
         await result.fold(
@@ -191,21 +198,21 @@ class CartBloc extends Bloc<CartEvent, CartState> {
               // For stock errors, emit a special state that can be handled in UI without replacing cart
               if (_isStockError(failure.message)) {
                 // Track that current quantity is max for this product
-                final existingItemIndex = currentState.cartItems.indexWhere(
+                final existingIdx = currentCartItems.indexWhere(
                   (item) => item.product.id == event.cartItem.product.id,
                 );
-                final currentQuantity = existingItemIndex != -1
-                    ? currentState.cartItems[existingItemIndex].quantity
+                final currentQuantity = existingIdx != -1
+                    ? currentCartItems[existingIdx].quantity
                     : event.cartItem.quantity;
                 _maxQuantities[event.cartItem.product.id] = currentQuantity;
                 debugPrint('CartBloc: Set max quantity for product ${event.cartItem.product.id} to $currentQuantity');
-                
+
                 final formattedMessage = _formatStockErrorMessage(failure.message);
-                // Emit CartStockError directly with current cart items (reverting optimistic update)
-                emit(CartStockError(formattedMessage, currentState.cartItems, currentState.cartResponse));
+                // Emit CartStockError with reverted cart (no optimistic item)
+                emit(CartStockError(formattedMessage, currentCartItems, currentCartResponse));
               } else {
                 // Revert optimistic update on failure for non-stock errors
-                emit(CartLoaded(currentState.cartItems, cartResponse: currentState.cartResponse));
+                emit(CartLoaded(currentCartItems, cartResponse: currentCartResponse));
                 emit(CartError(failure.message));
               }
             }
@@ -214,7 +221,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
             // Success - clear max quantity for this product (stock may have increased)
             _maxQuantities.remove(event.cartItem.product.id);
             debugPrint('CartBloc: Cleared max quantity for product ${event.cartItem.product.id} after successful add');
-            
+
             // Success - reload cart from server to ensure consistency
             debugPrint('CartBloc._onAddItemToCart: Successfully added item, reloading cart...');
             if (!emit.isDone) {
@@ -225,25 +232,23 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       } catch (e) {
         if (!emit.isDone) {
           final errorStr = e.toString();
-          
+
           // Check if it's a stock error
           if (_isStockError(errorStr)) {
             // Track that current quantity is max for this product
-            final existingItemIndex = currentState.cartItems.indexWhere(
+            final existingIdx = currentCartItems.indexWhere(
               (item) => item.product.id == event.cartItem.product.id,
             );
-            final currentQuantity = existingItemIndex != -1
-                ? currentState.cartItems[existingItemIndex].quantity
+            final currentQuantity = existingIdx != -1
+                ? currentCartItems[existingIdx].quantity
                 : event.cartItem.quantity;
             _maxQuantities[event.cartItem.product.id] = currentQuantity;
             debugPrint('CartBloc: Set max quantity for product ${event.cartItem.product.id} to $currentQuantity');
-            
+
             final formattedMessage = _formatStockErrorMessage(errorStr);
-            // Emit CartStockError directly with current cart items (reverting optimistic update)
-            emit(CartStockError(formattedMessage, currentState.cartItems, currentState.cartResponse));
+            emit(CartStockError(formattedMessage, currentCartItems, currentCartResponse));
           } else {
-            // Revert optimistic update on error for non-stock errors
-            emit(CartLoaded(currentState.cartItems, cartResponse: currentState.cartResponse));
+            emit(CartLoaded(currentCartItems, cartResponse: currentCartResponse));
             emit(CartError('Failed to add item to cart: $errorStr'));
           }
         }

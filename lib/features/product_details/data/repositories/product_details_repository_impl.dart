@@ -8,6 +8,7 @@ import '../datasources/product_details_remote_data_source.dart';
 import '../../../cart/domain/entities/cart_item.dart';
 import '../../../cart/domain/repositories/cart_repository.dart';
 import '../../../home/domain/entities/product.dart';
+import '../product_details_isolate.dart';
 
 class ProductDetailsRepositoryImpl implements ProductDetailsRepository {
   final CartRepository cartRepository;
@@ -27,10 +28,11 @@ class ProductDetailsRepositoryImpl implements ProductDetailsRepository {
       if (remoteDataSource != null) {
         developer.log('🌐 Fetching product details from API for: $productId, type: $productType');
         final productData = await remoteDataSource!.getProductDetails(productId, productType: productType);
-        
-        // Convert API response to ProductDetails model
-        final productDetails = ProductDetailsModel.fromApiJson(productData);
-        
+
+        // Convert API response to ProductDetails on a background isolate
+        // so that heavy attribute/variant parsing does not block the UI thread.
+        final productDetails = await parseProductDetailsInBackground(productData);
+
         return Right(productDetails);
       }
       
@@ -93,7 +95,7 @@ class ProductDetailsRepositoryImpl implements ProductDetailsRepository {
       ProductDetails? productDetails;
       try {
         final productData = await remoteDataSource!.getProductDetails(productId);
-        productDetails = ProductDetailsModel.fromApiJson(productData);
+        productDetails = await parseProductDetailsInBackground(productData);
         developer.log('✅ Product fetched from API: ${productDetails.name}');
       } catch (e) {
         developer.log('❌ Failed to fetch product from API: $e');

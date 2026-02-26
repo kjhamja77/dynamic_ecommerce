@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/responsive_constants.dart';
@@ -8,6 +9,8 @@ import '../widgets/collapsible_image_section_widget.dart';
 import '../widgets/product_info_section.dart';
 import '../widgets/product_details_shimmer.dart';
 import '../widgets/add_to_cart_bottom_sheet.dart';
+import '../../domain/entities/product_details_card_preview.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/dynamic_variant_controller.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../favorites/presentation/widgets/favorite_button.dart';
@@ -26,36 +29,46 @@ import '../../../../core/services/language_service.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final String productId;
-  final String productType; 
+  final String productType;
   final bool openAddToCart;
+  /// Preview data from the product card (image, brand, title, price)
+  /// to show immediately while full details are loading.
+  final ProductDetailsCardPreview? cardPreview;
 
   const ProductDetailsPage({
     super.key,
     required this.productId,
     this.productType = 'variant', // Default to variant for backward compatibility
     this.openAddToCart = false,
+    this.cardPreview,
   });
 
   @override
   State<ProductDetailsPage> createState() => _ProductDetailsPageState();
 }
 
-class _ProductDetailsPageState extends State<ProductDetailsPage> {
+class _ProductDetailsPageState extends State<ProductDetailsPage>
+    with AutomaticKeepAliveClientMixin<ProductDetailsPage> {
   late PageController _pageController;
   late ScrollController _scrollController;
   late DynamicVariantController _variantController;
+  late final AppLocalizationService _localizationService;
   String? _lastLanguageCode;
   bool _isControllerInitialized = false;
+  bool _hasOpenedAddToCartFromRoute = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    _localizationService = AppLocalizationService();
     _pageController = PageController();
     _scrollController = ScrollController();
     _variantController = DynamicVariantController();
     
-    final localizationService = AppLocalizationService();
-    _lastLanguageCode = localizationService.currentLocale.languageCode;
+    _lastLanguageCode = _localizationService.currentLocale.languageCode;
     
     debugPrint('📱 ProductDetailsPage: Initializing');
     debugPrint('  - Product ID: ${widget.productId}');
@@ -65,16 +78,27 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     debugPrint('  - Current Language: $_lastLanguageCode');
     
     // Listen to language changes
-    localizationService.addListener(_onLanguageChanged);
+    _localizationService.addListener(_onLanguageChanged);
     print('product id from the catalog list selected ${widget.productId}');
     // Ensure API language is synced with current app language before loading product
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final currentLanguage = localizationService.currentLocale.languageCode;
-      await LanguageService().setFromAppLanguageCode(currentLanguage);
-      debugPrint('🌐 ProductDetailsPage: Synced API language to: $currentLanguage');
+      final currentLanguage = _localizationService.currentLocale.languageCode;
+      // Fire-and-forget language sync so that product loading can start immediately.
+      // This avoids blocking the initial load on any async I/O inside LanguageService.
+      unawaited(
+        LanguageService()
+            .setFromAppLanguageCode(currentLanguage)
+            .then((_) => debugPrint(
+                  '🌐 ProductDetailsPage: Synced API language to: $currentLanguage',
+                )),
+      );
 
-      // Load product details with current language
-      context.read<ProductDetailsBloc>().add(LoadProductDetails(widget.productId, productType: widget.productType));
+      // Load product details with current language without waiting for the sync call
+      context.read<ProductDetailsBloc>().add(LoadProductDetails(
+            widget.productId,
+            productType: widget.productType,
+            cardPreview: widget.cardPreview,
+          ));
 
       final cartState = context.read<CartBloc>().state;
       if (cartState is! CartLoaded && cartState is! CartUpdating) {
@@ -84,8 +108,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   void _onLanguageChanged() {
-    final localizationService = AppLocalizationService();
-    final currentLanguage = localizationService.currentLocale.languageCode;
+    final currentLanguage = _localizationService.currentLocale.languageCode;
     
     // If language changed, reload product details with new language
 
@@ -97,7 +120,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
       LanguageService().setFromAppLanguageCode(currentLanguage).then((_) {
         if (mounted) {
-          context.read<ProductDetailsBloc>().add(LoadProductDetails(widget.productId, productType: widget.productType));
+          context.read<ProductDetailsBloc>().add(LoadProductDetails(
+                widget.productId,
+                productType: widget.productType,
+                cardPreview: widget.cardPreview,
+              ));
         }
       });
     }
@@ -106,7 +133,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   @override
   void dispose() {
-    AppLocalizationService().removeListener(_onLanguageChanged);
+    _localizationService.removeListener(_onLanguageChanged);
     _pageController.dispose();
     _scrollController.dispose();
     _variantController.dispose();
@@ -115,6 +142,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final colorScheme = theme.colorScheme;
@@ -173,27 +201,30 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           }
         },
         builder: (context, state) {
-          if (state is ProductDetailsLoading) {
-            return const ProductDetailsShimmer();
-          }
-
           if (state is ProductDetailsError) {
             return _buildErrorState(state.message);
           }
 
+          if (state is ProductDetailsLoading) {
+            if (state.cardPreview != null) {
+              return _buildProductDetailsBody(cardPreview: state.cardPreview);
+            }
+            return const ProductDetailsShimmer();
+          }
+
           if (state is ProductDetailsLoaded) {
-            // If requested via route args, open add-to-cart once after load
-            if (widget.openAddToCart) {
+            if (widget.openAddToCart && !_hasOpenedAddToCartFromRoute) {
+              _hasOpenedAddToCartFromRoute = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 final variantController = context.read<DynamicVariantController>();
                 AddToCartBottomSheet.show(
-                  context, 
+                  context,
                   context.read<ProductDetailsBloc>(),
                   variantController,
                 );
               });
             }
-            return _buildProductDetails(state.productDetails);
+            return _buildProductDetailsBody(productDetails: state.productDetails);
           }
 
           return const ProductDetailsShimmer();
@@ -203,9 +234,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         builder: (context, variantController, _) {
           return BlocBuilder<ProductDetailsBloc, ProductDetailsState>(
             builder: (context, state) {
-              if (state is ProductDetailsLoaded) {
-                // Use dynamic variant controller for stock status
-                final bool isOutOfStock = !variantController.inStock;
+              final isLoaded = state is ProductDetailsLoaded;
+              final isLoading = state is ProductDetailsLoading;
+              if (isLoaded || isLoading) {
+                final bool isOutOfStock =
+                    isLoaded ? !variantController.inStock : true;
 
                 return Container(
               padding: EdgeInsets.symmetric(
@@ -229,10 +262,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    // Use the same stock rule as the badge: if there is no in-stock
-                    // variant for the selected color, disable the CTA and show
-                    // "Out of stock". Otherwise, allow opening the bottom sheet.
-                    onPressed: isOutOfStock
+                    // Disable until loaded; then use stock rule (out of stock = disabled).
+                    onPressed: (!isLoaded || isOutOfStock)
                         ? null
                         : () async {
                             await HapticService.buttonClick();
@@ -256,7 +287,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (!isOutOfStock) ...[
+                        if (isLoaded && !isOutOfStock) ...[
                           Icon(
                             Icons.shopping_cart,
                             size: ResponsiveConstants.mdIconSize,
@@ -265,9 +296,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         ],
                         SizedBox(width: ResponsiveConstants.smSpacing),
                         Text(
-                          isOutOfStock
-                              ? AppLocalizations.of(context)!.outOfStock
-                              : AppLocalizations.of(context)!.addToCart,
+                          !isLoaded
+                              ? AppLocalizations.of(context)!.loading
+                              : isOutOfStock
+                                  ? AppLocalizations.of(context)!.outOfStock
+                                  : AppLocalizations.of(context)!.addToCart,
                           style: AppFonts.getTextStyle(
                             fontSize: ResponsiveConstants.mdFontSize,
                             fontWeight: FontWeight.w600,
@@ -295,21 +328,30 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       onRetry: () async {
         await HapticService.buttonClick();
         context.read<ProductDetailsBloc>().add(
-              LoadProductDetails(widget.productId, productType: widget.productType),
+              LoadProductDetails(
+                widget.productId,
+                productType: widget.productType,
+                cardPreview: widget.cardPreview,
+              ),
             );
       },
     );
   }
 
-  Widget _buildProductDetails(ProductDetails productDetails) {
+  /// Builds the same product details UI. Pass [productDetails] when loaded,
+  /// or [cardPreview] when still loading so passed values show and rest are skeletons.
+  Widget _buildProductDetailsBody({
+    ProductDetails? productDetails,
+    ProductDetailsCardPreview? cardPreview,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLoaded = productDetails != null;
 
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // Collapsing App Bar with Image
         SliverAppBar(
-          expandedHeight: ResponsiveConstants.productDetailsAppBarHeight, // Responsive image section height
+          expandedHeight: ResponsiveConstants.productDetailsAppBarHeight,
           floating: false,
           pinned: true,
           elevation: 0,
@@ -318,52 +360,120 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             padding: EdgeInsets.only(left: ResponsiveConstants.mdPadding),
             child: _buildBackButton(),
           ),
-          title: _buildAppBarTitle(productDetails),
-          iconTheme: IconThemeData(
-            color: colorScheme.onBackground,
-          ),
+          title: isLoaded
+              ? _buildAppBarTitle(productDetails!)
+              : _buildAppBarTitleFromPreview(cardPreview!),
+          iconTheme: IconThemeData(color: colorScheme.onBackground),
           actions: [
-            _buildShareButton(),
+            _buildShareButton(productDetails: productDetails, cardPreview: cardPreview),
             const CartButtonWithBadge(),
             Padding(
               padding: EdgeInsetsDirectional.only(end: ResponsiveConstants.mdPadding),
-              child: FavoriteButton(
-                productId: productDetails.id,
-                productName: productDetails.name,
-                brand: productDetails.brand,
-                price: productDetails.price,
-                imageUrl: productDetails.images.isNotEmpty ? productDetails.images.first : null,
-                category: null,
-                isFavorite: productDetails.isFavorite,
-                size: ResponsiveConstants.mdIconSize,
-                isCompact: true,
-              ),
+              child: isLoaded
+                  ? Consumer<DynamicVariantController>(
+                      builder: (context, variantController, _) {
+                        final String favProductId =
+                            variantController.variantId.isNotEmpty
+                                ? variantController.variantId
+                                : productDetails!.id;
+                        return FavoriteButton(
+                          productId: favProductId,
+                          productName: productDetails!.name,
+                          brand: productDetails!.brand,
+                          price: productDetails!.price,
+                          imageUrl: productDetails!.images.isNotEmpty
+                              ? productDetails!.images.first
+                              : null,
+                          category: null,
+                          isFavorite: productDetails!.isFavorite,
+                          size: ResponsiveConstants.mdIconSize,
+                          isCompact: true,
+                        );
+                      },
+                    )
+                  : FavoriteButton(
+                      productId: widget.productId,
+                      productName: cardPreview!.productTitle,
+                      brand: cardPreview!.brand,
+                      price: cardPreview!.price,
+                      imageUrl: cardPreview!.imageUrl,
+                      category: null,
+                      isFavorite: false,
+                      size: ResponsiveConstants.mdIconSize,
+                      isCompact: true,
+                    ),
             ),
           ],
-          flexibleSpace: Consumer<DynamicVariantController>(
-            builder: (context, variantController, _) {
-              return FlexibleSpaceBar(
-                background: CollapsibleImageSectionWidget(
-                  productDetails: productDetails,
-                  pageController: _pageController,
-                  variantImageUrls: variantController.currentImages,
-                ),
-              );
-            },
+          flexibleSpace: FlexibleSpaceBar(
+            background: isLoaded
+                ? Consumer<DynamicVariantController>(
+                    builder: (context, variantController, _) {
+                      return CollapsibleImageSectionWidget(
+                        productDetails: productDetails!,
+                        pageController: _pageController,
+                        variantImageUrls: variantController.currentImages,
+                      );
+                    },
+                  )
+                : _buildPreviewImage(cardPreview!),
           ),
         ),
-        
-        // Product Info Section (scrolls up to cover image)
         ProductInfoSection(
           productDetails: productDetails,
+          cardPreview: cardPreview,
           scrollController: _scrollController,
         ),
-        //
-        // Bottom padding
         SliverToBoxAdapter(
           child: SizedBox(height: ResponsiveConstants.lgSpacing),
         ),
       ],
+    );
+  }
+
+  Widget _buildAppBarTitleFromPreview(ProductDetailsCardPreview preview) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          preview.brand,
+          style: AppFonts.getTextStyle(
+            fontSize: ResponsiveConstants.smFontSize,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onBackground,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          preview.productTitle,
+          style: AppFonts.getTextStyle(
+            fontSize: ResponsiveConstants.mdFontSize,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onBackground,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPreviewImage(ProductDetailsCardPreview preview) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surface,
+      child: preview.imageUrl != null && preview.imageUrl!.isNotEmpty
+          ? Center(
+              child: CachedNetworkImage(
+                imageUrl: preview.imageUrl!,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => Container(color: colorScheme.surface),
+                errorWidget: (_, __, ___) => Container(color: colorScheme.surface),
+              ),
+            )
+          : null,
     );
   }
 
@@ -413,9 +523,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
 
 
-  Widget _buildShareButton() {
+  Widget _buildShareButton({
+    ProductDetails? productDetails,
+    ProductDetailsCardPreview? cardPreview,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    
     return IconButton(
       icon: Icon(
         Icons.share,
@@ -424,31 +536,36 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       ),
       onPressed: () async {
         await HapticService.buttonClick();
-        final state = context.read<ProductDetailsBloc>().state;
-        if (state is ProductDetailsLoaded) {
-          final p = state.productDetails;
+        if (productDetails != null) {
+          final p = productDetails;
           final image = p.images.isNotEmpty ? p.images.first : '';
-          // Compose full website URL if available
           String? fullUrl;
           try {
             final String? websitePath = p.websiteUrl;
             if (websitePath != null && websitePath.isNotEmpty) {
               final base = AppConstants.baseUrl;
-              fullUrl = websitePath.startsWith('http') ? websitePath : (base.endsWith('/') ? base.substring(0, base.length - 1) : base) + websitePath;
+              fullUrl = websitePath.startsWith('http')
+                  ? websitePath
+                  : (base.endsWith('/')
+                      ? base.substring(0, base.length - 1)
+                      : base) +
+                      websitePath;
             }
           } catch (_) {}
           final List<String> lines = [];
-          // Prefix line encouraging to check the product
           try {
-            // Some generated localization files may not include the key yet; guard to avoid crashes
-            // ignore: unnecessary_nullable_for_final_variable_declarations
             final localized = AppLocalizations.of(context);
             if (localized == null) {
               lines.add('Check out this product:');
             } else {
-              // Fallback without referencing missing getter directly
               final dynamic dyn = localized;
-              final prefix = ((){ try { return dyn.checkOutThisProduct as String; } catch(_) { return 'Check out this product:'; }})();
+              final prefix = (() {
+                try {
+                  return dyn.checkOutThisProduct as String;
+                } catch (_) {
+                  return 'Check out this product:';
+                }
+              })();
               lines.add(prefix);
             }
           } catch (_) {
@@ -465,8 +582,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             lines.add('');
             lines.add('Image: $image');
           }
-          final message = lines.join('\n');
-          Share.share(message, subject: p.name);
+          Share.share(lines.join('\n'), subject: p.name);
+        } else if (cardPreview != null) {
+          final lines = [
+            '${cardPreview.brand} — ${cardPreview.productTitle}',
+            '',
+            'Price: ${cardPreview.price}',
+            if (cardPreview.imageUrl != null && cardPreview.imageUrl!.isNotEmpty)
+              '\nImage: ${cardPreview.imageUrl}',
+          ];
+          Share.share(lines.join('\n'), subject: cardPreview.productTitle);
         }
       },
     );
