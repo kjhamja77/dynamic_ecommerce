@@ -7,8 +7,8 @@ class GetWelcomeTextsUseCase {
 
   GetWelcomeTextsUseCase(this.repository);
 
-  Future<Either<Failure, List<String>>> call() async {
-    return await repository.getWelcomeTexts();
+  Future<Either<Failure, List<String>>> call({bool forceRefresh = false}) async {
+    return await repository.getWelcomeTexts(forceRefresh: forceRefresh);
   }
 }
 

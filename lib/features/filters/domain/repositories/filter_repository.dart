@@ -37,6 +37,12 @@ abstract class FilterRepository {
     String? query,
     int? categoryId,
   });
+
+  /// Clears any in-memory cache related to available filters so that
+  /// subsequent calls to [getAvailableFilters] are forced to hit the
+  /// backend again. This is used by the filters UI refresh action and
+  /// does not change the behaviour of normal callers.
+  void clearAvailableFiltersCache();
 }
 
 

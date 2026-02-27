@@ -8,9 +8,21 @@ import '../domain/entities/filter_brand.dart';
 import '../domain/entities/filter_attribute.dart';
 import '../domain/entities/filter_criteria.dart';
 import '../domain/repositories/filter_repository.dart';
+import 'filters_isolate.dart';
 
 class FilterRepositoryImpl implements FilterRepository {
   final FilterRemoteDataSource remoteDataSource;
+
+  // In-memory cache for filter options to avoid reloading the same
+  // metadata repeatedly. This cache is scoped to the app process
+  // and keyed by the high-level parameters used by callers.
+  FilterOptions? _cachedFilterOptions;
+  String? _cachedCategory;
+  String? _cachedBrand;
+  String? _cachedQuery;
+  int? _cachedCategoryId;
+  DateTime? _cacheTimestamp;
+  static const Duration _cacheTtl = Duration(minutes: 5);
   
   FilterRepositoryImpl({required this.remoteDataSource});
 
@@ -135,6 +147,23 @@ class FilterRepositoryImpl implements FilterRepository {
   }) async {
     try {
       print('🔄 FilterRepository: Loading available filters... (categoryId: $categoryId)');
+
+      // Safe, conservative in-memory cache: only reused when the high-level
+      // parameters match exactly AND the cache is still fresh. This ensures
+      // we do not affect behaviour for different categories/search contexts.
+      final now = DateTime.now();
+      final isCacheValid = _cachedFilterOptions != null &&
+          _cachedCategory == category &&
+          _cachedBrand == brand &&
+          _cachedQuery == query &&
+          _cachedCategoryId == categoryId &&
+          _cacheTimestamp != null &&
+          now.difference(_cacheTimestamp!) <= _cacheTtl;
+
+      if (isCacheValid) {
+        print('✅ FilterRepository: Returning cached FilterOptions (categoryId: $categoryId)');
+        return Right(_cachedFilterOptions!);
+      }
       
       // Load filter data sequentially to avoid overwhelming the server
       // Pass categoryId to getAttributes if provided (required by API when category is selected)
@@ -184,45 +213,24 @@ class FilterRepositoryImpl implements FilterRepository {
         (fo) => fo,
       );
       
-      final priceRange = filterOptionsData?.priceRange ?? const FilterPriceRange(minPrice: 0, maxPrice: 1000, currency: 'IQD');
-      final sortingOptions = filterOptionsData?.sortingOptions ?? [];
-
-      // Extract available values from attributes
-      final availableSizes = <String>[];
-      final availableColors = <String>[];
-      final availableMaterials = <String>[];
-      final availableSeasons = <String>[];
-      final availableGenders = <String>[];
-      
-      for (final attr in attributes) {
-        final attrName = attr.name.toLowerCase();
-        final values = attr.values.map((v) => v.name).toList();
-        
-        if (attrName.contains('size')) {
-          availableSizes.addAll(values);
-        } else if (attrName.contains('color')) {
-          availableColors.addAll(values);
-        } else if (attrName.contains('material')) {
-          availableMaterials.addAll(values);
-        } else if (attrName.contains('season')) {
-          availableSeasons.addAll(values);
-        } else if (attrName.contains('gender')) {
-          availableGenders.addAll(values);
-        }
-      }
-      
-      final filterOptions = FilterOptions.withLoadedData(
+      // Offload aggregation (sizes/colors/materials/seasons/genders + wiring
+      // into a single FilterOptions instance) to a background isolate so the
+      // main isolate stays responsive while filters are prepared.
+      final filterOptions = await buildFilterOptionsInBackground(
+        baseOptions: filterOptionsData,
         categories: categories,
         brands: brands,
         attributes: attributes,
-        priceRange: priceRange,
-        availableSizes: availableSizes,
-        availableColors: availableColors,
-        availableMaterials: availableMaterials,
-        availableSeasons: availableSeasons,
-        availableGenders: availableGenders,
-        sortingOptions: sortingOptions,
       );
+
+      // Update cache after a successful load so subsequent openings of
+      // the same filter context (same category/brand/query) are instant.
+      _cachedFilterOptions = filterOptions;
+      _cachedCategory = category;
+      _cachedBrand = brand;
+      _cachedQuery = query;
+      _cachedCategoryId = categoryId;
+      _cacheTimestamp = DateTime.now();
       
       print('✅ FilterRepository: Created FilterOptions with ${filterOptions.attributes.length} attributes');
       print('   - Sizes: ${filterOptions.availableSizes.length}');
@@ -239,6 +247,17 @@ class FilterRepositoryImpl implements FilterRepository {
       print('❌ FilterRepository: Unexpected error loading filters: $e');
       return Left(ServerFailure('Unexpected error: $e'));
     }
+  }
+
+  @override
+  void clearAvailableFiltersCache() {
+    _cachedFilterOptions = null;
+    _cachedCategory = null;
+    _cachedBrand = null;
+    _cachedQuery = null;
+    _cachedCategoryId = null;
+    _cacheTimestamp = null;
+    print('🧹 FilterRepository: Cleared available-filters cache');
   }
 }
 

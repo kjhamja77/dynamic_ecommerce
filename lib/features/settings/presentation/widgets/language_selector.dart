@@ -101,7 +101,7 @@ class LanguageSelector extends StatelessWidget {
                           // Reload home pages and featured products
                           try {
                             final homeBloc = context.read<HomeBloc>();
-                            homeBloc.add(const LoadPages(1)); // userId 1 (same as DynamicHomeTabWidget)
+                            homeBloc.add(const LoadPages(1, forceRefresh: true)); // userId 1 (same as DynamicHomeTabWidget)
                             homeBloc.add(LoadFeaturedProducts());
                           } catch (e) {
                             debugPrint('⚠️ LanguageSelector: Error reloading HomeBloc: $e');

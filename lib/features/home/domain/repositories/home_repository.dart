@@ -12,7 +12,17 @@ abstract class HomeRepository {
   Future<Either<Failure, List<ProductCategory>>> getRootCategories();
   Future<Either<Failure, List<Product>>> searchProducts(String query);
   Future<Either<Failure, List<Product>>> getProductsByBrand(String brand);
-  Future<Either<Failure, List<Page>>> getPages(int userId);
-  Future<Either<Failure, PageComponents>> getPageComponents(int componentId, int page, int pageSize);
-  Future<Either<Failure, List<String>>> getWelcomeTexts();
+  Future<Either<Failure, List<Page>>> getPages(
+    int userId, {
+    bool forceRefresh = false,
+  });
+  Future<Either<Failure, PageComponents>> getPageComponents(
+    int componentId,
+    int page,
+    int pageSize, {
+    bool forceRefresh = false,
+  });
+  Future<Either<Failure, List<String>>> getWelcomeTexts({
+    bool forceRefresh = false,
+  });
 }

@@ -8,6 +8,13 @@ import '../../domain/entities/filter_options.dart';
 import '../../domain/entities/filter_criteria.dart';
 import '../../../../core/errors/failures.dart';
 
+class _AttributesCacheEntry {
+  final List<FilterAttribute> attributes;
+  final DateTime timestamp;
+
+  _AttributesCacheEntry(this.attributes, this.timestamp);
+}
+
 abstract class FilterRemoteDataSource {
   Future<List<FilterCategory>> getCategories({
     int page = 1,
@@ -31,6 +38,10 @@ abstract class FilterRemoteDataSource {
     List<int>? categoryIds,
   });
   
+  /// Clears any in-memory cache related to attributes so that subsequent
+  /// calls to [getAttributes] are forced to hit the backend again.
+  void clearAttributesCache();
+  
   Future<FilterOptions> getFilterOptions();
   
   Future<Map<String, dynamic>> filterProducts(
@@ -43,6 +54,9 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
   final ApiClient apiClient;
 
   FilterRemoteDataSourceImpl({required this.apiClient});
+
+  final Map<String, _AttributesCacheEntry> _attributesCache = {};
+  static const Duration _attributesCacheTtl = Duration(minutes: 5);
 
   @override
   Future<List<FilterCategory>> getCategories({
@@ -282,6 +296,24 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
     List<int>? categoryIds,
   }) async {
     try {
+      // Attributes are heavily reused between filter openings; add a small
+      // in-memory cache keyed by (page, limit, categoryIds) to avoid
+      // unnecessary network calls when data is still fresh.
+      final sortedCategoryIds =
+          categoryIds == null ? null : (List<int>.from(categoryIds)..sort());
+      final cacheKey =
+          'p:$page|l:$limit|c:${sortedCategoryIds?.join(",") ?? "null"}';
+      final now = DateTime.now();
+      final cachedEntry = _attributesCache[cacheKey];
+
+      if (cachedEntry != null &&
+          now.difference(cachedEntry.timestamp) <= _attributesCacheTtl) {
+        print(
+          '💾 FilterRemoteDataSource: Returning cached attributes for key=$cacheKey',
+        );
+        return cachedEntry.attributes;
+      }
+
       print('🌐 FilterRemoteDataSource: GET /ecom/get/product/attributes');
       print('   ➤ Endpoint: /ecom/get/product/attributes');
       print('   ➤ HTTP Method: GET');
@@ -358,7 +390,8 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
           print('📊 FilterRemoteDataSource: Found ${attributesData.length} attributes in items array');
           
           final attributes = attributesData
-              .map((attr) => FilterAttribute.fromApiResponse(attr as Map<String, dynamic>))
+              .map((attr) =>
+                  FilterAttribute.fromApiResponse(attr as Map<String, dynamic>))
               .toList();
           
           print('✅ FilterRemoteDataSource: Parsed ${attributes.length} attributes');
@@ -366,6 +399,9 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
           if (attributes.isNotEmpty) {
             print('📊 FilterRemoteDataSource: First attribute - name: "${attributes.first.name}", type: "${attributes.first.type}", values: ${attributes.first.values.length}');
           }
+          
+          _attributesCache[cacheKey] =
+              _AttributesCacheEntry(attributes, DateTime.now());
           return attributes;
         }
         print('⚠️ FilterRemoteDataSource: No data field in response');
@@ -563,5 +599,11 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
     } catch (e) {
       throw ServerFailure('Unexpected error: $e');
     }
+  }
+
+  @override
+  void clearAttributesCache() {
+    _attributesCache.clear();
+    print('🧹 FilterRemoteDataSource: Cleared attributes cache');
   }
 }

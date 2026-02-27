@@ -38,6 +38,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/domain/usecases/guest_login_usecase.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/data/datasources/home_remote_data_source.dart';
+import '../../features/home/data/datasources/home_local_data_source.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
 import '../../features/home/domain/usecases/get_featured_products_usecase.dart';
 import '../../features/home/domain/usecases/get_pages_usecase.dart';
@@ -64,6 +65,7 @@ import '../../features/catalog/domain/repositories/catalog_repository.dart';
 import '../../features/catalog/data/repositories/catalog_repository_impl.dart';
 import '../../features/catalog/domain/usecases/fetch_catalog_page.dart';
 import '../../features/filters/domain/usecases/get_available_filters.dart';
+import '../../features/filters/domain/usecases/clear_available_filters_cache.dart';
 import '../../features/filters/domain/repositories/filter_repository.dart';
 import '../../features/filters/data/filter_repository_impl.dart';
 import '../../features/filters/data/datasources/filter_remote_data_source.dart';
@@ -279,6 +281,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SearchProductsUseCase(sl()));
   sl.registerLazySingleton(() => FetchCatalogPage(sl()));
   sl.registerLazySingleton(() => GetAvailableFilters(sl()));
+  sl.registerLazySingleton(() => ClearAvailableFiltersCache(sl()));
   sl.registerLazySingleton(() => GetFavoritesUseCase(sl()));
   sl.registerLazySingleton(() => AddToFavoritesUseCase(sl()));
   sl.registerLazySingleton(() => RemoveFromFavoritesUseCase(sl()));
@@ -317,6 +320,7 @@ Future<void> init() async {
     () => HomeRepositoryImpl(
       remoteDataSource: sl(),
       productRepository: sl(),
+      localDataSource: sl<HomeLocalDataSource>(),
     ),
   );
 
@@ -400,6 +404,9 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<HomeRemoteDataSource>(
     () => HomeRemoteDataSourceImpl(sl<ApiClient>()),
+  );
+  sl.registerLazySingleton<HomeLocalDataSource>(
+    () => HomeLocalDataSourceImpl(sl<SharedPreferences>()),
   );
   sl.registerLazySingleton<ProductRemoteDataSource>(
     () => ProductRemoteDataSourceImpl(sl<ApiClient>()),

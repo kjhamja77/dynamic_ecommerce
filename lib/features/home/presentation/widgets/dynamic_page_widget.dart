@@ -386,6 +386,9 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
                       componentId: widget.pageId,
                       page: 1,
                       pageSize: 10,
+                      // Explicitly bypass the cache when the user
+                      // pulls to refresh a specific page.
+                      forceRefresh: true,
                     ),
                   );
             },
@@ -408,6 +411,7 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
                     componentId: widget.pageId,
                     page: 1,
                     pageSize: 10,
+                    forceRefresh: true,
                   ),
                 );
           },
@@ -719,7 +723,7 @@ class PageTabsWidget extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () async {
           await HapticService.buttonClick();
-          context.read<HomeBloc>().add(const LoadPages(1));
+          context.read<HomeBloc>().add(const LoadPages(1, forceRefresh: true));
         },
                   child: Text(AppLocalizations.of(context)!.retry),
                 ),

@@ -11,7 +11,12 @@ class GetPageComponentsUseCase implements UseCase<PageComponents, GetPageCompone
 
   @override
   Future<Either<Failure, PageComponents>> call(GetPageComponentsParams params) async {
-    return await repository.getPageComponents(params.componentId, params.page, params.pageSize);
+    return await repository.getPageComponents(
+      params.componentId,
+      params.page,
+      params.pageSize,
+      forceRefresh: params.forceRefresh,
+    );
   }
 }
 
@@ -19,10 +24,12 @@ class GetPageComponentsParams {
   final int componentId;
   final int page;
   final int pageSize;
+  final bool forceRefresh;
 
   GetPageComponentsParams({
     required this.componentId,
     required this.page,
     required this.pageSize,
+    this.forceRefresh = false,
   });
 }

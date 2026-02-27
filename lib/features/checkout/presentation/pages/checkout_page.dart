@@ -1909,10 +1909,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       debugPrint('   - Payment Methods Count: ${checkoutState.paymentMethods.length}');
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
+    return SafeArea(
+      top: false,
+      left: false,
+      right: false,
+      // Ensure the button sits above system UI (gesture bar / home indicator)
+      // while keeping the existing layout spacing consistent.
+      minimum: EdgeInsets.only(
+        bottom: ResponsiveConstants.smSpacing,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
       width: double.infinity,
       height: 56.h,
       child: ElevatedButton(
@@ -1985,28 +1994,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
         ),
       ),
-      ),
-        if (!canPlaceOrder &&
-            selectedAddressForValidation != null &&
-            !hasCompleteAddressDetails &&
-            addressState is AddressesLoaded)
-          Padding(
-            padding: EdgeInsets.only(
-              top: ResponsiveConstants.xsSpacing,
-            ),
-            child: Text(
-              // If you have a specific localization key for incomplete address, use it here.
-              // For now, use a clear inline message in English.
-              'Please complete your shipping address details (province, street name, phone number) before placing your order.',
-              style: AppFonts.getTextStyle(
-                fontSize: ResponsiveConstants.smFontSize,
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
           ),
-      ],
+          if (!canPlaceOrder &&
+              selectedAddressForValidation != null &&
+              !hasCompleteAddressDetails &&
+              addressState is AddressesLoaded)
+            Padding(
+              padding: EdgeInsets.only(
+                top: ResponsiveConstants.xsSpacing,
+              ),
+              child: Text(
+                // If you have a specific localization key for incomplete address, use it here.
+                // For now, use a clear inline message in English.
+                'Please complete your shipping address details (province, street name, phone number) before placing your order.',
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.smFontSize,
+                  color: Colors.red.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      ),
     );
   }
 

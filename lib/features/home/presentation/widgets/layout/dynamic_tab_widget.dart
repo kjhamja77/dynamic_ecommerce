@@ -36,7 +36,7 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
   void _loadPages() {
     // For now, use a hardcoded user ID - in real app, get from auth state
     const userId = 1;
-    context.read<HomeBloc>().add(LoadPages(userId));
+    context.read<HomeBloc>().add(LoadPages(userId, forceRefresh: true));
   }
 
   @override

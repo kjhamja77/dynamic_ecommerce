@@ -28,26 +28,29 @@ class LoadCategories extends HomeEvent {}
 
 class LoadPages extends HomeEvent {
   final int userId;
+  final bool forceRefresh;
 
-  const LoadPages(this.userId);
+  const LoadPages(this.userId, {this.forceRefresh = false});
 
   @override
-  List<Object> get props => [userId];
+  List<Object> get props => [userId, forceRefresh];
 }
 
 class LoadPageComponents extends HomeEvent {
   final int componentId;
   final int page;
   final int pageSize;
+  final bool forceRefresh;
 
   const LoadPageComponents({
     required this.componentId,
     required this.page,
     required this.pageSize,
+    this.forceRefresh = false,
   });
 
   @override
-  List<Object> get props => [componentId, page, pageSize];
+  List<Object> get props => [componentId, page, pageSize, forceRefresh];
 }
 
 class SearchProducts extends HomeEvent {
@@ -249,7 +252,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoading());
     }
 
-    final result = await getPagesUseCase(GetPagesParams(userId: event.userId));
+    final result = await getPagesUseCase(
+      GetPagesParams(
+        userId: event.userId,
+        forceRefresh: event.forceRefresh,
+      ),
+    );
     currentState = state; // re-read after await
 
     result.fold(
@@ -296,11 +304,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (currentState is HomeLoaded) {
       emit(currentState.copyWith(isFetchingComponents: true, fetchingComponentsForPageId: event.componentId));
     }
-    final result = await getPageComponentsUseCase(GetPageComponentsParams(
-      componentId: event.componentId,
-      page: event.page,
-      pageSize: event.pageSize,
-    ));
+    final result = await getPageComponentsUseCase(
+      GetPageComponentsParams(
+        componentId: event.componentId,
+        page: event.page,
+        pageSize: event.pageSize,
+        forceRefresh: event.forceRefresh,
+      ),
+    );
     currentState = state; // re-read after await
 
     result.fold(

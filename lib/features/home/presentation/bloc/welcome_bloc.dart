@@ -11,6 +11,7 @@ abstract class WelcomeEvent extends Equatable {
 }
 
 class LoadWelcomeTexts extends WelcomeEvent {}
+class RefreshWelcomeTexts extends WelcomeEvent {}
 
 class UpdateCurrentIndexEvent extends WelcomeEvent {
   final int index;
@@ -73,6 +74,7 @@ class WelcomeBloc extends Bloc<WelcomeEvent, WelcomeState> {
     required this.getWelcomeTextsUseCase,
   }) : super(WelcomeInitial()) {
     on<LoadWelcomeTexts>(_onLoadWelcomeTexts);
+    on<RefreshWelcomeTexts>(_onRefreshWelcomeTexts);
     on<UpdateCurrentIndexEvent>(_onUpdateCurrentIndex);
   }
 
@@ -84,6 +86,24 @@ class WelcomeBloc extends Bloc<WelcomeEvent, WelcomeState> {
 
     final result = await getWelcomeTextsUseCase();
     
+    result.fold(
+      (failure) => emit(WelcomeError(failure.message)),
+      (messages) => emit(WelcomeLoaded(messages: messages)),
+    );
+  }
+
+  Future<void> _onRefreshWelcomeTexts(
+    RefreshWelcomeTexts event,
+    Emitter<WelcomeState> emit,
+  ) async {
+    // Preserve current messages while we refresh from the API
+    final previousState = state;
+    if (previousState is WelcomeLoaded) {
+      emit(WelcomeLoading());
+    }
+
+    final result = await getWelcomeTextsUseCase(forceRefresh: true);
+
     result.fold(
       (failure) => emit(WelcomeError(failure.message)),
       (messages) => emit(WelcomeLoaded(messages: messages)),

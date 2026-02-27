@@ -18,6 +18,10 @@ import '../../../../core/services/haptic_service.dart';
 import 'dart:async';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../filters/data/datasources/filter_remote_data_source.dart';
+import '../../../filters/domain/usecases/get_available_filters.dart';
+import '../../../filters/domain/usecases/clear_available_filters_cache.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../widgets/filters_shimmer.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +44,7 @@ class FiltersPage extends StatefulWidget {
 
 class _FiltersPageState extends State<FiltersPage> {
   late final FiltersBloc _filtersBloc;
+  late FilterOptions _options;
   int _subcategoriesRequestSeq = 0;
   int _attributesRequestSeq = 0;
   final Map<String, bool> _attributeShowAll = {};
@@ -54,6 +59,7 @@ class _FiltersPageState extends State<FiltersPage> {
   Timer? _debounce;
   bool _isCounting = false;
   bool _isApplying = false;
+  bool _isRefreshingOptions = false;
 
 
   /// Map attribute names to IDs for API request
@@ -251,13 +257,15 @@ class _FiltersPageState extends State<FiltersPage> {
   void initState() {
     super.initState();
     _filtersBloc = FiltersBloc(widget.initial);
+    _options = widget.options;
+
     // Start with empty attributes - will be loaded based on category selection
     // This prevents showing global attributes when a category with no attributes is selected
     _currentAttributes = [];
     _currentAttributesCategoryId = null;
     // Only cache initial attributes if they exist and we're not starting with a pre-selected category
-    if (widget.options.attributes.isNotEmpty && widget.initial.categoryIds.isEmpty) {
-      _attributesCache[null] = widget.options.attributes;
+    if (_options.attributes.isNotEmpty && widget.initial.categoryIds.isEmpty) {
+      _attributesCache[null] = _options.attributes;
     }
 
     if (widget.initial.categoryIds.isNotEmpty) {
@@ -494,8 +502,8 @@ class _FiltersPageState extends State<FiltersPage> {
   ) {
     if (categoryIds.isEmpty) return [];
 
-    // Get all parent category IDs from widget.options.categories (top-level: Women, Men, Children)
-    final topLevelParentIds = widget.options.categories.map((c) => c.id).toSet();
+    // Get all parent category IDs from _options.categories (top-level: Women, Men, Children)
+    final topLevelParentIds = _options.categories.map((c) => c.id).toSet();
     
     // Get all parent IDs from subcategories map keys (e.g., 554 for Women)
     final subcategoryParentIds = subcategories.keys.toSet();
@@ -590,7 +598,7 @@ class _FiltersPageState extends State<FiltersPage> {
   }
 
   void _initializePreSelectedCategory(int categoryId) {
-    final category = widget.options.categories.firstWhere(
+    final category = _options.categories.firstWhere(
       (c) => c.id == categoryId,
       orElse: () => FilterCategory(id: -1, name: '', completeName: '', sequence: 0),
     );
@@ -627,7 +635,27 @@ class _FiltersPageState extends State<FiltersPage> {
         iconTheme: IconThemeData(
           color: colorScheme.onBackground,
         ),
-        actions: const [],
+        actions: [
+          IconButton(
+            tooltip: AppLocalizations.of(context)!.resetPrice,
+            onPressed: _isRefreshingOptions ? null : _onRefreshFiltersPressed,
+            icon: _isRefreshingOptions
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        colorScheme.primary,
+                      ),
+                    ),
+                  )
+                : Icon(
+                    Icons.refresh,
+                    color: colorScheme.onBackground,
+                  ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: BlocBuilder<FiltersBloc, FiltersState>(
@@ -654,6 +682,12 @@ class _FiltersPageState extends State<FiltersPage> {
           },
           builder: (context, state) {
             if (state is FiltersLoaded) {
+              if (_isRefreshingOptions) {
+                // While refreshing filter metadata from the backend, show the
+                // same skeleton/shimmer that we use on initial load so the
+                // user clearly sees a loading state instead of a frozen UI.
+                return const FiltersShimmer();
+              }
               return Column(
                 children: [
                   Expanded(
@@ -674,6 +708,71 @@ class _FiltersPageState extends State<FiltersPage> {
     );
   }
 
+  Future<void> _onRefreshFiltersPressed() async {
+    if (_isRefreshingOptions) return;
+
+    await HapticService.selectionClick();
+
+    setState(() {
+      _isRefreshingOptions = true;
+    });
+
+    try {
+      final state = _filtersBloc.state;
+      final currentCriteria =
+          state is FiltersLoaded ? state.criteria : widget.initial;
+
+      final clearCache = di.sl<ClearAvailableFiltersCache>();
+      clearCache();
+
+      // Also clear low-level attributes cache so that attribute endpoint
+      // is called again on refresh and not served from memory.
+      final remoteDataSource = di.sl<FilterRemoteDataSource>();
+      remoteDataSource.clearAttributesCache();
+
+      final getFilters = di.sl<GetAvailableFilters>();
+
+      final int? categoryId = currentCriteria.categoryIds.isNotEmpty
+          ? currentCriteria.categoryIds.first
+          : null;
+
+      final result = await getFilters(
+        category: currentCriteria.category,
+        brand: currentCriteria.brand,
+        query: currentCriteria.searchQuery,
+        categoryId: categoryId,
+      );
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          AppSnackBar.error(
+            context,
+            '${AppLocalizations.of(context)!.error}: ${failure.message}',
+          );
+        },
+        (options) {
+          setState(() {
+            _options = options;
+          });
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.error(
+        context,
+        AppLocalizations.of(context)!.errorLoadingCountriesStates,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingOptions = false;
+        });
+      }
+    }
+  }
+
   Widget _buildFilterContent(
     BuildContext context,
     FilterCriteria criteria,
@@ -681,8 +780,8 @@ class _FiltersPageState extends State<FiltersPage> {
   ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final minBound = widget.options.priceRange?.minPrice ?? 0;
-    final maxBound = widget.options.priceRange?.maxPrice ?? 1000;
+    final minBound = _options.priceRange?.minPrice ?? 0;
+    final maxBound = _options.priceRange?.maxPrice ?? 1000;
 
     if (minBound >= maxBound) {
       return ListView(
@@ -817,17 +916,17 @@ class _FiltersPageState extends State<FiltersPage> {
         SizedBox(height: ResponsiveConstants.mdSpacing),
 
         // Category - Only show if we have categories
-        if (widget.options.categories.isNotEmpty) ...[
-          ..._buildCategorySection(context, criteria, widget.options.categories, subcategories),
+        if (_options.categories.isNotEmpty) ...[
+          ..._buildCategorySection(context, criteria, _options.categories, subcategories),
         ],
 
         // Brands - show as chips when we have brands from API
-        if (widget.options.brands.isNotEmpty) ...[
+        if (_options.brands.isNotEmpty) ...[
           _buildSectionHeader(AppLocalizations.of(context)!.brand),
           Wrap(
             spacing: ResponsiveConstants.xsSpacing,
             runSpacing: ResponsiveConstants.xsSpacing,
-            children: widget.options.brands.map((brand) {
+            children: _options.brands.map((brand) {
               final selected = criteria.brandIds.contains(brand.id);
               final colorScheme = Theme.of(context).colorScheme;
               return ChoiceChip(
@@ -1366,7 +1465,7 @@ class _FiltersPageState extends State<FiltersPage> {
     String attributeType,
   ) {
     if (lowerName == 'brand') {
-      return widget.options.brands
+      return _options.brands
           .where((brand) => criteria.brandIds.contains(brand.id))
           .map((brand) => brand.name)
           .toList();
@@ -1406,7 +1505,7 @@ class _FiltersPageState extends State<FiltersPage> {
     required bool isSingleSelection,
   }) {
     if (lowerAttributeName == 'brand') {
-      final brand = widget.options.brands.firstWhere(
+      final brand = _options.brands.firstWhere(
         (b) => b.name.trim().toLowerCase() == value.trim().toLowerCase(),
         orElse: () => const FilterBrand(id: 0, name: ''),
       );

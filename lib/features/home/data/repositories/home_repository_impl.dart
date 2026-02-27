@@ -5,18 +5,23 @@ import '../../domain/entities/page.dart';
 import '../../domain/entities/component.dart';
 import '../../domain/repositories/home_repository.dart';
 import '../models/product_model.dart';
+import '../models/component_model.dart';
 import '../datasources/home_remote_data_source.dart';
 import '../../../product/domain/repositories/product_repository.dart';
 import '../../../product/domain/entities/product_category.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../datasources/home_local_data_source.dart';
+import '../../../../core/services/language_service.dart';
 
 class HomeRepositoryImpl implements HomeRepository {
   final HomeRemoteDataSource remoteDataSource;
   final ProductRepository productRepository;
+  final HomeLocalDataSource localDataSource;
 
   HomeRepositoryImpl({
     required this.remoteDataSource,
     required this.productRepository,
+    required this.localDataSource,
   });
 
   /// Constructs full image URL from relative path
@@ -232,9 +237,37 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<Either<Failure, List<Page>>> getPages(int userId) async {
+  Future<Either<Failure, List<Page>>> getPages(
+    int userId, {
+    bool forceRefresh = false,
+  }) async {
     try {
+      final lang = await LanguageService().getApiLanguageCode() ?? 'default';
+
+      // 1) Optionally clear cache when explicitly refreshing
+      if (forceRefresh) {
+        await localDataSource.clearPages(
+          userId: userId,
+          languageCode: lang,
+        );
+      } else {
+        // 2) Try local cache first (per language + user)
+        final cached = await localDataSource.getCachedPages(
+          userId: userId,
+          languageCode: lang,
+        );
+        if (cached != null && cached.isNotEmpty) {
+          return Right(cached);
+        }
+      }
+
+      // 3) Fallback to remote and cache the result
       final pages = await remoteDataSource.getPages(userId);
+      await localDataSource.cachePages(
+        userId: userId,
+        languageCode: lang,
+        pages: pages.cast(),
+      );
       return Right(pages);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -242,9 +275,52 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<Either<Failure, PageComponents>> getPageComponents(int componentId, int page, int pageSize) async {
+  Future<Either<Failure, PageComponents>> getPageComponents(
+    int componentId,
+    int page,
+    int pageSize, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      final pageComponents = await remoteDataSource.getPageComponents(componentId, page, pageSize);
+      final lang = await LanguageService().getApiLanguageCode() ?? 'default';
+
+      if (forceRefresh) {
+        await localDataSource.clearPageComponents(
+          componentId: componentId,
+          page: page,
+          pageSize: pageSize,
+          languageCode: lang,
+        );
+      } else {
+        // 1) Try cached page components first
+        final cached = await localDataSource.getCachedPageComponents(
+          componentId: componentId,
+          page: page,
+          pageSize: pageSize,
+          languageCode: lang,
+        );
+        if (cached != null) {
+          return Right(cached);
+        }
+      }
+
+      // 2) Fallback to remote and cache the result
+      final pageComponents = await remoteDataSource.getPageComponents(
+        componentId,
+        page,
+        pageSize,
+      );
+
+      if (pageComponents is PageComponentsModel) {
+        await localDataSource.cachePageComponents(
+          componentId: componentId,
+          page: page,
+          pageSize: pageSize,
+          languageCode: lang,
+          components: pageComponents,
+        );
+      }
+
       return Right(pageComponents);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -252,9 +328,30 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<Either<Failure, List<String>>> getWelcomeTexts() async {
+  Future<Either<Failure, List<String>>> getWelcomeTexts({
+    bool forceRefresh = false,
+  }) async {
     try {
+      final lang = await LanguageService().getApiLanguageCode() ?? 'default';
+
+      if (forceRefresh) {
+        await localDataSource.clearWelcomeTexts(languageCode: lang);
+      } else {
+        // 1) Try cached welcome texts first
+        final cached = await localDataSource.getCachedWelcomeTexts(
+          languageCode: lang,
+        );
+        if (cached != null && cached.isNotEmpty) {
+          return Right(cached);
+        }
+      }
+
+      // 2) Fallback to remote (which reads from getPages) and cache result
       final list = await remoteDataSource.getWelcomeTexts();
+      await localDataSource.cacheWelcomeTexts(
+        languageCode: lang,
+        messages: list,
+      );
       return Right(list);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

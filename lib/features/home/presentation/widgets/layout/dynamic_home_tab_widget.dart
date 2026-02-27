@@ -129,6 +129,11 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
       componentId: page.id,
       page: 1,
       pageSize: 10,
+      // When components are loaded as part of a full page refresh,
+      // the cache will already have been cleared by the repo. Here
+      // we keep `forceRefresh` false so normal tab switches can
+      // still benefit from caching.
+      forceRefresh: false,
     ));
   }
 
@@ -136,9 +141,10 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
     // Clear fetched page IDs to force reload of all pages
     _fetchedPageIds.clear();
     
-    // Reload pages data
+    // Reload pages data from the API, bypassing the local cache so that
+    // pull‑to‑refresh always shows the latest content and then re‑caches it.
     const userId = 1; // In real app, get from auth state
-    context.read<HomeBloc>().add(LoadPages(userId));
+    context.read<HomeBloc>().add(LoadPages(userId, forceRefresh: true));
     
     // Wait a bit for the pages to load
     await Future.delayed(const Duration(milliseconds: 500));
