@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
 import '../../domain/entities/order.dart';
+import '../../domain/entities/refund_request.dart';
 import '../../domain/repositories/order_repository.dart';
+import '../../domain/usecases/create_refund_request.dart';
 import '../datasources/order_local_data_source.dart';
 import '../models/order_model.dart';
 import '../datasources/order_remote_data_source.dart';
@@ -199,6 +201,124 @@ class OrderRepositoryImpl implements OrderRepository {
       return dartz.Left(ServerFailure('No internet connection'));
     } catch (e) {
       return dartz.Left(ServerFailure('Failed to get delivery status: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<dartz.Either<Failure, RefundRequest>> createRefundRequest({
+    required int orderId,
+    required List<RefundLineInput> refundLines,
+    required String reason,
+  }) async {
+    try {
+      if (remoteDataSource != null && await networkInfo.isConnected) {
+        try {
+          final linesPayload = refundLines
+              .map<Map<String, dynamic>>(
+                (line) => <String, dynamic>{
+                  'line_id': line.lineId,
+                  'quantity': line.quantity,
+                },
+              )
+              .toList();
+
+          final result = await remoteDataSource!.createRefundRequest(
+            orderId: orderId,
+            refundLines: linesPayload,
+            reason: reason,
+          );
+
+          return dartz.Right(result);
+        } catch (e) {
+          return dartz.Left(
+            ServerFailure('Failed to create refund request: ${e.toString()}'),
+          );
+        }
+      }
+
+      return dartz.Left(ServerFailure('No internet connection'));
+    } catch (e) {
+      return dartz.Left(
+        ServerFailure('Failed to create refund request: ${e.toString()}'),
+      );
+    }
+  }
+
+  @override
+  Future<dartz.Either<Failure, List<RefundRequest>>> getRefundRequests({
+    int page = 1,
+  }) async {
+    try {
+      if (remoteDataSource != null && await networkInfo.isConnected) {
+        try {
+          final results =
+              await remoteDataSource!.getRefundRequests(page: page);
+          return dartz.Right(results);
+        } catch (e) {
+          return dartz.Left(
+            ServerFailure('Failed to fetch refund requests: ${e.toString()}'),
+          );
+        }
+      }
+
+      return dartz.Left(ServerFailure('No internet connection'));
+    } catch (e) {
+      return dartz.Left(
+        ServerFailure('Failed to fetch refund requests: ${e.toString()}'),
+      );
+    }
+  }
+
+  @override
+  Future<dartz.Either<Failure, RefundRequest>> getRefundRequestDetails({
+    required int refundRequestId,
+  }) async {
+    try {
+      if (remoteDataSource != null && await networkInfo.isConnected) {
+        try {
+          final result = await remoteDataSource!
+              .getRefundRequestDetails(refundRequestId: refundRequestId);
+          return dartz.Right(result);
+        } catch (e) {
+          return dartz.Left(
+            ServerFailure(
+              'Failed to fetch refund request details: ${e.toString()}',
+            ),
+          );
+        }
+      }
+
+      return dartz.Left(ServerFailure('No internet connection'));
+    } catch (e) {
+      return dartz.Left(
+        ServerFailure('Failed to fetch refund request details: ${e.toString()}'),
+      );
+    }
+  }
+
+  @override
+  Future<dartz.Either<Failure, void>> cancelRefundRequest({
+    required int requestId,
+  }) async {
+    try {
+      if (remoteDataSource != null && await networkInfo.isConnected) {
+        try {
+          await remoteDataSource!.cancelRefundRequest(requestId: requestId);
+          return const dartz.Right(null);
+        } catch (e) {
+          return dartz.Left(
+            ServerFailure(
+              'Failed to cancel refund request: ${e.toString()}',
+            ),
+          );
+        }
+      }
+
+      return dartz.Left(ServerFailure('No internet connection'));
+    } catch (e) {
+      return dartz.Left(
+        ServerFailure('Failed to cancel refund request: ${e.toString()}'),
+      );
     }
   }
 }

@@ -24,12 +24,12 @@ class ColorSelectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
+        return Positioned(
       bottom: ResponsiveConstants.mdSpacing,
       left: ResponsiveConstants.mdSpacing,
       right: ResponsiveConstants.mdSpacing,
       child: productDetails.colorOptions.isEmpty
-          ? _ColorSelectionSkeleton(colorScheme: Theme.of(context).colorScheme)
+          ? const ColorSelectionSkeleton()
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -325,29 +325,38 @@ class ColorSelectionWidget extends StatelessWidget {
 
 /// Skeleton for the color selection overlay when no color data is available.
 /// Matches the layout of the real widget (label + horizontal thumbnails).
-class _ColorSelectionSkeleton extends StatelessWidget {
-  final ColorScheme colorScheme;
+/// Uses distinct tint colors per thumbnail to suggest "color of images" loading.
+class ColorSelectionSkeleton extends StatelessWidget {
+  const ColorSelectionSkeleton({super.key});
 
-  const _ColorSelectionSkeleton({required this.colorScheme});
+  /// Light tint colors for each placeholder to suggest color swatches loading.
+  static List<Color> get _thumbnailTintColors => [
+        Colors.grey.shade400,
+        Colors.blue.shade200,
+        Colors.brown.shade200,
+      ];
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final baseColor = isDark
         ? colorScheme.outline.withValues(alpha: 0.35)
         : Colors.grey.shade300;
     final highlightColor =
         isDark ? colorScheme.outline.withValues(alpha: 0.5) : Colors.grey.shade100;
     final thumbSize = ResponsiveConstants.productDetailsColorThumbnailSize;
+    final tints = _thumbnailTintColors;
 
-    return Shimmer.fromColors(
-      baseColor: baseColor,
-      highlightColor: highlightColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Shimmer.fromColors(
+          baseColor: baseColor,
+          highlightColor: highlightColor,
+          child: Container(
             height: 14,
             width: 90,
             decoration: BoxDecoration(
@@ -355,24 +364,30 @@ class _ColorSelectionSkeleton extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
           ),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          Row(
-            children: [
-              for (int i = 0; i < 3; i++) ...[
-                if (i > 0) SizedBox(width: ResponsiveConstants.productDetailsColorThumbnailSpacing),
-                Container(
+        ),
+        SizedBox(height: ResponsiveConstants.smSpacing),
+        Row(
+          children: [
+            for (int i = 0; i < 3; i++) ...[
+              if (i > 0) SizedBox(width: ResponsiveConstants.productDetailsColorThumbnailSpacing),
+              Shimmer.fromColors(
+                baseColor: baseColor,
+                highlightColor: highlightColor,
+                child: Container(
                   width: thumbSize,
                   height: thumbSize,
                   decoration: BoxDecoration(
-                    color: colorScheme.surface,
+                    color: isDark
+                        ? tints[i].withValues(alpha: 0.4)
+                        : tints[i].withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }

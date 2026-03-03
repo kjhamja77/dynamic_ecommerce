@@ -1,74 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+
 import '../../../../core/constants/responsive_constants.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/theme/app_fonts.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../../core/providers/currency_provider.dart';
+import '../../data/datasources/order_remote_data_source.dart';
+import '../../core/utils/order_date_utils.dart';
+import '../../core/constants/order_constants.dart';
 import '../../domain/entities/order.dart';
+import '../../domain/entities/refund_request.dart';
+import '../../domain/usecases/get_refund_request_details.dart';
+import '../bloc/orders_bloc.dart';
 import '../widgets/order_item_card.dart';
 import '../widgets/shipping_delivery_info.dart';
 import '../widgets/delivery_details_widget.dart';
 import '../widgets/payment_details_card.dart';
 import '../widgets/order_action_buttons.dart';
 import '../widgets/order_help_button.dart';
+import '../widgets/refund_request_bottom_sheet.dart';
 import '../widgets/order_details_shimmer.dart';
-import '../../../../core/theme/app_fonts.dart';
-import '../../../../l10n/app_localizations.dart';
-import '../bloc/orders_bloc.dart';
-import '../../data/datasources/order_remote_data_source.dart';
-import '../../core/utils/order_date_utils.dart';
-import '../../core/constants/order_constants.dart';
+import '../../../../core/di/injection_container.dart' as di;
 
 class OrderDetailsPage extends StatefulWidget {
   final Order order;
+  final RefundRequest? refundRequest;
 
-  const OrderDetailsPage({super.key, required this.order});
+  const OrderDetailsPage({
+    super.key,
+    required this.order,
+    this.refundRequest,
+  });
 
   @override
   State<OrderDetailsPage> createState() => _OrderDetailsPageState();
 }
 
 class _OrderDetailsPageState extends State<OrderDetailsPage> {
-  final ScrollController _scrollController = ScrollController();
-  final ValueNotifier<bool> _showFab = ValueNotifier<bool>(true);
-  double _lastScrollOffset = 0;
+  RefundRequest? _refundDetails;
+  bool _isLoadingRefund = false;
+  String? _refundError;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     final ordersBloc = context.read<OrdersBloc>();
     if (widget.order.id.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ordersBloc.add(LoadOrderById(widget.order.id));
       });
     }
-  }
 
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    _showFab.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    final currentOffset = _scrollController.offset;
-    final isScrollingDown = currentOffset > _lastScrollOffset;
-    final isScrollingUp = currentOffset < _lastScrollOffset;
-
-    // Show FAB when scrolling up or at top, hide when scrolling down
-    if (isScrollingDown && _showFab.value && currentOffset > 100) {
-      _showFab.value = false;
-    } else if ((isScrollingUp || currentOffset <= 100) && !_showFab.value) {
-      _showFab.value = true;
-    }
-
-    _lastScrollOffset = currentOffset;
+     if (widget.refundRequest != null) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+         _loadRefundDetails();
+       });
+     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isReturnContext = widget.refundRequest != null;
+    final int tabCount = isReturnContext ? 2 : 3;
+
     return DefaultTabController(
-      length: 3,
+      length: tabCount,
       child: BlocBuilder<OrdersBloc, OrdersState>(
         builder: (context, state) {
           // FULL shimmer until we have real order details (no initial widget.order data)
@@ -102,30 +100,61 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
           final colorScheme = Theme.of(context).colorScheme;
           return Scaffold(
-          backgroundColor: colorScheme.surfaceContainerLowest,
-          appBar: _buildAppBar(context, currentOrder),
-          floatingActionButton: ValueListenableBuilder<bool>(
-            valueListenable: _showFab,
-            builder: (context, showFab, _) {
-              return AnimatedScale(
-                scale: showFab ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: AnimatedOpacity(
-                  opacity: showFab ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: OrderHelpButton(order: currentOrder),
-                ),
-              );
-            },
-          ),
-          body: _buildBody(context, state, currentOrder),
-        );
+            backgroundColor: colorScheme.surfaceContainerLowest,
+            appBar: _buildAppBar(context, currentOrder),
+            body: _buildBody(
+              context,
+              state,
+              currentOrder,
+              isReturnContext: isReturnContext,
+            ),
+          );
         },
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, OrdersState state, Order currentOrder) {
+  Future<void> _loadRefundDetails() async {
+    setState(() {
+      _isLoadingRefund = true;
+      _refundError = null;
+      _refundDetails = widget.refundRequest;
+    });
+
+    try {
+      final useCase = di.sl<GetRefundRequestDetails>();
+      final result =
+          await useCase(GetRefundRequestDetailsParams(widget.refundRequest!.id));
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          _refundError =
+              failure.message ?? 'Failed to load return request details.';
+        },
+        (details) {
+          _refundDetails = details;
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _refundError = 'Failed to load return request details: $e';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRefund = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    OrdersState state,
+    Order currentOrder, {
+    required bool isReturnContext,
+  }) {
     // Get delivery status and error message from state
     final deliveryStatus = _getDeliveryStatus(state);
     final errorMessage = _getErrorMessage(state);
@@ -136,15 +165,32 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           children: [
             // Redesigned hero header with key order information
             _buildHeroHeader(context, currentOrder, deliveryStatus),
-            // Tabs for better organization: Overview, Items, Tracking
-            _buildTabBar(context),
+            // Tabs for better organization: Overview, Items/Returns, Tracking
+            _buildTabBar(context, isReturnContext: isReturnContext),
             Expanded(
               child: TabBarView(
-                children: [
-                  _buildOverviewTab(context, currentOrder, deliveryStatus),
-                  _buildItemsTab(context, currentOrder),
-                  _buildTrackingTab(context, currentOrder, deliveryStatus),
-                ],
+                children: isReturnContext
+                    ? <Widget>[
+                        _buildOverviewTab(
+                          context,
+                          currentOrder,
+                          deliveryStatus,
+                        ),
+                        _buildReturnTab(context),
+                      ]
+                    : <Widget>[
+                        _buildOverviewTab(
+                          context,
+                          currentOrder,
+                          deliveryStatus,
+                        ),
+                        _buildItemsTab(context, currentOrder),
+                        _buildTrackingTab(
+                          context,
+                          currentOrder,
+                          deliveryStatus,
+                        ),
+                      ],
               ),
             ),
           ],
@@ -268,8 +314,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: OrderConstants.statusColors[order.status.name]?.withValues(alpha: 0.1) ?? 
-                                   OrderConstants.primaryColor.withValues(alpha: 0.1),
+                            color: OrderConstants.statusColors[order.status.name]?.withValues(alpha: 0.1) ??
+                                OrderConstants.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -279,11 +325,56 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.smFontSize,
                               fontWeight: FontWeight.w600,
-                              color: OrderConstants.statusColors[order.status.name] ?? 
-                                     OrderConstants.primaryColor,
+                              color: OrderConstants.statusColors[order.status.name] ??
+                                  OrderConstants.primaryColor,
                             ),
                           ),
                         ),
+                        const Spacer(),
+                        if (order.status == OrderStatus.delivered)
+                          InkWell(
+                            onTap: () async {
+                              await HapticService.buttonClick();
+                              await _showRequestReturnBottomSheet(context, order);
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: OrderConstants.primaryColor),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.shadow.withValues(
+                                      alpha: theme.brightness == Brightness.dark ? 0.5 : 0.18,
+                                    ),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.assignment_return_outlined,
+                                    size: 14,
+                                    color: OrderConstants.primaryColor,
+                                  ),
+                                  SizedBox(width: ResponsiveConstants.xsSpacing),
+                                  Text(
+                                    AppLocalizations.of(context)!.requestReturn,
+                                    style: AppFonts.getTextStyle(
+                                      fontSize: ResponsiveConstants.smFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: OrderConstants.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -345,7 +436,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
-  Widget _buildTabBar(BuildContext context) {
+  Widget _buildTabBar(
+    BuildContext context, {
+    required bool isReturnContext,
+  }) {
     final loc = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
@@ -355,11 +449,16 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         indicatorColor: colorScheme.primary,
         indicatorWeight: 3,
-        tabs: [
-          Tab(text: loc.orderSummary),
-          Tab(text: loc.orderItemsTitle),
-          Tab(text: loc.deliveryStatus),
-        ],
+        tabs: isReturnContext
+            ? <Tab>[
+                Tab(text: loc.orderSummary),
+                const Tab(text: 'Return details'),
+              ]
+            : <Tab>[
+                Tab(text: loc.orderSummary),
+                Tab(text: loc.orderItemsTitle),
+                Tab(text: loc.deliveryStatus),
+              ],
       ),
     );
   }
@@ -383,9 +482,76 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           SizedBox(height: ResponsiveConstants.lgSpacing),
           PaymentDetailsCard(order: order),
           SizedBox(height: ResponsiveConstants.lgSpacing),
-          OrderActionButtons(order: order),
+          _buildOrderActionsSection(context, order),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + ResponsiveConstants.xlSpacing),
         ],
       ),
+    );
+  }
+
+  /// Request Return block: always visible; enabled only when order is delivered. Same horizontal padding as action buttons.
+  Widget _buildRequestReturnSection(BuildContext context, Order order) {
+    // Deprecated: Request return is now integrated into the hero header.
+    // Kept only to avoid breaking references; not used anymore.
+    return const SizedBox.shrink();
+  }
+  /// Order actions: Track, Cancel, Need Help, Back to Orders.
+  Widget _buildOrderActionsSection(BuildContext context, Order order) {
+    final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OrderActionButtons(order: order),
+        SizedBox(height: ResponsiveConstants.smSpacing),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.mdPadding),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await HapticService.buttonClick();
+                OrderHelpButton.showHelpSheet(context, order);
+              },
+              icon: Icon(Icons.help_outline, size: 20, color: colorScheme.primary),
+              label: Text(
+                loc.needHelp,
+                style: AppFonts.getTextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: colorScheme.primary),
+                padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.mdPadding),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showRequestReturnBottomSheet(
+    BuildContext context,
+    Order order,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ResponsiveConstants.xlRadius),
+        ),
+      ),
+      builder: (ctx) {
+        return RefundRequestBottomSheet(order: order);
+      },
     );
   }
 
@@ -395,6 +561,127 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         bottom: MediaQuery.of(context).padding.bottom + 20,
       ),
       child: _buildOrderItems(context, order),
+    );
+  }
+
+  Widget _buildReturnTab(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final loc = AppLocalizations.of(context)!;
+
+    if (_isLoadingRefund) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_refundError != null) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+          child: Text(
+            _refundError!,
+            style: AppFonts.getTextStyle(
+              color: colorScheme.error,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final refund = _refundDetails;
+    if (refund == null) {
+      return const SizedBox.shrink();
+    }
+
+    final currency = AppLocalizations.of(context)!;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: ResponsiveConstants.mdPadding,
+        right: ResponsiveConstants.mdPadding,
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+        top: ResponsiveConstants.mdPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Summary-style card
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius:
+                  BorderRadius.circular(ResponsiveConstants.mdRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(
+                    alpha:
+                        theme.brightness == Brightness.dark ? 0.3 : 0.08,
+                  ),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.orderNumberWithValue(refund.orderName),
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.mdFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                SizedBox(height: ResponsiveConstants.xsSpacing),
+                Text(
+                  refund.number,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.smFontSize,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: ResponsiveConstants.mdSpacing),
+                Text(
+                  'Reason',
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.smFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                SizedBox(height: ResponsiveConstants.xsSpacing),
+                Text(
+                  refund.reason,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.smFontSize,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: ResponsiveConstants.lgSpacing),
+
+          if (refund.lines.isNotEmpty) ...[
+            Text(
+              loc.orderItemsTitle,
+              style: AppFonts.getTextStyle(
+                fontSize: ResponsiveConstants.mdFontSize,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            SizedBox(height: ResponsiveConstants.smSpacing),
+            ...refund.lines.map(
+              (line) => _RefundLineTile(line: line),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -634,6 +921,94 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       return state.errorMessage;
     }
     return null;
+  }
+}
+
+class _RefundLineTile extends StatelessWidget {
+  final RefundLine line;
+
+  const _RefundLineTile({required this.line});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final currencyProvider = context.read<CurrencyProvider?>();
+    final locale = Localizations.localeOf(context);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
+      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius:
+                  BorderRadius.circular(ResponsiveConstants.smRadius),
+            ),
+            child: line.imageUrl.isNotEmpty
+                ? Image.network(
+                    line.imageUrl,
+                    fit: BoxFit.cover,
+                  )
+                : Icon(
+                    Icons.image_not_supported_outlined,
+                    color: colorScheme.outline,
+                  ),
+          ),
+          SizedBox(width: ResponsiveConstants.mdSpacing),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  line.productName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.smFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                SizedBox(height: ResponsiveConstants.xsSpacing),
+                Text(
+                  'Qty: ${line.refundQty} / ${line.orderedQty}',
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.xsFontSize,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: ResponsiveConstants.smSpacing),
+          Text(
+            currencyProvider != null
+                ? currencyProvider.formatPrice(
+                    line.subtotal,
+                    locale: locale,
+                  )
+                : line.subtotal.toStringAsFixed(2),
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.smFontSize,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -8,6 +8,9 @@ abstract class AddressLocalDataSource {
   Future<AddressModel> updateAddress(AddressModel address);
   Future<bool> deleteAddress(String id);
   Future<AddressModel> setDefaultAddress(String id);
+
+  /// Clear all stored addresses. Used on logout so the next user does not see the previous user's addresses.
+  Future<void> clearAll();
 }
 
 class AddressLocalDataSourceImpl implements AddressLocalDataSource {
@@ -78,6 +81,11 @@ class AddressLocalDataSourceImpl implements AddressLocalDataSource {
     list[idx] = AddressModel.fromEntity(list[idx].copyWith(isDefault: true));
     await _save(list);
     return list[idx];
+  }
+
+  @override
+  Future<void> clearAll() async {
+    await _save([]);
   }
 
   Future<void> _save(List<AddressModel> list) async {

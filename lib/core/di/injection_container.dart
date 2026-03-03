@@ -23,6 +23,7 @@ import 'package:zalando_clone_app/features/profile/data/datasources/profile_remo
 import 'package:zalando_clone_app/features/profile/data/datasources/profile_remote_data_source_impl.dart';
 import '../network/api_client.dart';
 import '../network/network_info.dart';
+import '../services/clear_user_caches_on_logout_service.dart';
 import '../services/device_service.dart';
 import '../services/brand_mapping_service.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
@@ -99,6 +100,7 @@ import '../../features/cart/data/datasources/cart_remote_data_source.dart';
 import '../../features/cart/data/datasources/cart_remote_data_source_impl.dart';
 import '../../features/payment_method/payment_method.dart';
 import '../../features/orders/orders.dart';
+import '../../features/orders/presentation/bloc/refund_requests_bloc.dart';
 import '../../features/orders/domain/usecases/get_delivery_status.dart';
 import '../../features/addresses/addresses.dart' as Addresses;
 import '../../features/addresses/data/datasources/address_remote_data_source.dart' as Addr;
@@ -307,12 +309,25 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdateCartItemQuantity(sl()));
   sl.registerLazySingleton(() => ClearCart(sl()));
 
+  // Logout cache clear (used by AuthRepositoryImpl on logout)
+  sl.registerLazySingleton<ClearUserCachesOnLogoutService>(
+    () => ClearUserCachesOnLogoutService(
+      cartLocal: sl<CartLocalDataSource>(),
+      orderLocal: sl<OrderLocalDataSource>(),
+      homeLocal: sl<HomeLocalDataSource>(),
+      addressLocal: sl<Addresses.AddressLocalDataSource>(),
+      paymentMethodLocal: sl<PaymentMethodLocalDataSource>(),
+      filterRemote: sl<FilterRemoteDataSource>(),
+    ),
+  );
+
   // Repository
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remoteDataSource: sl(),
       storage: sl(),
       sharedPreferences: sl(),
+      logoutCacheClearService: sl<ClearUserCachesOnLogoutService>(),
     ),
   );
 
@@ -522,24 +537,18 @@ Future<void> init() async {
     ),
   );
 
-  sl.registerLazySingleton<GetOrders>(
-    () => GetOrders(sl()),
+  sl.registerLazySingleton<GetOrders>(() => GetOrders(sl()));
+  sl.registerLazySingleton<GetOrderById>(() => GetOrderById(sl()));
+  sl.registerLazySingleton<CreateOrder>(() => CreateOrder(sl()));
+  sl.registerLazySingleton<CancelOrder>(() => CancelOrder(sl()));
+  sl.registerLazySingleton<GetDeliveryStatus>(() => GetDeliveryStatus(sl()));
+  sl.registerLazySingleton<CreateRefundRequest>(() => CreateRefundRequest(sl()));
+  sl.registerLazySingleton<GetRefundRequests>(() => GetRefundRequests(sl()));
+  sl.registerLazySingleton<GetRefundRequestDetails>(
+    () => GetRefundRequestDetails(sl()),
   );
-
-  sl.registerLazySingleton<GetOrderById>(
-    () => GetOrderById(sl()),
-  );
-
-  sl.registerLazySingleton<CreateOrder>(
-    () => CreateOrder(sl()),
-  );
-
-  sl.registerLazySingleton<CancelOrder>(
-    () => CancelOrder(sl()),
-  );
-
-  sl.registerLazySingleton<GetDeliveryStatus>(
-    () => GetDeliveryStatus(sl()),
+  sl.registerLazySingleton<CancelRefundRequest>(
+    () => CancelRefundRequest(sl()),
   );
 
   sl.registerFactory<OrdersBloc>(
@@ -549,6 +558,12 @@ Future<void> init() async {
       createOrder: sl(),
       cancelOrder: sl(),
       getDeliveryStatus: sl(),
+    ),
+  );
+
+  sl.registerFactory<RefundRequestsBloc>(
+    () => RefundRequestsBloc(
+      getRefundRequests: sl<GetRefundRequests>(),
     ),
   );
 

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/endpoints.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../cart/data/models/cart_item_model.dart';
@@ -8,6 +9,7 @@ import '../../../cart/domain/entities/cart_item.dart';
 import '../../../home/data/models/product_model.dart';
 import '../../domain/entities/order.dart';
 import '../models/order_model.dart';
+import '../models/refund_request_model.dart';
 
 class DeliveryStatusDto {
   final int orderId;
@@ -108,6 +110,16 @@ abstract class OrderRemoteDataSource {
   Future<List<OrderModel>> getOrderHistory({int page, int limit});
   Future<OrderModel> getOrderDetails({required int orderId});
   Future<DeliveryStatusDto> getDeliveryStatus({required int orderId});
+  Future<RefundRequestModel> createRefundRequest({
+    required int orderId,
+    required List<Map<String, dynamic>> refundLines,
+    required String reason,
+  });
+  Future<List<RefundRequestModel>> getRefundRequests({int page});
+  Future<RefundRequestModel> getRefundRequestDetails({
+    required int refundRequestId,
+  });
+  Future<void> cancelRefundRequest({required int requestId});
 }
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
@@ -177,6 +189,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         params: {'order_id': orderId},
       );
 
+      print('orderDetails response: status=${response.statusCode}, data=${response.data}');
+
       if (response.statusCode != 200) {
         throw ServerFailure('Failed to fetch order details (${response.statusCode})');
       }
@@ -203,6 +217,188 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       throw ServerFailure(e.message ?? 'Network error while fetching order details');
     } catch (e) {
       throw ServerFailure('Unexpected error while fetching order details: $e');
+    }
+  }
+
+  @override
+  Future<RefundRequestModel> createRefundRequest({
+    required int orderId,
+    required List<Map<String, dynamic>> refundLines,
+    required String reason,
+  }) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.returnRequest,
+        method: 'POST',
+        params: <String, dynamic>{
+          'order_id': orderId,
+          'refund_lines': refundLines,
+          'reason': reason,
+        },
+      );
+
+      final envelope = apiClient.parseRpcEnvelope(response.data);
+
+      if (response.statusCode != 200 ||
+          envelope.status.toLowerCase() != 'success') {
+        final message = envelope.message ??
+            'Failed to create refund request (${response.statusCode})';
+        throw ServerFailure(message);
+      }
+
+      final data = envelope.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerFailure(
+          'Unexpected response structure while creating refund request',
+        );
+      }
+
+      return RefundRequestModel.fromJson(data);
+    } on DioException catch (e) {
+      throw ServerFailure(
+        e.message ?? 'Network error while creating refund request',
+      );
+    } catch (e) {
+      throw ServerFailure('Unexpected error while creating refund request: $e');
+    }
+  }
+
+  @override
+  Future<List<RefundRequestModel>> getRefundRequests({int page = 1}) async {
+    try {
+      // Queued raw GET (no RPC wrapping) to match backend contract
+      final response = await apiClient.requestRaw(
+        Endpoints.returnList,
+        method: 'GET',
+        queryParameters: <String, dynamic>{
+          'page': page,
+        },
+      );
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerFailure(
+          'Unexpected response structure while fetching refund requests',
+        );
+      }
+
+      // Basic error handling based on status / HTTP code
+      final status = (data['status'] ?? '').toString().toLowerCase();
+      if (response.statusCode != 200 || status == 'error') {
+        final message = data['message']?.toString() ??
+            'Failed to fetch refund requests (${response.statusCode ?? 'unknown'})';
+        throw ServerFailure(message);
+      }
+
+      // Support direct format as provided by backend:
+      // {
+      //   "status": "success",
+      //   "data": {
+      //     "refund_requests": [ ... ]
+      //   }
+      // }
+      Map<String, dynamic>? payload;
+
+      if (data['data'] is Map<String, dynamic>) {
+        payload = data['data'] as Map<String, dynamic>;
+      } else if (data['result'] is Map<String, dynamic>) {
+        // Fallback: handle possible RPC-style envelope
+        final result = data['result'] as Map<String, dynamic>;
+        if (result['data'] is Map<String, dynamic>) {
+          payload = result['data'] as Map<String, dynamic>;
+        }
+      }
+
+      if (payload == null) {
+        throw ServerFailure('Refund requests data not found in response');
+      }
+
+      final list = payload['refund_requests'];
+      if (list is! List) {
+        return const <RefundRequestModel>[];
+      }
+
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(RefundRequestModel.fromListJson)
+          .toList();
+    } on DioException catch (e) {
+      throw ServerFailure(
+        e.message ?? 'Network error while fetching refund requests',
+      );
+    } catch (e) {
+      throw ServerFailure('Unexpected error while fetching refund requests: $e');
+    }
+  }
+
+  @override
+  Future<RefundRequestModel> getRefundRequestDetails({
+    required int refundRequestId,
+  }) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.returnRequestDetails,
+        method: 'POST',
+        params: <String, dynamic>{
+          'refund_request_id': refundRequestId,
+        },
+      );
+
+      final envelope = apiClient.parseRpcEnvelope(response.data);
+
+      if (response.statusCode != 200 ||
+          envelope.status.toLowerCase() != 'success') {
+        final message = envelope.message ??
+            'Failed to fetch refund request details (${response.statusCode})';
+        throw ServerFailure(message);
+      }
+
+      final data = envelope.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerFailure(
+          'Unexpected response structure while fetching refund request details',
+        );
+      }
+
+      return RefundRequestModel.fromDetailsJson(data);
+    } on DioException catch (e) {
+      throw ServerFailure(
+        e.message ?? 'Network error while fetching refund request details',
+      );
+    } catch (e) {
+      throw ServerFailure(
+        'Unexpected error while fetching refund request details: $e',
+      );
+    }
+  }
+
+  @override
+  Future<void> cancelRefundRequest({required int requestId}) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.cancelReturnRequest,
+        method: 'POST',
+        params: <String, dynamic>{
+          'request_id': requestId,
+        },
+      );
+
+      final envelope = apiClient.parseRpcEnvelope(response.data);
+
+      if (response.statusCode != 200 ||
+          envelope.status.toLowerCase() != 'success') {
+        final message = envelope.message ??
+            'Failed to cancel refund request (${response.statusCode})';
+        throw ServerFailure(message);
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(
+        e.message ?? 'Network error while cancelling refund request',
+      );
+    } catch (e) {
+      throw ServerFailure(
+        'Unexpected error while cancelling refund request: $e',
+      );
     }
   }
 

@@ -60,6 +60,26 @@ class ProductInfoSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: ResponsiveConstants.mdSpacing),
+            // Variant / thumbnail selectors: label + 3 rounded squares (matches loaded layout)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _shimmerLine(context, height: 14, width: 80, radius: 6),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  Row(
+                    children: [
+                      for (int i = 0; i < 3; i++) ...[
+                        if (i > 0) SizedBox(width: ResponsiveConstants.smSpacing),
+                        _shimmerLine(context, height: 56, width: 56, radius: ResponsiveConstants.smRadius),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: ResponsiveConstants.mdSpacing),
             // Header card with preview data; stock = skeleton
             Container(
               margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),

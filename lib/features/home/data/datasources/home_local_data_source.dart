@@ -60,6 +60,10 @@ abstract class HomeLocalDataSource {
   Future<void> clearWelcomeTexts({
     required String languageCode,
   });
+
+  /// Clear all home-related caches (pages, components, welcome texts).
+  /// Used on logout so the next user does not see the previous user's cached home data.
+  Future<void> clearAllCachesForLogout();
 }
 
 class HomeLocalDataSourceImpl implements HomeLocalDataSource {
@@ -255,6 +259,14 @@ class HomeLocalDataSourceImpl implements HomeLocalDataSource {
     final tsKey = _welcomeTsKey(languageCode);
     await _prefs.remove(key);
     await _prefs.remove(tsKey);
+  }
+
+  @override
+  Future<void> clearAllCachesForLogout() async {
+    final keys = _prefs.getKeys().where((k) => k.startsWith('home_')).toList();
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
   }
 }
 

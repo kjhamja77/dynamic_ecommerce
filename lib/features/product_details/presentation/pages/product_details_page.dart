@@ -6,6 +6,7 @@ import '../../../../core/constants/responsive_constants.dart';
 import '../bloc/product_details_bloc.dart';
 import '../../domain/entities/product_details.dart';
 import '../widgets/collapsible_image_section_widget.dart';
+import '../widgets/color_selection_widget.dart';
 import '../widgets/product_info_section.dart';
 import '../widgets/product_details_shimmer.dart';
 import '../widgets/add_to_cart_bottom_sheet.dart';
@@ -415,7 +416,18 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
                       );
                     },
                   )
-                : _buildPreviewImage(cardPreview!),
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildPreviewImage(cardPreview!),
+                      Positioned(
+                        bottom: ResponsiveConstants.mdSpacing,
+                        left: ResponsiveConstants.mdSpacing,
+                        right: ResponsiveConstants.mdSpacing,
+                        child: const ColorSelectionSkeleton(),
+                      ),
+                    ],
+                  ),
           ),
         ),
         ProductInfoSection(

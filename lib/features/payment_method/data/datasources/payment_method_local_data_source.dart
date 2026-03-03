@@ -8,6 +8,9 @@ abstract class PaymentMethodLocalDataSource {
   Future<PaymentMethodModel> updatePaymentMethod(PaymentMethodModel paymentMethod);
   Future<bool> deletePaymentMethod(String id);
   Future<PaymentMethodModel> setDefaultPaymentMethod(String id);
+
+  /// Clear all stored payment methods. Used on logout so the next user does not see the previous user's methods.
+  Future<void> clearAll();
 }
 
 class PaymentMethodLocalDataSourceImpl implements PaymentMethodLocalDataSource {
@@ -110,6 +113,11 @@ class PaymentMethodLocalDataSourceImpl implements PaymentMethodLocalDataSource {
     }
     
     throw Exception('Payment method not found');
+  }
+
+  @override
+  Future<void> clearAll() async {
+    await sharedPreferences.remove(_paymentMethodsKey);
   }
 
   Future<void> _savePaymentMethods(List<PaymentMethodModel> methods) async {

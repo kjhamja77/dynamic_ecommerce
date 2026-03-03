@@ -2,42 +2,111 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/responsive_constants.dart';
+import '../../../cart/presentation/widgets/cart_button_with_badge.dart';
 
 class ProductDetailsShimmer extends StatelessWidget {
   const ProductDetailsShimmer({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final baseColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.3)
+        : Colors.grey.shade300;
+    final highlightColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.5)
+        : Colors.grey.shade100;
+
     return CustomScrollView(
       slivers: [
-        // Collapsing image placeholder
-        SliverToBoxAdapter(
-          child: Builder(
-            builder: (context) {
-              final theme = Theme.of(context);
-              final colorScheme = theme.colorScheme;
-              final isDark = theme.brightness == Brightness.dark;
-              
-              final baseColor = isDark 
-                  ? colorScheme.outline.withValues(alpha: 0.3)
-                  : Colors.grey.shade300;
-              final highlightColor = isDark
-                  ? colorScheme.outline.withValues(alpha: 0.5)
-                  : Colors.grey.shade100;
-              
-              return SizedBox(
-                height: 0.6.sh,
-                child: Shimmer.fromColors(
-                  baseColor: baseColor,
-                  highlightColor: highlightColor,
-                  child: Container(color: colorScheme.surface),
+        // App bar matching the real product details page (back, title, share, cart, heart)
+        SliverAppBar(
+          expandedHeight: ResponsiveConstants.productDetailsAppBarHeight,
+          floating: false,
+          pinned: true,
+          elevation: 0,
+          backgroundColor: colorScheme.background,
+          leading: Padding(
+            padding: EdgeInsets.only(left: ResponsiveConstants.mdPadding),
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios,
+                color: colorScheme.onBackground,
+                size: ResponsiveConstants.mdIconSize,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Shimmer.fromColors(
+                baseColor: baseColor,
+                highlightColor: highlightColor,
+                child: Container(
+                  height: 12,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius:
+                        BorderRadius.circular(ResponsiveConstants.smRadius),
+                  ),
                 ),
-              );
-            },
+              ),
+              SizedBox(height: 4.h),
+              Shimmer.fromColors(
+                baseColor: baseColor,
+                highlightColor: highlightColor,
+                child: Container(
+                  height: 14,
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius:
+                        BorderRadius.circular(ResponsiveConstants.smRadius),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          iconTheme: IconThemeData(color: colorScheme.onBackground),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.share,
+                  color: colorScheme.onBackground,
+                  size: ResponsiveConstants.mdIconSize),
+              onPressed: () {},
+            ),
+            const CartButtonWithBadge(),
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                  end: ResponsiveConstants.mdPadding),
+              child: IconButton(
+                icon: Icon(Icons.favorite_border,
+                    color: colorScheme.onBackground,
+                    size: ResponsiveConstants.mdIconSize),
+                onPressed: () {},
+              ),
+            ),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Shimmer.fromColors(
+              baseColor: baseColor,
+              highlightColor: highlightColor,
+              child: Container(
+                color: colorScheme.surface,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
           ),
         ),
 
-        // Title, brand, rating
+        // Variant / thumbnail selectors: label + 3 rounded squares
         SliverToBoxAdapter(
           child: Padding(
             padding: ResponsiveConstants.horizontalMdEdgeInsets,
@@ -45,17 +114,18 @@ class ProductDetailsShimmer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: ResponsiveConstants.lgSpacing),
-                _line(height: 18, width: 120, radius: 8.r),
-                SizedBox(height: ResponsiveConstants.xsSpacing),
-                _line(height: 22, width: double.infinity, radius: 8.r),
+                _ShimmerLine(
+                    height: 14, width: 80, radius: 6.r),
                 SizedBox(height: ResponsiveConstants.mdSpacing),
                 Row(
                   children: [
-                    _circle(dimension: ResponsiveConstants.mdIconSize),
-                    SizedBox(width: ResponsiveConstants.xsSpacing),
-                    _line(height: 16, width: 40, radius: 6.r),
-                    SizedBox(width: ResponsiveConstants.smSpacing),
-                    _line(height: 14, width: 100, radius: 6.r),
+                    for (int i = 0; i < 3; i++) ...[
+                      if (i > 0) SizedBox(width: ResponsiveConstants.smSpacing),
+                      _ShimmerLine(
+                          height: 56,
+                          width: 56,
+                          radius: ResponsiveConstants.smRadius),
+                    ],
                   ],
                 ),
               ],
@@ -63,83 +133,99 @@ class ProductDetailsShimmer extends StatelessWidget {
           ),
         ),
 
-        // Price block
+        // Product info card: brand, name, price placeholder, small placeholder
         SliverToBoxAdapter(
           child: Padding(
-            padding: ResponsiveConstants.horizontalMdEdgeInsets,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: ResponsiveConstants.lgSpacing),
-                Row(
-                  children: [
-                    _line(height: 26, width: 120, radius: 8.r),
-                    SizedBox(width: ResponsiveConstants.smSpacing),
-                    _line(height: 16, width: 80, radius: 6.r),
-                    SizedBox(width: ResponsiveConstants.smSpacing),
-                    _line(height: 16, width: 40, radius: 6.r),
-                  ],
-                ),
-                SizedBox(height: ResponsiveConstants.smSpacing),
-                _line(height: 12, width: 80, radius: 6.r),
-              ],
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveConstants.smPadding,
+              vertical: ResponsiveConstants.lgSpacing,
             ),
-          ),
-        ),
-
-        // Size recommendation card
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: ResponsiveConstants.horizontalMdEdgeInsets,
             child: Container(
-              padding: ResponsiveConstants.mdEdgeInsets,
+              padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                color: colorScheme.surface,
+                borderRadius:
+                    BorderRadius.circular(ResponsiveConstants.mdRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                        alpha: isDark ? 0.35 : 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _circle(dimension: ResponsiveConstants.mdIconSize),
-                  SizedBox(width: ResponsiveConstants.smSpacing),
-                  Expanded(child: _line(height: 16, width: double.infinity, radius: 6.r)),
-                  SizedBox(width: ResponsiveConstants.smSpacing),
-                  _line(height: 16, width: 40, radius: 6.r),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ShimmerLine(
+                                height: 14, width: 72, radius: 6.r),
+                            SizedBox(height: ResponsiveConstants.xsSpacing),
+                            _ShimmerLine(
+                                height: 18,
+                                width: double.infinity,
+                                radius: 8.r),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: ResponsiveConstants.smSpacing),
+                      _ShimmerLine(
+                          height: 24, width: 72, radius: 12.r),
+                    ],
+                  ),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  _ShimmerLine(
+                      height: 22, width: 80, radius: 8.r),
                 ],
               ),
             ),
           ),
         ),
 
-        // Size chips skeleton
+        // Variant attributes (e.g. size): label + 5 chips
         SliverToBoxAdapter(
           child: Padding(
-            padding: ResponsiveConstants.horizontalMdEdgeInsets,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: ResponsiveConstants.lgSpacing),
-                _line(height: 18, width: 100, radius: 6.r),
-                SizedBox(height: ResponsiveConstants.mdSpacing),
-                Wrap(
-                  spacing: ResponsiveConstants.smSpacing,
-                  runSpacing: ResponsiveConstants.smSpacing,
-                  children: List.generate(6, (index) => _chip(width: 64, height: 36, radius: 8.r)),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Action buttons
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: ResponsiveConstants.horizontalMdEdgeInsets,
-            child: Row(
-              children: [
-                Expanded(child: _button(height: 48, radius: ResponsiveConstants.smRadius)),
-                SizedBox(width: ResponsiveConstants.mdSpacing),
-                _square(dimension: ResponsiveConstants.xlDimension, radius: ResponsiveConstants.smRadius),
-              ],
+            padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
+            child: Container(
+              padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius:
+                    BorderRadius.circular(ResponsiveConstants.mdRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                        alpha: isDark ? 0.35 : 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ShimmerLine(
+                      height: 18, width: 80, radius: 8.r),
+                  SizedBox(height: ResponsiveConstants.mdSpacing),
+                  Row(
+                    children: [
+                      for (int i = 0; i < 5; i++) ...[
+                        if (i > 0)
+                          SizedBox(width: ResponsiveConstants.smSpacing),
+                        _ShimmerLine(
+                            height: 40, width: 64, radius: 8.r),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -154,92 +240,61 @@ class ProductDetailsShimmer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _line(height: 18, width: 160, radius: 8.r),
+                _ShimmerLine(height: 18, width: 160, radius: 8.r),
                 SizedBox(height: ResponsiveConstants.mdSpacing),
-                _line(height: 14, width: double.infinity, radius: 6.r),
+                _ShimmerLine(height: 14, width: double.infinity, radius: 6.r),
                 SizedBox(height: ResponsiveConstants.xsSpacing),
-                _line(height: 14, width: double.infinity, radius: 6.r),
+                _ShimmerLine(height: 14, width: double.infinity, radius: 6.r),
                 SizedBox(height: ResponsiveConstants.xsSpacing),
-                _line(height: 14, width: 220, radius: 6.r),
+                _ShimmerLine(height: 14, width: 220, radius: 6.r),
               ],
             ),
           ),
         ),
+
+        SliverToBoxAdapter(
+          child: SizedBox(height: ResponsiveConstants.lgSpacing),
+        ),
       ],
     );
   }
-
-  Widget _line({required double height, required double width, required double radius}) {
-    return Builder(
-      builder: (context) {
-        final theme = Theme.of(context);
-        final colorScheme = theme.colorScheme;
-        final isDark = theme.brightness == Brightness.dark;
-        
-        final baseColor = isDark 
-            ? colorScheme.outline.withValues(alpha: 0.3)
-            : Colors.grey.shade300;
-        final highlightColor = isDark
-            ? colorScheme.outline.withValues(alpha: 0.5)
-            : Colors.grey.shade100;
-        
-        return Shimmer.fromColors(
-          baseColor: baseColor,
-          highlightColor: highlightColor,
-          child: Container(
-            height: height,
-            width: width,
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(radius),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _circle({required double dimension}) {
-    return Builder(
-      builder: (context) {
-        final theme = Theme.of(context);
-        final colorScheme = theme.colorScheme;
-        final isDark = theme.brightness == Brightness.dark;
-        
-        final baseColor = isDark 
-            ? colorScheme.outline.withValues(alpha: 0.3)
-            : Colors.grey.shade300;
-        final highlightColor = isDark
-            ? colorScheme.outline.withValues(alpha: 0.5)
-            : Colors.grey.shade100;
-        
-        return Shimmer.fromColors(
-          baseColor: baseColor,
-          highlightColor: highlightColor,
-          child: Container(
-            height: dimension,
-            width: dimension,
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              shape: BoxShape.circle,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _chip({required double width, required double height, required double radius}) {
-    return _line(height: height, width: width, radius: radius);
-  }
-
-  Widget _button({required double height, required double radius}) {
-    return _line(height: height, width: double.infinity, radius: radius);
-  }
-
-  Widget _square({required double dimension, required double radius}) {
-    return _line(height: dimension, width: dimension, radius: radius);
-  }
 }
 
+class _ShimmerLine extends StatelessWidget {
+  final double height;
+  final double width;
+  final double radius;
 
+  const _ShimmerLine({
+    required this.height,
+    required this.width,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final baseColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.3)
+        : Colors.grey.shade300;
+    final highlightColor = isDark
+        ? colorScheme.outline.withValues(alpha: 0.5)
+        : Colors.grey.shade100;
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Container(
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+}

@@ -2,7 +2,7 @@ class Endpoints {
   // Auth (Postman collection)
   static const String login = '/ecom/portal/login';
   static const String register = '/ecom/portal/register';
-  static const String logout = '/ecom/portal/logout';
+  static const String logout = '/ecom/potrtal/logout';
   static const String resetPassword = '/ecom/portal/reset/password';
   static const String verifyToken = '/ecom/portal/verify-token';
   static const String resendMailVerification = '/ecom/portal/resend/mail-verification';
@@ -36,6 +36,12 @@ class Endpoints {
   
   // Cart APIs
   static const String cart = '/ecom/product/cart';
+
+  //Return APIs
+  static const String returnRequest = '/ecom/sale/createRefundRequest';
+  static const String returnList = '/ecom/sale/getRefundRequests';
+  static const String returnRequestDetails = '/ecom/sale/getRefundRequestDetails';
+  static const String cancelReturnRequest = '/ecom/sale/cancelRefundRequest';
 
   static Map<String, dynamic> withParams(Map<String, dynamic> params) => {
         'params': params,

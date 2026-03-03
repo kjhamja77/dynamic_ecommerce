@@ -163,12 +163,16 @@ class PaymentDetailsCard extends StatelessWidget {
                 children: [
                   if (!isRTL) Icon(Icons.check_circle_outline, color: OrderConstants.successColor, size: 16),
                   if (!isRTL) SizedBox(width: ResponsiveConstants.xsSpacing),
-                  Text(
-                    loc.paymentCompletedSuccessfully,
-                    textAlign: isRTL ? TextAlign.right : TextAlign.left,
-                    style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-                      color: OrderConstants.successColor,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      loc.paymentCompletedSuccessfully,
+                      textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                      style: AppFonts.getTextStyle(
+                        fontSize: ResponsiveConstants.smFontSize,
+                        color: OrderConstants.successColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (isRTL) SizedBox(width: ResponsiveConstants.xsSpacing),

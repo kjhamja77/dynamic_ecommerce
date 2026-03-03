@@ -643,8 +643,10 @@ class ProductDetailsModel extends ProductDetails {
                 // Check if this looks like an English name (not Arabic characters)
                 final isEnglish = !_containsArabic(valueName);
                 if (isEnglish && valueId.isNotEmpty) {
-                  colorIdToEnglishName[valueId] = valueName;
-                  print('📝 ProductDetailsModel: Added to colorIdToEnglishName map: ID=$valueId, English="$valueName"');
+                  if (!colorIdToEnglishName.containsKey(valueId)) {
+                    colorIdToEnglishName[valueId] = valueName;
+                    print('📝 ProductDetailsModel: Added to colorIdToEnglishName map: ID=$valueId, English="$valueName"');
+                  }
                 } else if (valueId.isNotEmpty) {
                   print('⚠️ ProductDetailsModel: Found Arabic color name in variant combination: ID=$valueId, name="$valueName"');
                 }
@@ -1299,24 +1301,16 @@ class ProductDetailsModel extends ProductDetails {
             if (!seen.contains(imgUrl)) {
               seen.add(imgUrl);
               filteredImages.add(imgUrl);
-              print(
-                  '🖼️ Added variant image (variant_id: $vid, type: ${imgData['type']}, sequence: ${imgData['sequence']}): $imgUrl');
             }
           }
         }
       }
 
-      // Log grouped images for debugging
+      // Log summary only (full per-variant dump skipped to avoid 360+ lines)
       if (productType == 'variant' && variantImagesMap.isNotEmpty) {
-        print('📊 Images grouped by variant_id:');
-        variantImagesMap.forEach((vid, imgList) {
-          print('   variant_id: $vid → ${imgList.length} image(s)');
-          for (final img in imgList) {
-            print('      - type: ${img['type']}, sequence: ${img['sequence']}, url: ${(img['url'] as String).substring(0, (img['url'] as String).length > 50 ? 50 : (img['url'] as String).length)}...');
-          }
-        });
-        print('🎯 Current productId: $normalizedProductId');
-        print('✅ Total images for current variant: ${filteredImages.length}');
+        final count = variantImagesMap.length;
+        final sample = variantImagesMap.entries.take(3).map((e) => '${e.key}→${e.value.length}').join(', ');
+        print('📊 variantImagesMap: $count variants (e.g. $sample), current productId: $normalizedProductId, images for selected: ${filteredImages.length}');
       }
 
       return filteredImages;
@@ -1407,10 +1401,9 @@ class ProductDetailsModel extends ProductDetails {
       variantImagesMap[variantId] = imageList.map((img) => img['url'] as String).toList();
     });
 
-    print('📊 Built variantImagesMap with ${variantImagesMap.length} variants');
-    variantImagesMap.forEach((vid, imgList) {
-      print('   variant_id: $vid → ${imgList.length} image(s)');
-    });
+    final count = variantImagesMap.length;
+    final sample = variantImagesMap.entries.take(3).map((e) => '${e.key}→${e.value.length}').join(', ');
+    print('📊 Built variantImagesMap with $count variants (e.g. $sample)');
 
     return variantImagesMap;
   }

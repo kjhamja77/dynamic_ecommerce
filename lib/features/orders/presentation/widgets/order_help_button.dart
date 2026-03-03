@@ -7,6 +7,7 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/order.dart';
 import '../../core/constants/order_constants.dart';
+import 'refund_request_bottom_sheet.dart';
 
 class OrderHelpButton extends StatelessWidget {
   final Order order;
@@ -16,6 +17,21 @@ class OrderHelpButton extends StatelessWidget {
 
   const OrderHelpButton({super.key, required this.order});
 
+  /// Shows the help options bottom sheet. Use this from order details or FAB.
+  static Future<void> showHelpSheet(BuildContext context, Order order) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ResponsiveConstants.xlRadius),
+        ),
+      ),
+      builder: (ctx) => _OrderHelpSheetContent(order: order),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -24,7 +40,7 @@ class OrderHelpButton extends StatelessWidget {
     return FloatingActionButton.extended(
       onPressed: () async {
         await HapticService.buttonClick();
-        _showHelpOptions(context);
+        showHelpSheet(context, order);
       },
       icon: const Icon(Icons.help_outline),
       label: Text(
@@ -41,213 +57,188 @@ class OrderHelpButton extends StatelessWidget {
     );
   }
 
-  void _showHelpOptions(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(ResponsiveConstants.xlRadius),
-        ),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: OrderConstants.primaryColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.support_agent,
-                      color: OrderConstants.primaryColor,
-                      size: 22,
-                    ),
-                  ),
-                  SizedBox(width: ResponsiveConstants.mdSpacing),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc.howCanWeHelp,
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.lgFontSize,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          loc.orderNumberWithValue(order.orderNumber),
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.smFontSize,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () async {
-                      await HapticService.buttonClick();
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-
-              SizedBox(height: ResponsiveConstants.lgSpacing),
-              const Divider(height: 1),
-              SizedBox(height: ResponsiveConstants.smSpacing),
-
-              _HelpOption(
-                icon: Icons.phone_outlined,
-                title: loc.callCustomerService,
-                subtitle: customerServicePhone,
-                iconColor: OrderConstants.successColor,
-                iconBackgroundColor: OrderConstants.successColor.withValues(alpha: 0.1),
-                onTap: () async {
-                  await HapticService.buttonClick();
-                  Navigator.of(ctx).pop();
-                  _launchPhone(context);
-                },
-              ),
-
-              SizedBox(height: ResponsiveConstants.smSpacing),
-
-              _HelpOption(
-                icon: Icons.chat_bubble_outline,
-                title: loc.whatsappSupport,
-                subtitle: loc.chatWithUsInstantly,
-                iconColor: OrderConstants.successColor,
-                iconBackgroundColor: OrderConstants.successColor.withValues(alpha: 0.1),
-                onTap: () async {
-                  await HapticService.buttonClick();
-                  Navigator.of(ctx).pop();
-                  _launchWhatsApp(context);
-                },
-              ),
-
-              SizedBox(height: ResponsiveConstants.smSpacing),
-
-              _HelpOption(
-                icon: Icons.assignment_return_outlined,
-                title: loc.requestReturn,
-                subtitle: loc.returnThisOrder,
-                iconColor: OrderConstants.primaryColor,
-                iconBackgroundColor: OrderConstants.primaryColor.withValues(alpha: 0.1),
-                onTap: () async {
-                  await HapticService.buttonClick();
-                  Navigator.of(ctx).pop();
-                  _requestReturn(context);
-                },
-              ),
-
-              SizedBox(height: ResponsiveConstants.lgSpacing),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _launchPhone(BuildContext context) async {
+  static Future<void> _launchPhoneStatic(BuildContext context) async {
     final loc = AppLocalizations.of(context)!;
     final Uri phoneUri = Uri(scheme: 'tel', path: customerServicePhone);
     if (await canLaunchUrl(phoneUri)) {
       await launchUrl(phoneUri);
     } else {
-      _showError(context, loc.couldNotLaunchPhoneDialer);
+      _showErrorStatic(context, loc.couldNotLaunchPhoneDialer);
     }
   }
 
-  Future<void> _launchWhatsApp(BuildContext context) async {
+  static Future<void> _launchWhatsAppStatic(BuildContext context, Order order) async {
     final loc = AppLocalizations.of(context)!;
     try {
       final message = loc.whatsappOrderHelpMessage(order.orderNumber);
-      // Remove + and any spaces from phone number for WhatsApp URL
       final cleanPhoneNumber = whatsappNumber.replaceAll(RegExp(r'[\s\+\-\(\)]'), '');
       final Uri whatsappUri = Uri.parse(
         'https://wa.me/$cleanPhoneNumber?text=${Uri.encodeComponent(message)}',
       );
-      
-      debugPrint('📱 Launching WhatsApp: $whatsappUri');
-      
-      // Try to launch directly
-      final launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-      
+      final launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
       if (!launched) {
-        debugPrint('⚠️ WhatsApp launch returned false, trying platformDefault');
-        // Fallback to platformDefault if externalApplication fails
         await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
       }
-      
-      debugPrint('✅ WhatsApp launched successfully');
     } catch (e) {
-      debugPrint('❌ Error launching WhatsApp: $e');
       if (context.mounted) {
-        _showError(context, loc.couldNotOpenWhatsapp);
+        _showErrorStatic(context, loc.couldNotOpenWhatsapp);
       }
     }
   }
 
-  Future<void> _requestReturn(BuildContext context) async {
-    final loc = AppLocalizations.of(context)!;
-    try {
-      final message = loc.whatsappReturnMessage(order.orderNumber);
-      // Remove + and any spaces from phone number for WhatsApp URL
-      final cleanPhoneNumber = whatsappNumber.replaceAll(RegExp(r'[\s\+\-\(\)]'), '');
-      final Uri whatsappUri = Uri.parse(
-        'https://wa.me/$cleanPhoneNumber?text=${Uri.encodeComponent(message)}',
-      );
-      
-      debugPrint('📱 Launching WhatsApp (Return): $whatsappUri');
-      
-      // Try to launch directly
-      final launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-      
-      if (!launched) {
-        debugPrint('⚠️ WhatsApp launch returned false, trying platformDefault');
-        // Fallback to platformDefault if externalApplication fails
-        await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
-      }
-      
-      debugPrint('✅ WhatsApp launched successfully');
-    } catch (e) {
-      debugPrint('❌ Error launching WhatsApp: $e');
-      if (context.mounted) {
-        _showError(context, loc.couldNotOpenWhatsapp);
-      }
-    }
+  static Future<void> _requestReturnStatic(BuildContext context, Order order) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ResponsiveConstants.xlRadius),
+        ),
+      ),
+      builder: (ctx) => RefundRequestBottomSheet(order: order),
+    );
   }
 
-  void _showError(BuildContext context, String message) {
+  static void _showErrorStatic(BuildContext context, String message) {
     final colorScheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: colorScheme.error,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _launchPhone(BuildContext context) async =>
+      _launchPhoneStatic(context);
+
+  Future<void> _launchWhatsApp(BuildContext context) async =>
+      _launchWhatsAppStatic(context, order);
+
+  Future<void> _requestReturn(BuildContext context) async =>
+      _requestReturnStatic(context, order);
+
+  void _showError(BuildContext context, String message) =>
+      _showErrorStatic(context, message);
+}
+
+class _OrderHelpSheetContent extends StatelessWidget {
+  final Order order;
+
+  const _OrderHelpSheetContent({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: OrderConstants.primaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.support_agent,
+                    color: OrderConstants.primaryColor,
+                    size: 22,
+                  ),
+                ),
+                SizedBox(width: ResponsiveConstants.mdSpacing),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc.howCanWeHelp,
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.lgFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        loc.orderNumberWithValue(order.orderNumber),
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.smFontSize,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () async {
+                    await HapticService.buttonClick();
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ),
+            SizedBox(height: ResponsiveConstants.lgSpacing),
+            const Divider(height: 1),
+            SizedBox(height: ResponsiveConstants.smSpacing),
+            _HelpOption(
+              icon: Icons.phone_outlined,
+              title: loc.callCustomerService,
+              subtitle: OrderHelpButton.customerServicePhone,
+              iconColor: OrderConstants.successColor,
+              iconBackgroundColor: OrderConstants.successColor.withValues(alpha: 0.1),
+              onTap: () async {
+                await HapticService.buttonClick();
+                Navigator.of(context).pop();
+                OrderHelpButton._launchPhoneStatic(context);
+              },
+            ),
+            SizedBox(height: ResponsiveConstants.smSpacing),
+            _HelpOption(
+              icon: Icons.chat_bubble_outline,
+              title: loc.whatsappSupport,
+              subtitle: loc.chatWithUsInstantly,
+              iconColor: OrderConstants.successColor,
+              iconBackgroundColor: OrderConstants.successColor.withValues(alpha: 0.1),
+              onTap: () async {
+                await HapticService.buttonClick();
+                Navigator.of(context).pop();
+                OrderHelpButton._launchWhatsAppStatic(context, order);
+              },
+            ),
+            SizedBox(height: ResponsiveConstants.smSpacing),
+            _HelpOption(
+              icon: Icons.assignment_return_outlined,
+              title: loc.requestReturn,
+              subtitle: loc.returnThisOrder,
+              iconColor: order.status == OrderStatus.delivered
+                  ? OrderConstants.primaryColor
+                  : colorScheme.onSurface.withValues(alpha: 0.4),
+              iconBackgroundColor: order.status == OrderStatus.delivered
+                  ? OrderConstants.primaryColor.withValues(alpha: 0.1)
+                  : colorScheme.onSurface.withValues(alpha: 0.06),
+              enabled: order.status == OrderStatus.delivered,
+              onTap: order.status == OrderStatus.delivered
+                  ? () async {
+                      await HapticService.buttonClick();
+                      Navigator.of(context).pop();
+                      OrderHelpButton._requestReturnStatic(context, order);
+                    }
+                  : null,
+            ),
+            SizedBox(height: ResponsiveConstants.lgSpacing),
+          ],
+        ),
       ),
     );
   }
@@ -259,7 +250,8 @@ class _HelpOption extends StatelessWidget {
   final String subtitle;
   final Color iconColor;
   final Color iconBackgroundColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool enabled;
 
   const _HelpOption({
     required this.icon,
@@ -267,14 +259,26 @@ class _HelpOption extends StatelessWidget {
     required this.subtitle,
     required this.iconColor,
     required this.iconBackgroundColor,
-    required this.onTap,
+    this.onTap,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final effectiveOnTap = enabled ? onTap : null;
+    final titleColor = enabled
+        ? colorScheme.onSurface
+        : colorScheme.onSurface.withValues(alpha: 0.5);
+    final subtitleColor = enabled
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+    final arrowColor = enabled
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+
     return InkWell(
-      onTap: onTap,
+      onTap: effectiveOnTap,
       borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
       child: Container(
         padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
@@ -304,7 +308,7 @@ class _HelpOption extends StatelessWidget {
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.mdFontSize,
                       fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
+                      color: titleColor,
                     ),
                   ),
                   SizedBox(height: ResponsiveConstants.xsSpacing / 2),
@@ -320,7 +324,7 @@ class _HelpOption extends StatelessWidget {
                             subtitle,
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.smFontSize,
-                              color: colorScheme.onSurfaceVariant,
+                              color: subtitleColor,
                             ),
                           ),
                         );
@@ -329,7 +333,7 @@ class _HelpOption extends StatelessWidget {
                         subtitle,
                         style: AppFonts.getTextStyle(
                           fontSize: ResponsiveConstants.smFontSize,
-                          color: colorScheme.onSurfaceVariant,
+                          color: subtitleColor,
                         ),
                       );
                     },
@@ -340,7 +344,7 @@ class _HelpOption extends StatelessWidget {
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: colorScheme.onSurfaceVariant,
+              color: arrowColor,
             ),
           ],
         ),

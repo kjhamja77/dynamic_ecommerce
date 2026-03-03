@@ -7,6 +7,7 @@ import '../../../../l10n/app_localizations.dart';
 import 'package:zalando_clone_app/features/orders/presentation/pages/orders_page.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:zalando_clone_app/features/orders/presentation/bloc/orders_bloc.dart';
+import 'package:zalando_clone_app/features/orders/presentation/bloc/refund_requests_bloc.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/help_support_page.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/privacy_security_page.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/contact_us_page.dart';
@@ -432,8 +433,16 @@ class _ProfilePageState extends State<ProfilePage>
                             context.read<ProfileBloc>().add(LoadUserOrders());
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => BlocProvider(
-                                  create: (context) => di.sl<OrdersBloc>(),
+                                builder: (context) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider<OrdersBloc>(
+                                      create: (context) => di.sl<OrdersBloc>(),
+                                    ),
+                                    BlocProvider<RefundRequestsBloc>(
+                                      create: (context) =>
+                                          di.sl<RefundRequestsBloc>(),
+                                    ),
+                                  ],
                                   child: const OrdersPage(),
                                 ),
                               ),

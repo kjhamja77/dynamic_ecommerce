@@ -1406,17 +1406,12 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
         final requestedId = event.productId.trim();
         debugPrint('🔍 [Catalog→Details] ID we are sending (from catalog): "$requestedId" (type: ${requestedId.runtimeType})');
         if (requestedId.isNotEmpty && productDetails.variantCombinations.isNotEmpty) {
-          debugPrint('🔍 [Catalog→Details] Looping variant_combinations (count: ${productDetails.variantCombinations.length}):');
-          VariantCombination? catalogVariant;
-          for (final v in productDetails.variantCombinations) {
-            final comboId = v.variantId.toString().trim();
-            final match = comboId == requestedId;
-            debugPrint('   - variant_id from combo: "$comboId" | requested: "$requestedId" | match: $match');
-            if (match) {
-              catalogVariant = v;
-              break;
-            }
-          }
+          // O(1) lookup instead of O(n) loop: build map once
+          final variantById = {
+            for (final v in productDetails.variantCombinations)
+              v.variantId.toString().trim(): v,
+          };
+          final catalogVariant = variantById[requestedId];
           if (catalogVariant != null) {
             debugPrint('✅ [Catalog→Details] MATCH: variantId=$requestedId → using its attributes as initial selection');
             debugPrint('🔍 [Catalog→Details] Values fetched from matched variant (variant_combinations entry):');
@@ -1501,24 +1496,20 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
           }
         }
         
-        // Update size options to reflect availability based on ALL variant combinations
-        final updatedSizeOptions = productDetails.sizeOptions.map((size) {
-          bool hasInStockVariant = false;
-          
-          for (final v in productDetails.variantCombinations) {
-            final bool sizeMatch = v.hasAttributeValue(productDetails.primaryVariantLabel, size.name) ||
-                                  v.hasAttributeValue('size', size.name) ||
-                                  v.hasAttributeValue('SIZE', size.name);
-            if (!sizeMatch) continue;
-            
-            // Check stock (treat null quantity as available when inStock=true)
-            final isInStock = _isVariantInStock(v);
-            if (isInStock) {
-              hasInStockVariant = true;
-              break;
-            }
+        // Single pass: collect size names that have at least one in-stock variant
+        final sizeNamesInStock = <String>{};
+        for (final v in productDetails.variantCombinations) {
+          if (!_isVariantInStock(v)) continue;
+          final sizeName = _getVariantAttributeValue(
+            v,
+            [productDetails.primaryVariantLabel, 'size', 'SIZE', 'القياس'].where((s) => s.isNotEmpty).toList(),
+          );
+          if (sizeName != null && sizeName.isNotEmpty) {
+            sizeNamesInStock.add(sizeName.trim().toLowerCase());
           }
-          
+        }
+        final updatedSizeOptions = productDetails.sizeOptions.map((size) {
+          final hasInStockVariant = sizeNamesInStock.contains(size.name.trim().toLowerCase());
           return SizeOption(
             id: size.id,
             name: size.name,

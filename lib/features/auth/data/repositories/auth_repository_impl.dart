@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/services/clear_user_caches_on_logout_service.dart';
 import '../../../../core/utils/image_cache_utils.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -14,12 +15,14 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final FlutterSecureStorage storage;
   final SharedPreferences sharedPreferences;
+  final ClearUserCachesOnLogoutService _logoutCacheClearService;
 
   AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.storage,
     required this.sharedPreferences,
-  });
+    required ClearUserCachesOnLogoutService logoutCacheClearService,
+  }) : _logoutCacheClearService = logoutCacheClearService;
 
   @override
   Future<Either<Failure, User>> login(String email, String password, String deviceId, String? deviceToken) async { // email can be email or phone number
@@ -138,6 +141,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Clear all cached images (memory + disk) so next user/session starts clean
       await ImageCacheUtils.clearImageCache();
+
+      // Clear all role/user-specific caches (cart, orders, home, addresses, payment methods, filters)
+      await _logoutCacheClearService.clearAll();
 
       await storage.deleteAll();
       debugPrint('AuthRepositoryImpl.logout → deleteAll complete');

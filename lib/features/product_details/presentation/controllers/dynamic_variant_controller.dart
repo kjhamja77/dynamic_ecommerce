@@ -341,8 +341,8 @@ class DynamicVariantController extends ChangeNotifier {
     
     debugPrint('   After: $_selectedAttributes');
     
-    // Recalculate matching variant
-    _updateMatchingVariant();
+    // Recalculate matching variant; only main images update when color attribute changes
+    _updateMatchingVariant(attributeIdThatChanged: attributeId);
     
     debugPrint('🔄 DynamicVariantController: Notifying listeners');
     debugPrint('   Final state: inStock=$_inStock, qty=$_quantityAvailable, variantId=$_variantId');
@@ -466,8 +466,25 @@ class DynamicVariantController extends ChangeNotifier {
     return matchingVariants.first;
   }
 
-  /// Update the matching variant based on current selectedAttributes
-  void _updateMatchingVariant() {
+  /// Returns the attribute_id for the color attribute, or null if not found.
+  /// Used to update main product images only when color selection changes.
+  int? _getColorAttributeId() {
+    if (_productDetails == null) return null;
+    for (final opt in _productDetails!.variantAttributeOptions) {
+      final name = opt.attributeName.toLowerCase();
+      if (name.contains('color') || name.contains('colour') || name.contains('اللون')) {
+        final id = int.tryParse(opt.attributeId ?? '');
+        if (id != null) return id;
+      }
+    }
+    return null;
+  }
+
+  /// Update the matching variant based on current selectedAttributes.
+  /// [attributeIdThatChanged] when set (e.g. from selectAttributeValue): only update
+  /// main product images when the changed attribute is color; other attributes (size, material, etc.)
+  /// keep the current images to avoid unnecessary reloads.
+  void _updateMatchingVariant({int? attributeIdThatChanged}) {
     if (_productDetails == null) {
       _setNoVariantState();
       return;
@@ -505,8 +522,13 @@ class DynamicVariantController extends ChangeNotifier {
       _quantityAvailable = totalQuantity;
       _variantId = _selectedVariant!.variantId; // Use picked variant (matches selectedColor/selectedSize when multiple match)
       
-      // Update images
-      _updateImages();
+      // Update main product images only when color changed (or on init/full update when attributeIdThatChanged is null)
+      final colorAttrId = _getColorAttributeId();
+      final shouldUpdateImages = attributeIdThatChanged == null ||
+          (colorAttrId != null && attributeIdThatChanged == colorAttrId);
+      if (shouldUpdateImages) {
+        _updateImages();
+      }
       
       debugPrint('✅ DynamicVariantController: Found ${matchingVariants.length} matching variant(s)');
       debugPrint('   Total quantity (summed): $_quantityAvailable');
@@ -529,20 +551,12 @@ class DynamicVariantController extends ChangeNotifier {
   /// Returns all variants where ALL {attribute_id, value_id} pairs match selectedAttributes
   List<VariantCombination> _findAllMatchingVariants() {
     if (_productDetails == null) return [];
-    
     final matching = <VariantCombination>[];
-    debugPrint('🔍 _findAllMatchingVariants: Searching ${_productDetails!.variantCombinations.length} variants');
-    debugPrint('   Selected attributes: $_selectedAttributes');
-    
     for (final variant in _productDetails!.variantCombinations) {
       if (_variantMatchesSelection(variant)) {
         matching.add(variant);
-        final qty = variant.quantityAvailable ?? 0;
-        debugPrint('   ✅ Match found: variantId=${variant.variantId}, qty=$qty, inStock=${variant.inStock}');
       }
     }
-    
-    debugPrint('   Total matches: ${matching.length}');
     return matching;
   }
 
