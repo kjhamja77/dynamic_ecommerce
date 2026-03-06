@@ -9,7 +9,6 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../core/constants/order_constants.dart';
 import '../../domain/entities/refund_request.dart';
-import '../../domain/usecases/get_refund_request_details.dart';
 import '../../domain/usecases/cancel_refund_request.dart';
 import '../bloc/refund_requests_bloc.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -38,14 +37,9 @@ class _RefundRequestDetailsPageState extends State<RefundRequestDetailsPage> {
   }
 
   Future<RefundRequest> _loadDetails() async {
-    final useCase = di.sl<GetRefundRequestDetails>();
-    final result = await useCase(
-      GetRefundRequestDetailsParams(widget.refundRequest.id),
-    );
-    return result.fold(
-      (failure) => widget.refundRequest,
-      (details) => details,
-    );
+    // Use the refund request passed from the previous screen without
+    // making an additional API call for details.
+    return widget.refundRequest;
   }
 
   @override

@@ -337,34 +337,20 @@ class AddressRemoteDataSourceImpl implements AddressRemoteDataSource {
     debugPrint('  - default_address: "${j['default_address']}"');
     debugPrint('  - type: "${j['type']}"');
     
-    return AddressModel(
-      id: (j['id'] ?? j['address_id'] ?? '').toString(),
-      fullName: (j['name'] ?? '').toString(),
-      phone: (j['phone'] ?? '').toString(),
-      country: (j['country_name'] ?? '').toString(),
-      city: (j['city'] ?? '').toString(),
-      district: (j['street2'] ?? '').toString(), // street2 is the district field
-      street: (j['street'] ?? '').toString(),
-      streetNumber: '', // Not provided in API response
-      building: '', // Not provided in API response
-      floor: '', // Not provided in API response
-      apartment: '', // Not provided in API response
-      zipCode: (j['zip'] ?? '').toString(),
-      additionalInfo: '', // Not provided in API response
-      label: '', // Not provided in API response - could use type as label
-      isDefault: (j['default_address'] ?? false) == true,
-      createdAt: DateTime.now(),
-      countryId: j['country_id'] as int?,
-      stateId: j['state_id'] as int?,
-      provinceId: AddressModel.extractProvinceId(j['province_id']),
-      type: j['type'] as String?,
-    );
+    // Delegate normalization of phone and country_code to AddressModel.fromApiJson
+    return AddressModel.fromApiJson(j);
   }
 
   Map<String, dynamic> _toApiParams(AddressModel a) {
+    // Ensure phone is national digits only and country_code is pure dial code (no '+').
+    final phoneDigits = a.phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final ccDigits = (a.phoneCountryCode ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    final countryCodeForApi = ccDigits.isEmpty ? null : ccDigits;
+
     return {
       'name': a.fullName,
-      'phone': a.phone,
+      'phone': phoneDigits,
+      'country_code': countryCodeForApi,
       'street': a.street,
       'city': a.city,
       'zip': a.zipCode,

@@ -9,11 +9,17 @@ import '../../core/constants/order_constants.dart';
 class OrderStatusFilter extends StatelessWidget {
   final String? selectedStatus;
   final Function(String?) onStatusChanged;
+  final ScrollController? scrollController;
+  final List<OrderStatus> availableStatuses;
+  final bool showRefundChip;
 
   const OrderStatusFilter({
     super.key,
     required this.selectedStatus,
     required this.onStatusChanged,
+    this.scrollController,
+    this.availableStatuses = const <OrderStatus>[],
+    this.showRefundChip = false,
   });
 
   @override
@@ -34,38 +40,71 @@ class OrderStatusFilter extends StatelessWidget {
           ),
         ),
         SizedBox(height: ResponsiveConstants.smSpacing),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildFilterChip(
-                context: context,
-                label: loc.all,
-                isSelected: selectedStatus == null,
-                onTap: () async {
-                  await HapticService.buttonClick();
-                  onStatusChanged(null);
-                },
-              ),
-              ...OrderStatus.values.map((status) {
-                final statusLabel = OrderConstants.localizedStatus(context, status);
-                final statusKey = status.name;
-                final isSelected = selectedStatus == statusKey;
-                return _buildFilterChip(
+        SizedBox(
+          width: double.infinity,
+          child: SingleChildScrollView(
+            controller: scrollController,
+            scrollDirection: Axis.horizontal,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                _buildFilterChip(
                   context: context,
-                  label: statusLabel,
-                  isSelected: isSelected,
+                  label: loc.all,
+                  isSelected: selectedStatus == null,
                   onTap: () async {
                     await HapticService.buttonClick();
-                    onStatusChanged(statusKey);
+                    onStatusChanged(null);
                   },
-                );
-              }),
-            ],
+                ),
+                ..._buildStatusList().map((status) {
+                  final statusLabel = OrderConstants.localizedStatus(context, status);
+                  final statusKey = status.name;
+                  final isSelected = selectedStatus == statusKey;
+                  return _buildFilterChip(
+                    context: context,
+                    label: statusLabel,
+                    isSelected: isSelected,
+                    onTap: () async {
+                      await HapticService.buttonClick();
+                      onStatusChanged(statusKey);
+                    },
+                  );
+                }),
+                if (showRefundChip)
+                  _buildFilterChip(
+                    context: context,
+                    label: loc.returns, // Reuse existing localization for refunds
+                    isSelected: selectedStatus == 'refund',
+                      onTap: () async {
+                        await HapticService.buttonClick();
+                        onStatusChanged('refund');
+                      },
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
     );
+  }
+
+  /// Returns the list of statuses to show in the filter bar.
+  /// If [availableStatuses] is provided and non-empty, it is used to
+  /// restrict the chips to statuses that actually exist in the order
+  /// history (as reported by the backend). Otherwise, falls back to
+  /// all [OrderStatus] values.
+  List<OrderStatus> _buildStatusList() {
+    if (availableStatuses.isNotEmpty) {
+      // Preserve the canonical enum order but filter by availability.
+      final availableSet = availableStatuses.toSet();
+      return OrderStatus.values.where(availableSet.contains).toList();
+    }
+    return OrderStatus.values;
   }
 
   Widget _buildFilterChip({

@@ -181,6 +181,7 @@ class ShippingDeliveryInfo extends StatelessWidget {
               ),
             ),
           ),
+          SizedBox(width: ResponsiveConstants.smSpacing),
           Expanded(
             child: isPhoneField
                 ? Directionality(

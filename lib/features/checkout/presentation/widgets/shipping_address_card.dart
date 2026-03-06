@@ -33,9 +33,12 @@ class ShippingAddressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final displayTitle = address.city.isNotEmpty
-        ? address.city
-        : (address.state.isNotEmpty ? address.state : AppLocalizations.of(context)!.address);
+    final hasName = address.fullName.trim().isNotEmpty;
+    final displayTitle = hasName
+        ? address.fullName
+        : (address.city.isNotEmpty
+            ? address.city
+            : (address.state.isNotEmpty ? address.state : AppLocalizations.of(context)!.address));
     final hasAddressDetails = address.fullAddress.trim().isNotEmpty;
 
     final VoidCallback? cardTapHandler = isOnlyAddress ? null : (_isIncomplete ? onEdit : onTap);

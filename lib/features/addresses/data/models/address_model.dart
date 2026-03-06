@@ -1,10 +1,12 @@
 import '../../domain/entities/address.dart';
+import '../../../../core/utils/country_code_detector.dart';
 
 class AddressModel extends Address {
   const AddressModel({
     required super.id,
     required super.fullName,
     required super.phone,
+    super.phoneCountryCode,
     required super.country,
     required super.city,
     required super.district,
@@ -28,6 +30,7 @@ class AddressModel extends Address {
         id: json['id'] as String,
         fullName: json['fullName'] as String,
         phone: json['phone'] as String,
+        phoneCountryCode: json['phoneCountryCode'] as String?,
         country: json['country'] as String,
         city: json['city'] as String,
         district: json['district'] as String,
@@ -48,33 +51,65 @@ class AddressModel extends Address {
       );
 
   // Map backend RPC address shape to our model
-  factory AddressModel.fromApiJson(Map<String, dynamic> json) => AddressModel(
-        id: (json['id'] ?? json['address_id'] ?? '').toString(),
-        fullName: (json['name'] ?? '').toString(),
-        phone: (json['phone'] ?? '').toString(),
-        country: (json['country_name'] ?? '').toString(),
-        city: (json['city'] ?? '').toString(),
-        district: (json['street2'] ?? '').toString(), // street2 is district in API
-        street: (json['street'] ?? '').toString(),
-        streetNumber: (json['street_number'] ?? '').toString(),
-        building: (json['building'] ?? '').toString(),
-        floor: (json['floor'] ?? '').toString(),
-        apartment: (json['apartment'] ?? '').toString(),
-        zipCode: (json['zip'] ?? '').toString(),
-        additionalInfo: (json['additional_info'] ?? '').toString(),
-        label: (json['type'] ?? '').toString(), // Use type as label if available
-        isDefault: (json['default_address'] ?? false) == true,
-        createdAt: DateTime.now(),
-        countryId: json['country_id'] as int?,
-        stateId: json['state_id'] as int?,
-        provinceId: extractProvinceId(json['province_id']),
-        type: json['type'] as String?,
-      );
+  factory AddressModel.fromApiJson(Map<String, dynamic> json) {
+    final rawPhone = (json['phone'] ?? '').toString();
+    final rawCc = (json['country_code'] ?? json['phone_country_code'])?.toString();
+
+    // Normalize into: phone = national digits only, phoneCountryCode = dial digits.
+    final phoneDigits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    String national = phoneDigits;
+    String? dialDigits;
+
+    // 1) Prefer explicit country_code from API when it matches phone prefix.
+    if (rawCc != null && rawCc.toString().trim().isNotEmpty) {
+      final cc = rawCc.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cc.isNotEmpty) {
+        if (national.startsWith(cc)) {
+          national = national.substring(cc.length);
+        }
+        dialDigits = cc;
+      }
+    }
+
+    // 2) If no valid dial from country_code, try to detect from phone prefix.
+    if ((dialDigits == null || dialDigits.isEmpty) && phoneDigits.isNotEmpty) {
+      final detectedCountry = CountryCodeDetector.detectCountry(phoneDigits);
+      if (detectedCountry != null && phoneDigits.startsWith(detectedCountry.phoneCode)) {
+        dialDigits = detectedCountry.phoneCode;
+        national = phoneDigits.substring(detectedCountry.phoneCode.length);
+      }
+    }
+
+    return AddressModel(
+      id: (json['id'] ?? json['address_id'] ?? '').toString(),
+      fullName: (json['name'] ?? '').toString(),
+      phone: national,
+      phoneCountryCode: dialDigits,
+      country: (json['country_name'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      district: (json['street2'] ?? '').toString(), // street2 is district in API
+      street: (json['street'] ?? '').toString(),
+      streetNumber: (json['street_number'] ?? '').toString(),
+      building: (json['building'] ?? '').toString(),
+      floor: (json['floor'] ?? '').toString(),
+      apartment: (json['apartment'] ?? '').toString(),
+      zipCode: (json['zip'] ?? '').toString(),
+      additionalInfo: (json['additional_info'] ?? '').toString(),
+      label: (json['type'] ?? '').toString(), // Use type as label if available
+      isDefault: (json['default_address'] ?? false) == true,
+      createdAt: DateTime.now(),
+      countryId: json['country_id'] as int?,
+      stateId: json['state_id'] as int?,
+      provinceId: extractProvinceId(json['province_id']),
+      type: json['type'] as String?,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'fullName': fullName,
         'phone': phone,
+        'phoneCountryCode': phoneCountryCode,
         'country': country,
         'city': city,
         'district': district,
@@ -98,6 +133,7 @@ class AddressModel extends Address {
         id: address.id,
         fullName: address.fullName,
         phone: address.phone,
+        phoneCountryCode: address.phoneCountryCode,
         country: address.country,
         city: address.city,
         district: address.district,
@@ -122,6 +158,7 @@ class AddressModel extends Address {
     String? id,
     String? fullName,
     String? phone,
+    String? phoneCountryCode,
     String? country,
     String? city,
     String? district,
@@ -144,6 +181,7 @@ class AddressModel extends Address {
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
       country: country ?? this.country,
       city: city ?? this.city,
       district: district ?? this.district,

@@ -60,6 +60,8 @@ class Order extends Equatable {
   final String customerPhone;
   
   // New API fields
+  final String? orderStatus; // Business-level order_status from API (e.g., "Confirmed")
+  final String? paymentStatusDisplay; // Human-readable payment status from API (e.g., "Not Paid")
   final String? state; // Order state from API (e.g., "sale", "draft")
   final String? stateDisplay; // Display name for state (e.g., "Sales Order")
   final String? currency; // Currency code (e.g., "IQD")
@@ -99,6 +101,8 @@ class Order extends Equatable {
     required this.customerName,
     required this.customerEmail,
     required this.customerPhone,
+    this.orderStatus,
+    this.paymentStatusDisplay,
     this.state,
     this.stateDisplay,
     this.currency,
@@ -115,7 +119,10 @@ class Order extends Equatable {
   bool get isDelivered => status == OrderStatus.delivered;
   bool get isCancelled => status == OrderStatus.cancelled;
   bool get isShipped => status == OrderStatus.shipped;
-  bool get canBeCancelled => status == OrderStatus.pending || status == OrderStatus.confirmed;
+  bool get canBeCancelled =>
+      status == OrderStatus.pending ||
+      status == OrderStatus.confirmed ||
+      status == OrderStatus.processing;
   bool get canBeTracked => status == OrderStatus.shipped || status == OrderStatus.delivered;
   
   // Delivery state helpers
@@ -156,6 +163,8 @@ class Order extends Equatable {
     String? customerName,
     String? customerEmail,
     String? customerPhone,
+    String? orderStatus,
+    String? paymentStatusDisplay,
     String? state,
     String? stateDisplay,
     String? currency,
@@ -195,6 +204,8 @@ class Order extends Equatable {
       customerName: customerName ?? this.customerName,
       customerEmail: customerEmail ?? this.customerEmail,
       customerPhone: customerPhone ?? this.customerPhone,
+      orderStatus: orderStatus ?? this.orderStatus,
+      paymentStatusDisplay: paymentStatusDisplay ?? this.paymentStatusDisplay,
       state: state ?? this.state,
       stateDisplay: stateDisplay ?? this.stateDisplay,
       currency: currency ?? this.currency,
@@ -237,6 +248,8 @@ class Order extends Equatable {
         customerName,
         customerEmail,
         customerPhone,
+        orderStatus,
+        paymentStatusDisplay,
         state,
         stateDisplay,
         currency,

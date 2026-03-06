@@ -381,7 +381,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Text(
-                  '${AppLocalizations.of(context)!.totalItems}: ${summary.totalItems}',
+                  '${AppLocalizations.of(context)!.totalItems} ${summary.totalItems}',
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.xsFontSize,
                     color: colorScheme.onPrimary,
@@ -503,7 +503,7 @@ class CompactOrderSummarySection extends StatelessWidget {
                     children: [
                       Text(
                         item.cartItem.product.name,
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         softWrap: true,
                         style: AppFonts.getTextStyle(

@@ -66,12 +66,16 @@ class OnboardingRemoteDataSourceImpl implements OnboardingRemoteDataSource {
       return trimmed;
     }
     
-    // Import the base URL from app constants
+    // Import the base URL from app constants and safely concatenate,
+    // ensuring exactly one slash between host and path.
     const String baseUrl = AppConstants.baseUrl;
-    
+
     try {
-      final String finalUrl = baseUrl + trimmed.replaceFirst('/', '');
-      return finalUrl;
+      final String cleanBase =
+          baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      final String cleanPath =
+          trimmed.startsWith('/') ? trimmed : '/$trimmed';
+      return '$cleanBase$cleanPath';
     } catch (e) {
       print('❌ OnboardingRemoteDataSource._resolveImageUrl - Error resolving URL: $e');
       return trimmed; // Return original if resolution fails

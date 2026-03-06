@@ -81,7 +81,9 @@ class PaymentDetailsCard extends StatelessWidget {
           _buildInfoRow(
             context,
             loc.paymentStatus,
-            OrderConstants.localizedPaymentStatus(context, order.paymentStatus),
+            // Prefer human-readable payment status from backend if available
+            order.paymentStatusDisplay ??
+                OrderConstants.localizedPaymentStatus(context, order.paymentStatus),
           ),
           
           // Show invoice status if available
@@ -148,7 +150,7 @@ class PaymentDetailsCard extends StatelessWidget {
             ),
           ],
           
-          if (order.paymentStatus.name == 'paid') ...[
+          if (order.paymentStatus == PaymentStatus.paid && !order.isCancelled) ...[
             SizedBox(height: ResponsiveConstants.smSpacing),
             Container(
               padding: EdgeInsets.all(ResponsiveConstants.smPadding),
@@ -206,6 +208,7 @@ class PaymentDetailsCard extends StatelessWidget {
               ),
             ),
           ),
+          SizedBox(width: ResponsiveConstants.smSpacing),
           Expanded(
             child: Text(
               value,

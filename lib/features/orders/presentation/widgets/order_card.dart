@@ -29,9 +29,18 @@ class OrderCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
-    final statusColor = OrderConstants.statusColors[order.status.name] ?? colorScheme.outline;
-    final statusText = OrderConstants.localizedStatus(context, order.status);
-    final String? imageUrl = order.items.isNotEmpty && order.items.first.product.images.isNotEmpty
+
+    // Use backend order_status value for status chip text and color.
+    final String rawStatus = (order.orderStatus ?? '').trim();
+    final String statusKey = rawStatus.toLowerCase();
+    final Color statusColor =
+        OrderConstants.statusColors[statusKey] ?? colorScheme.outline;
+    final String statusText = rawStatus.isNotEmpty
+        ? rawStatus
+        : OrderConstants.localizedStatus(context, order.status);
+
+    final String? imageUrl = order.items.isNotEmpty &&
+            order.items.first.product.images.isNotEmpty
         ? order.items.first.product.images.first
         : null;
 

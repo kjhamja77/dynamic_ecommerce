@@ -15,6 +15,8 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../data/datasources/address_remote_data_source.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../profile/domain/usecases/get_user_profile.dart';
+import '../../../auth/presentation/widgets/phone_input_field.dart';
+import '../../../../core/utils/country_code_detector.dart';
 
 class EditAddressPage extends StatefulWidget {
   final Address? address; // For editing existing address
@@ -27,6 +29,7 @@ class EditAddressPage extends StatefulWidget {
 
 class _EditAddressPageState extends State<EditAddressPage> {
   final _formKey = GlobalKey<FormState>();
+  final _fullName = TextEditingController();
   final _street = TextEditingController();
   final _phone = TextEditingController();
   final _streetNumber = TextEditingController();
@@ -59,6 +62,11 @@ class _EditAddressPageState extends State<EditAddressPage> {
 
   int? _selectedProvinceId;
   String _selectedProvinceName = '';
+
+  // Phone country selector state (same widget as profile / register)
+  final GlobalKey<PhoneInputFieldState> _phoneFieldKey =
+      GlobalKey<PhoneInputFieldState>();
+  String? _initialPhoneCountryCode;
 
   @override
   void initState() {
@@ -98,8 +106,16 @@ class _EditAddressPageState extends State<EditAddressPage> {
       debugPrint('  - State ID: ${address.stateId}');
       debugPrint('  - Province ID: ${address.provinceId}');
       
+      _fullName.text = address.fullName;
       _street.text = address.street;
-      _phone.text = address.phone;
+
+      // Normalize stored phone + country code into national number and dial code
+      final normalized = _normalizePhoneAndCode(
+        address.phone,
+        address.phoneCountryCode,
+      );
+      _phone.text = normalized.national;
+      _initialPhoneCountryCode = normalized.dialCode;
       _streetNumber.text = address.streetNumber;
       _building.text = address.building;
       _floor.text = address.floor;
@@ -145,13 +161,20 @@ class _EditAddressPageState extends State<EditAddressPage> {
           debugPrint('EditAddressPage: Failed to load user profile for phone prefill: $failure');
         },
         (profile) {
-          final phone = profile.phoneNumber ?? '';
           if (!mounted) return;
-          if (_phone.text.trim().isEmpty && phone.isNotEmpty) {
-            setState(() {
-              _phone.text = phone;
-            });
-          }
+          final normalized = _normalizePhoneAndCode(
+            profile.phoneNumber,
+            profile.countryCode,
+          );
+          setState(() {
+            if (_fullName.text.trim().isEmpty && profile.name.isNotEmpty) {
+              _fullName.text = profile.name;
+            }
+            if (_phone.text.trim().isEmpty && normalized.national.isNotEmpty) {
+              _phone.text = normalized.national;
+            }
+            _initialPhoneCountryCode ??= normalized.dialCode;
+          });
         },
       );
     } catch (e) {
@@ -189,8 +212,42 @@ class _EditAddressPageState extends State<EditAddressPage> {
     }
   }
 
+  /// Normalizes a (phone, countryCode) pair into (dialCode, nationalDigits).
+  /// countryCode may be ISO (e.g. "IQ") or dial (e.g. "964").
+  ({String? dialCode, String national}) _normalizePhoneAndCode(
+    String? phone,
+    String? countryCode,
+  ) {
+    final rawPhone = phone ?? '';
+    final digits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return (dialCode: null, national: '');
+    }
+
+    String? dialCode;
+    final rawCode = countryCode?.trim();
+    if (rawCode != null && rawCode.isNotEmpty) {
+      if (RegExp(r'^\d+$').hasMatch(rawCode)) {
+        dialCode = rawCode;
+      } else {
+        final country = CountryCodeDetector.getCountryFromCode(rawCode);
+        dialCode = country?.phoneCode;
+      }
+    }
+
+    String national = digits;
+    if (dialCode != null &&
+        dialCode.isNotEmpty &&
+        national.startsWith(dialCode)) {
+      national = national.substring(dialCode.length);
+    }
+
+    return (dialCode: dialCode, national: national);
+  }
+
   @override
   void dispose() {
+    _fullName.dispose();
     _phone.dispose();
     _street.dispose();
     _streetNumber.dispose();
@@ -426,6 +483,16 @@ class _EditAddressPageState extends State<EditAddressPage> {
                 SizedBox(height: ResponsiveConstants.mdSpacing),
 
                 _buildTextField(
+                  controller: _fullName,
+                  label: AppLocalizations.of(context)!.fullName,
+                  hint: AppLocalizations.of(context)!.enterYourFullName,
+                  icon: Icons.person_outline,
+                  validator: (value) =>
+                      value?.trim().isEmpty == true ? AppLocalizations.of(context)!.nameIsRequired : null,
+                ),
+                SizedBox(height: ResponsiveConstants.mdSpacing),
+
+                _buildTextField(
                   controller: _street,
                   label: AppLocalizations.of(context)!.streetName,
                   hint: AppLocalizations.of(context)!.enterStreetName,
@@ -434,18 +501,27 @@ class _EditAddressPageState extends State<EditAddressPage> {
                 ),
                 SizedBox(height: ResponsiveConstants.mdSpacing),
 
-                Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: _buildTextField(
-                    controller: _phone,
-                    label: AppLocalizations.of(context)!.phoneNumber,
-                    hint: AppLocalizations.of(context)!.phoneNumber,
-                    icon: Icons.phone,
-                    keyboardType: TextInputType.phone,
-                    validator: (value) => value?.trim().isEmpty == true
-                        ? AppLocalizations.of(context)!.phoneNumber
-                        : null,
-                  ),
+                PhoneInputField(
+                  key: _phoneFieldKey,
+                  controller: _phone,
+                  labelText: AppLocalizations.of(context)!.phoneNumber,
+                  hintText: AppLocalizations.of(context)!.enterYourPhoneNumber,
+                  initialCountryCode: _initialPhoneCountryCode,
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) {
+                      return AppLocalizations.of(context)!.phoneNumber;
+                    }
+                    final digitsOnly = text.replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digitsOnly.length < 7) {
+                      return _tr(
+                        context,
+                        en: 'Please enter a valid phone number',
+                        ar: 'يرجى إدخال رقم هاتف صالح',
+                      );
+                    }
+                    return null;
+                  },
                 ),
                 SizedBox(height: ResponsiveConstants.mdSpacing),
 
@@ -896,12 +972,21 @@ class _EditAddressPageState extends State<EditAddressPage> {
     });
 
     try {
-      // Use phone number entered in the form
-      final resolvedPhone = _phone.text.trim();
+      // Use phone number entered in the form (national digits only) and selected country dial code.
+      final rawPhone = _phone.text.trim();
+      final nationalDigits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final selectedCountry = _phoneFieldKey.currentState?.selectedCountry;
+      final rawDial = "+${selectedCountry?.phoneCode}" ?? '';
+
+      final dialDigits = rawDial.replaceAll(RegExp(r'[^0-9]'), '');
+      final String? storedDialCode = dialDigits.isEmpty ? null : dialDigits;
+
       final address = Address(
         id: widget.address?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        fullName: AppLocalizations.of(context)!.user,
-        phone: resolvedPhone,
+        fullName: _fullName.text.trim(),
+        phone: nationalDigits,
+        phoneCountryCode: storedDialCode,
         country: _selectedCountryName,
         // Use selected province as city in backend, district remains separate text field
         city: _selectedProvinceName.isNotEmpty ? _selectedProvinceName : _district.text.trim(),

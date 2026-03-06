@@ -237,6 +237,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final shadowOpacity = theme.brightness == Brightness.dark ? 0.25 : 0.08;
+    final currencyProvider = context.read<CurrencyProvider?>();
+    final locale = Localizations.localeOf(context);
+
+    // Use backend order_status value for status chip and related logic.
+    final String rawStatus = (order.orderStatus ?? '').trim();
+    final String statusKey = rawStatus.toLowerCase();
+    final Color statusColor =
+        OrderConstants.statusColors[statusKey] ?? OrderConstants.primaryColor;
 
     return Container(
       width: double.infinity,
@@ -314,24 +322,25 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: OrderConstants.statusColors[order.status.name]?.withValues(alpha: 0.1) ??
-                                OrderConstants.primaryColor.withValues(alpha: 0.1),
+                            color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            OrderConstants.localizedStatus(context, order.status),
+                            rawStatus.isNotEmpty
+                                ? rawStatus
+                                : OrderConstants.localizedStatus(context, order.status),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppFonts.getTextStyle(
                               fontSize: ResponsiveConstants.smFontSize,
                               fontWeight: FontWeight.w600,
-                              color: OrderConstants.statusColors[order.status.name] ??
-                                  OrderConstants.primaryColor,
+                              color: statusColor,
                             ),
                           ),
                         ),
                         const Spacer(),
-                        if (order.status == OrderStatus.delivered)
+                        // Show "Request Return" only when backend status indicates delivered.
+                        if (statusKey == 'delivered' || statusKey == 'completed')
                           InkWell(
                             onTap: () async {
                               await HapticService.buttonClick();
@@ -418,7 +427,12 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    '${order.totalAmount.toStringAsFixed(2)} ${order.currency ?? ''}',
+                    currencyProvider != null
+                        ? currencyProvider.formatPrice(
+                            order.totalAmount,
+                            locale: locale,
+                          )
+                        : '${order.totalAmount.toStringAsFixed(2)} ${order.currency ?? ''}',
                     style: AppFonts.getTextStyle(
                       fontSize: ResponsiveConstants.lgFontSize,
                       fontWeight: FontWeight.w700,
@@ -507,14 +521,18 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         SizedBox(height: ResponsiveConstants.smSpacing),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.mdPadding),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
               onPressed: () async {
                 await HapticService.buttonClick();
                 OrderHelpButton.showHelpSheet(context, order);
               },
-              icon: Icon(Icons.help_outline, size: 20, color: colorScheme.primary),
+              icon: Icon(
+                Icons.help_outline,
+                size: 20,
+                color: colorScheme.primary,
+              ),
               label: Text(
                 loc.needHelp,
                 style: AppFonts.getTextStyle(
@@ -522,12 +540,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   color: colorScheme.primary,
                 ),
               ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: colorScheme.primary),
-                padding: EdgeInsets.symmetric(vertical: ResponsiveConstants.mdPadding),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                ),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: Size.zero,
               ),
             ),
           ),

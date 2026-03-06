@@ -73,19 +73,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _nameController.text = profile.name;
     _emailController.text = profile.email;
     
-    // Handle phone number from API (strip +country code; country code handled by PhoneInputField.initialCountryCode)
-    final phoneNumber = profile.phoneNumber ?? '';
-    if (phoneNumber.isNotEmpty) {
-      String cleanPhoneNumber = phoneNumber;
-      if (phoneNumber.startsWith('+')) {
-        final detected = CountryCodeDetector.detectCountry(phoneNumber);
-        if (detected != null &&
-            phoneNumber.startsWith('+${detected.phoneCode}')) {
-          cleanPhoneNumber =
-              phoneNumber.substring('+${detected.phoneCode}'.length);
-        }
-      }
-      _phoneController.text = cleanPhoneNumber;
+    // Normalize phone from API to national number only (no country code prefix).
+    final normalizedPhone = _normalizePhoneFromProfile(profile);
+    if (normalizedPhone.isNotEmpty) {
+      _phoneController.text = normalizedPhone;
     }
     
     _avatarUrl = profile.avatarUrl;
@@ -110,19 +101,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _nameController.text = profile.name;
     _emailController.text = profile.email;
 
-    // Handle phone number
-    final phoneNumber = profile.phoneNumber ?? '';
-    if (phoneNumber.isNotEmpty) {
-      String cleanPhoneNumber = phoneNumber;
-      if (phoneNumber.startsWith('+')) {
-        final detected = CountryCodeDetector.detectCountry(phoneNumber);
-        if (detected != null &&
-            phoneNumber.startsWith('+${detected.phoneCode}')) {
-          cleanPhoneNumber =
-              phoneNumber.substring('+${detected.phoneCode}'.length);
-        }
-      }
-      _phoneController.text = cleanPhoneNumber;
+    // Handle phone number (normalize to national number only)
+    final normalizedPhone = _normalizePhoneFromProfile(profile);
+    if (normalizedPhone.isNotEmpty) {
+      _phoneController.text = normalizedPhone;
     } else {
       _phoneController.clear();
     }
@@ -1112,10 +1094,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
       // Phone: send national digits only (no country code prefix).
       // Country code: send dial code (e.g. "971") so backend stores it correctly.
       // Profile header and PhoneInputField accept both ISO and dial code for display/init.
-      final String rawPhone = _phoneController.text.trim();
-      final String? phoneNumberToSave = rawPhone.isEmpty ? null : rawPhone;
-      final String? countryCodeToSave =
-          _phoneFieldKey.currentState?.selectedCountry.countryCode;
+      final String rawInput = _phoneController.text.trim();
+      final selectedCountry = _phoneFieldKey.currentState?.selectedCountry;
+      // What user types in the field is the mobile number. We must:
+      // - Strip all non-digits
+      // - Remove the country dial code prefix if the user typed it again
+      final rawDigits = rawInput.replaceAll(RegExp(r'[^0-9]'), '');
+      String nationalPhone = rawDigits;
+      if (selectedCountry != null &&
+          selectedCountry.phoneCode.isNotEmpty &&
+          nationalPhone.startsWith(selectedCountry.phoneCode)) {
+        nationalPhone =
+            nationalPhone.substring(selectedCountry.phoneCode.length);
+      }
+      final String? phoneNumberToSave =
+          nationalPhone.isEmpty ? null : nationalPhone;
+      final String? countryCodeToSave = selectedCountry?.phoneCode;
 
       // Image to send: prefer picked bytes as base64 so update API always gets the image
       String? avatarUrlToSave;
@@ -1164,5 +1158,47 @@ class _EditProfilePageState extends State<EditProfilePage> {
         );
       }
     }
+  }
+
+  /// Normalizes a profile's phone number to national digits only (no country code prefix).
+  /// Uses profile.countryCode when available; otherwise falls back to detecting from phone.
+  String _normalizePhoneFromProfile(UserProfile profile) {
+    final phoneNumber = profile.phoneNumber ?? '';
+    if (phoneNumber.isEmpty) return '';
+
+    // Keep only digits for normalization
+    final digits = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '';
+
+    String national = digits;
+
+    // Try to resolve dial code from profile.countryCode first
+    String? dialCode;
+    final rawCode = profile.countryCode?.trim();
+    if (rawCode != null && rawCode.isNotEmpty) {
+      if (RegExp(r'^\d+$').hasMatch(rawCode)) {
+        dialCode = rawCode;
+      } else {
+        final country = CountryCodeDetector.getCountryFromCode(rawCode);
+        dialCode = country?.phoneCode;
+      }
+    }
+
+    // Fallback: detect country from full phone (with possible + prefix)
+    if (dialCode == null) {
+      final detected = CountryCodeDetector.detectCountry(phoneNumber);
+      if (detected != null) {
+        dialCode = detected.phoneCode;
+      }
+    }
+
+    // Strip dial code prefix once if present
+    if (dialCode != null &&
+        dialCode.isNotEmpty &&
+        national.startsWith(dialCode)) {
+      national = national.substring(dialCode.length);
+    }
+
+    return national;
   }
 }

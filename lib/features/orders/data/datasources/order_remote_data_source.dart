@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/endpoints.dart';
@@ -110,6 +111,7 @@ abstract class OrderRemoteDataSource {
   Future<List<OrderModel>> getOrderHistory({int page, int limit});
   Future<OrderModel> getOrderDetails({required int orderId});
   Future<DeliveryStatusDto> getDeliveryStatus({required int orderId});
+  Future<void> cancelOrder({required int orderId});
   Future<RefundRequestModel> createRefundRequest({
     required int orderId,
     required List<Map<String, dynamic>> refundLines,
@@ -173,6 +175,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           .whereType<Map<String, dynamic>>()
           .map((rawOrder) => _mapOrderFromApi(rawOrder, now))
           .toList();
+
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Network error while fetching order history');
     } catch (e) {
@@ -373,6 +376,36 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   }
 
   @override
+  Future<void> cancelOrder({required int orderId}) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.cancelOrder,
+        method: 'POST',
+        params: <String, dynamic>{
+          'order_id': orderId,
+        },
+      );
+
+      final envelope = apiClient.parseRpcEnvelope(response.data);
+
+      if (response.statusCode != 200 ||
+          envelope.status.toLowerCase() != 'success') {
+        final message = envelope.message ??
+            'Failed to cancel order (${response.statusCode})';
+        throw ServerFailure(message);
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(
+        e.message ?? 'Network error while cancelling order',
+      );
+    } catch (e) {
+      throw ServerFailure(
+        'Unexpected error while cancelling order: $e',
+      );
+    }
+  }
+
+  @override
   Future<void> cancelRefundRequest({required int requestId}) async {
     try {
       final response = await apiClient.requestRpc(
@@ -410,6 +443,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
 
     final String orderNumber = (json['name'] ?? '').toString();
     final String state = (json['state'] ?? '').toString().toLowerCase();
+    // Business-level order status coming directly from the API, e.g. "Confirmed"
+    final String rawOrderStatus = (json['order_status'] ?? '').toString();
+    final String orderStatusKey = rawOrderStatus.toLowerCase();
     final String stateDisplay = (json['state_display'] ?? '').toString();
     final String invoiceStatus = (json['invoice_status'] ?? '').toString().toLowerCase();
     final String alqasehStatus = (json['alqaseh_status'] ?? '').toString().toLowerCase();
@@ -419,13 +455,15 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         ? (json['order_line_count'] as num).toInt() 
         : null;
     
-    // Extract payment_state from invoices array (priority source for payment status)
+    // Extract payment_state and payment_state_display from invoices array (priority source for payment status)
     String paymentState = '';
+    String paymentStateDisplay = '';
     final List<dynamic> invoices = (json['invoices'] as List<dynamic>?) ?? const <dynamic>[];
     if (invoices.isNotEmpty) {
       final firstInvoice = invoices.first;
       if (firstInvoice is Map<String, dynamic>) {
         paymentState = (firstInvoice['payment_state'] ?? '').toString().toLowerCase();
+        paymentStateDisplay = (firstInvoice['payment_state_display'] ?? '').toString();
       }
     }
     
@@ -461,7 +499,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       shippingCost: shippingCost,
       taxAmount: (json['amount_tax'] as num?)?.toDouble() ?? 0.0,
       totalAmount: (json['amount_total'] as num?)?.toDouble() ?? 0.0,
-      status: _mapOrderStatus(state),
+      status: _mapOrderStatus(
+        orderStatusKey.isNotEmpty ? orderStatusKey : state,
+      ),
       paymentStatus: _mapPaymentStatus(paymentState.isNotEmpty ? paymentState : invoiceStatus, alqasehStatus),
       shippingAddress: _buildShippingAddress(shippingPartner),
       billingAddress: _buildShippingAddress(shippingPartner),
@@ -475,6 +515,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       customerName: (shippingPartner['name'] ?? '').toString(),
       customerEmail: (shippingPartner['email'] ?? '').toString(),
       customerPhone: (shippingPartner['phone'] ?? shippingPartner['mobile'] ?? '').toString(),
+      orderStatus: rawOrderStatus.isNotEmpty ? rawOrderStatus : null,
+      paymentStatusDisplay: paymentStateDisplay.isNotEmpty ? paymentStateDisplay : null,
       state: state.isNotEmpty ? state : null,
       stateDisplay: stateDisplay.isNotEmpty ? stateDisplay : null,
       currency: currency.isNotEmpty ? currency : null,
@@ -596,17 +638,51 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     );
   }
 
-  OrderStatus _mapOrderStatus(String state) {
+  OrderStatus _mapOrderStatus(String rawStatus) {
+    final state = rawStatus.toLowerCase().trim();
     switch (state) {
+      // Pending / draft
       case 'draft':
       case 'sent':
+      case 'pending':
         return OrderStatus.pending;
+
+      // Confirmed
+      case 'confirmed':
+      case 'confirm':
+      case 'order confirmed':
+        return OrderStatus.confirmed;
+
+      // Processing / in progress / sale
       case 'sale':
+      case 'processing':
+      case 'in progress':
+      case 'in_progress':
         return OrderStatus.processing;
+
+      // Shipped / in transit
+      case 'shipped':
+      case 'in_transit':
+      case 'in transit':
+        return OrderStatus.shipped;
+
+      // Delivered / completed / done
       case 'done':
+      case 'delivered':
+      case 'completed':
         return OrderStatus.delivered;
+
+      // Cancelled
       case 'cancel':
+      case 'cancelled':
+      case 'canceled':
         return OrderStatus.cancelled;
+
+      // Returned
+      case 'returned':
+      case 'return':
+        return OrderStatus.returned;
+
       default:
         return OrderStatus.pending;
     }
@@ -673,6 +749,13 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   }
 
   String _inferPaymentMethod(Map<String, dynamic> json) {
+    // 1) Prefer explicit payment_method field from API response when available
+    final paymentMethod = json['payment_method']?.toString();
+    if (paymentMethod != null && paymentMethod.isNotEmpty) {
+      return paymentMethod;
+    }
+
+    // 2) Fallback to shipping method name (legacy behaviour)
     final shippingMethod = json['shipping_method'];
     if (shippingMethod is Map<String, dynamic>) {
       final name = shippingMethod['product_name']?.toString();
@@ -680,6 +763,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         return name;
       }
     }
+
+    // 3) Safe default
     return 'Online Payment';
   }
 

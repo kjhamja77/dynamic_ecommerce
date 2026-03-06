@@ -216,26 +216,6 @@ class _OrderHelpSheetContent extends StatelessWidget {
                 OrderHelpButton._launchWhatsAppStatic(context, order);
               },
             ),
-            SizedBox(height: ResponsiveConstants.smSpacing),
-            _HelpOption(
-              icon: Icons.assignment_return_outlined,
-              title: loc.requestReturn,
-              subtitle: loc.returnThisOrder,
-              iconColor: order.status == OrderStatus.delivered
-                  ? OrderConstants.primaryColor
-                  : colorScheme.onSurface.withValues(alpha: 0.4),
-              iconBackgroundColor: order.status == OrderStatus.delivered
-                  ? OrderConstants.primaryColor.withValues(alpha: 0.1)
-                  : colorScheme.onSurface.withValues(alpha: 0.06),
-              enabled: order.status == OrderStatus.delivered,
-              onTap: order.status == OrderStatus.delivered
-                  ? () async {
-                      await HapticService.buttonClick();
-                      Navigator.of(context).pop();
-                      OrderHelpButton._requestReturnStatic(context, order);
-                    }
-                  : null,
-            ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
           ],
         ),

@@ -2,6 +2,8 @@ class Address {
   final String id;
   final String fullName;
   final String phone;
+  /// Dial country code for phone (e.g. "964"), mapped to API field "country_code" for addresses.
+  final String? phoneCountryCode;
   final String country;
   final String city;
   final String district;
@@ -24,6 +26,7 @@ class Address {
     required this.id,
     required this.fullName,
     required this.phone,
+    this.phoneCountryCode,
     required this.country,
     required this.city,
     required this.district,
@@ -63,12 +66,14 @@ class Address {
     int? countryId,
     int? stateId,
     int? provinceId,
+    String? phoneCountryCode,
     String? type,
   }) {
     return Address(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
       country: country ?? this.country,
       city: city ?? this.city,
       district: district ?? this.district,

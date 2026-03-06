@@ -21,6 +21,16 @@ class OrderActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    // Derive button behaviour from backend order_status value instead of local enum.
+    final String rawStatus = (order.orderStatus ?? '').trim();
+    final String statusKey = rawStatus.toLowerCase();
+    final bool isInProgress =
+        statusKey == 'processing' || statusKey == 'in progress' || statusKey == 'in_progress';
+    final bool canBeCancelledByStatus = statusKey == 'pending' ||
+        statusKey == 'confirmed' ||
+        statusKey == 'processing' ||
+        statusKey == 'in progress' ||
+        statusKey == 'in_progress';
 
     return Padding(
       padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
@@ -52,7 +62,7 @@ class OrderActionButtons extends StatelessWidget {
             ),
             SizedBox(height: ResponsiveConstants.smSpacing),
           ],
-          if (order.canBeCancelled) ...[
+          if (canBeCancelledByStatus && !isInProgress) ...[
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -83,7 +93,11 @@ class OrderActionButtons extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () async {
                 await HapticService.buttonClick();
-                Navigator.of(context).pop();
+                if (isInProgress) {
+                  _showCancelOrderDialog(context);
+                } else {
+                  Navigator.of(context).pop();
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: colorScheme.primary,
@@ -94,7 +108,7 @@ class OrderActionButtons extends StatelessWidget {
                 ),
               ),
               child: Text(
-                loc.backToOrders,
+                isInProgress ? loc.cancelOrder : loc.backToOrders,
                 style: AppFonts.getTextStyle(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onPrimary,
@@ -182,11 +196,13 @@ class OrderActionButtons extends StatelessWidget {
   }
 
   void _showCancelOrderDialog(BuildContext context) {
+    // Capture the context that is under the OrdersBloc provider.
+    final blocContext = context;
     final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(
           loc.cancelOrder,
           style: AppFonts.getTextStyle(fontWeight: FontWeight.w600),
@@ -199,25 +215,25 @@ class OrderActionButtons extends StatelessWidget {
           TextButton(
             onPressed: () async {
               await HapticService.buttonClick();
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
             },
             child: Text(
               loc.keepOrder,
               style: AppFonts.getTextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           ElevatedButton(
             onPressed: () async {
               await HapticService.buttonClick();
-              Navigator.of(context).pop();
-              context.read<OrdersBloc>().add(CancelOrderEvent(order.id));
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
+              blocContext.read<OrdersBloc>().add(CancelOrderEvent(order.id));
+              Navigator.of(blocContext).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
             ),
             child: Text(
               loc.confirmCancelOrder,

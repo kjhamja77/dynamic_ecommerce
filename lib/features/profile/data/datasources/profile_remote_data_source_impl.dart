@@ -197,12 +197,21 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       }
 
       // Always send phone number (can be null/empty to clear it)
-      params['phone'] = profile.phoneNumber ?? '';
-      debugPrint('Profile update: Phone: ${profile.phoneNumber ?? "empty"}');
+      // Normalize to national digits only (no country code prefix) using profile.countryCode when available.
+      final rawPhone = profile.phoneNumber ?? '';
+      final rawCode = profile.countryCode ?? '';
+      final digitsOnly = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+      String nationalPhone = digitsOnly;
+      final ccDigits = rawCode.replaceAll(RegExp(r'[^0-9]'), '');
+      if (ccDigits.isNotEmpty && nationalPhone.startsWith(ccDigits)) {
+        nationalPhone = nationalPhone.substring(ccDigits.length);
+      }
+      params['phone'] = nationalPhone;
+      debugPrint('Profile update: Phone (normalized): $nationalPhone (raw="$rawPhone", country="$rawCode")');
 
       // Always send country code (can be null/empty to clear it)
-      params['country_code'] = profile.countryCode ?? '';
-      debugPrint('Profile update: Country code: ${profile.countryCode ?? "empty"}');
+      params['country_code'] = rawCode;
+      debugPrint('Profile update: Country code: ${rawCode.isEmpty ? "empty" : rawCode}');
 
       // Parse address components if address string exists
       if (profile.address != null && profile.address!.isNotEmpty) {
@@ -336,13 +345,17 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
     final String orderNumber = (json['name'] ?? '').toString();
     final String state = (json['state'] ?? '').toString().toLowerCase();
+    final String orderStatusLabel =
+        (json['order_status'] ?? '').toString().toLowerCase();
     final String currency = (json['currency'] ?? 'IQD').toString();
     
     final DateTime orderDate = _parseDateTime(json['date_order']) ?? DateTime.now();
     final DateTime? validityDate = _parseDate(json['validity_date']);
 
-    // Map order status
-    final OrderStatus status = _mapOrderStatus(state);
+    // Map order status, preferring business-level order_status when available
+    final OrderStatus status = _mapOrderStatus(
+      orderStatusLabel.isNotEmpty ? orderStatusLabel : state,
+    );
 
     // Map order lines to order items
     final List<dynamic> orderLines = (json['order_lines'] as List<dynamic>?) ?? const <dynamic>[];
@@ -394,17 +407,51 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     );
   }
 
-  OrderStatus _mapOrderStatus(String state) {
+  OrderStatus _mapOrderStatus(String rawStatus) {
+    final state = rawStatus.toLowerCase().trim();
     switch (state) {
+      // Pending / draft
       case 'draft':
       case 'sent':
+      case 'pending':
         return OrderStatus.pending;
+
+      // Confirmed
+      case 'confirmed':
+      case 'confirm':
+      case 'order confirmed':
+        return OrderStatus.confirmed;
+
+      // Processing / in progress / sale
       case 'sale':
+      case 'processing':
+      case 'in progress':
+      case 'in_progress':
         return OrderStatus.processing;
+
+      // Shipped / in transit
+      case 'shipped':
+      case 'in_transit':
+      case 'in transit':
+        return OrderStatus.shipped;
+
+      // Delivered / completed / done
       case 'done':
+      case 'delivered':
+      case 'completed':
         return OrderStatus.delivered;
+
+      // Cancelled
       case 'cancel':
+      case 'cancelled':
+      case 'canceled':
         return OrderStatus.cancelled;
+
+      // Returned
+      case 'returned':
+      case 'return':
+        return OrderStatus.returned;
+
       default:
         return OrderStatus.pending;
     }

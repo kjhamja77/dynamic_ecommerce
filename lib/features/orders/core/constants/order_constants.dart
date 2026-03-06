@@ -9,22 +9,34 @@ class OrderConstants {
   static const Color primaryColorLight = Color(0xFFF89A63); // Lighter variant
   static const Color primaryColorDark = Color(0xFFD4521A); // Darker variant
   
-  // Semantic colors (keeping green for success, red for errors)
-  static const Color successColor = Color(0xFF10B981); // Green for success
-  static const Color errorColor = Color(0xFFEF4444); // Red for errors/cancelled
-  static const Color warningColor = primaryColor; // Orange for warnings/pending
-  static const Color infoColor = Color(0xFF3B82F6); // Blue for info
-  static const Color neutralColor = Color(0xFF6B7280); // Grey for neutral states
+  // Semantic colors tuned to blend with the orange theme
+  static const Color successColor = Color(0xFF15803D); // Dark green for completed/delivered
+  static const Color errorColor = Color(0xFFDC2626); // Red for errors/cancelled
+  static const Color warningColor = Color(0xFFFACC15); // Warm yellow for confirmed / pending approval
+  static const Color infoColor = Color(0xFF2563EB); // Blue for info / shipped
+  static const Color neutralColor = Color(0xFF9CA3AF); // Softer grey for pending/neutral
 
-  // Status colors - using app theme
+  // Status colors - semantic and visually distinct
   static const Map<String, Color> statusColors = {
-    'pending': warningColor,
-    'confirmed': primaryColor,
-    'processing': primaryColorLight,
-    'shipped': infoColor,
-    'delivered': successColor,
+    // Core order lifecycle (order_status from API)
+    'pending': neutralColor,          // Awaiting confirmation (grey)
+    'confirmed': warningColor,        // Confirmed (yellow)
+    'processing': primaryColor,       // In preparation / being packed
+    'shipped': infoColor,             // In transit
+    'delivered': successColor,        // Successfully delivered (completed)
+    'completed': successColor,        // Some backends use "Completed"
     'cancelled': errorColor,
+    'canceled': errorColor,
     'returned': neutralColor,
+    // Refund-related business statuses from API (order_status)
+    'refund - pending': warningColor,              // Waiting on approval
+    'refund - pending approval': warningColor,     // Explicit pending-approval label
+    'refund - processing': primaryColor,           // Being handled
+    'refund - processed': successColor,            // Finished
+    'refund - approved': successColor,
+    'refund - completed': successColor,
+    'refund - cancelled': errorColor,
+    'refund - canceled': errorColor,
   };
 
   // Payment status colors - using app theme

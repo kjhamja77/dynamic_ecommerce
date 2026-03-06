@@ -741,6 +741,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get returnThisOrder => 'Return this order';
 
   @override
+  String get itemsInThisOrder => 'Items in this order';
+
+  @override
+  String orderedQuantityLabel(num quantity) {
+    return 'Ordered qty: $quantity';
+  }
+
+  @override
+  String get reasonForReturn => 'Reason for return';
+
+  @override
+  String get returnReasonHint =>
+      'Please describe why you want to return these item(s).';
+
+  @override
+  String get submitReturnRequest => 'Submit request';
+
+  @override
   String get couldNotLaunchPhoneDialer => 'Could not launch phone dialer';
 
   @override

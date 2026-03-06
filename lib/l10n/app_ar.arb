@@ -1186,6 +1186,36 @@
   "@returnThisOrder": {
     "description": "Subtitle for return option"
   },
+
+  "itemsInThisOrder": "العناصر في هذا الطلب",
+  "@itemsInThisOrder": {
+    "description": "Title for the list of items in the refund request bottom sheet"
+  },
+
+  "orderedQuantityLabel": "الكمية المطلوبة: {quantity}",
+  "@orderedQuantityLabel": {
+    "description": "Label showing ordered quantity in refund request bottom sheet",
+    "placeholders": {
+      "quantity": {
+        "type": "num"
+      }
+    }
+  },
+
+  "reasonForReturn": "سبب الإرجاع",
+  "@reasonForReturn": {
+    "description": "Title for the reason for return section"
+  },
+
+  "returnReasonHint": "يرجى توضيح سبب رغبتك في إرجاع هذه العناصر.",
+  "@returnReasonHint": {
+    "description": "Hint text for the reason for return field"
+  },
+
+  "submitReturnRequest": "إرسال الطلب",
+  "@submitReturnRequest": {
+    "description": "Button label for submitting refund request"
+  },
   
   "couldNotLaunchPhoneDialer": "تعذر فتح تطبيق الهاتف",
   "@couldNotLaunchPhoneDialer": {

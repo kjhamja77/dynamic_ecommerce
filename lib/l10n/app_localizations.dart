@@ -1442,6 +1442,36 @@ abstract class AppLocalizations {
   /// **'إرجاع هذا الطلب'**
   String get returnThisOrder;
 
+  /// Title for the list of items in the refund request bottom sheet
+  ///
+  /// In ar, this message translates to:
+  /// **'العناصر في هذا الطلب'**
+  String get itemsInThisOrder;
+
+  /// Label showing ordered quantity in refund request bottom sheet
+  ///
+  /// In ar, this message translates to:
+  /// **'الكمية المطلوبة: {quantity}'**
+  String orderedQuantityLabel(num quantity);
+
+  /// Title for the reason for return section
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب الإرجاع'**
+  String get reasonForReturn;
+
+  /// Hint text for the reason for return field
+  ///
+  /// In ar, this message translates to:
+  /// **'يرجى توضيح سبب رغبتك في إرجاع هذه العناصر.'**
+  String get returnReasonHint;
+
+  /// Button label for submitting refund request
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال الطلب'**
+  String get submitReturnRequest;
+
   /// Phone error message
   ///
   /// In ar, this message translates to:

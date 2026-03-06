@@ -27,23 +27,18 @@ class OrderRepositoryImpl implements OrderRepository {
       // Always try to fetch from API first if connected
       if (remoteDataSource != null && await networkInfo.isConnected) {
         try {
-          // Fetch with a higher limit to get all orders (or at least more than 1)
+          // Fetch first page of orders for initial "My Orders" screen
           final remoteOrders = await remoteDataSource!.getOrderHistory(
             page: 1,
-            limit: 100, // Fetch up to 100 orders to get all user orders
+            limit: 20,
           );
           // Save and return API orders (even if empty)
           await localDataSource.saveOrders(remoteOrders);
-          debugPrint('OrderRepositoryImpl.getOrders: Fetched ${remoteOrders.length} orders from API');
           return dartz.Right(remoteOrders);
         } catch (e) {
-          // Log the error but don't silently fail
-          debugPrint('OrderRepositoryImpl.getOrders: API call failed: $e');
-          debugPrint('OrderRepositoryImpl.getOrders: Error type: ${e.runtimeType}');
           // Only fall back to cache if API fails, never to demo data
           final localOrders = await localDataSource.getOrders();
           if (localOrders.isNotEmpty) {
-            debugPrint('OrderRepositoryImpl.getOrders: Using ${localOrders.length} cached orders');
             return dartz.Right(localOrders);
           }
           // Return error instead of demo data
@@ -133,6 +128,7 @@ class OrderRepositoryImpl implements OrderRepository {
   Future<dartz.Either<Failure, Order>> cancelOrder(String orderId) async {
     try {
       final orderResult = await getOrderById(orderId);
+      final parsedOrderId = int.tryParse(orderId);
       
       return orderResult.fold(
         (failure) => dartz.Left(failure),
@@ -140,7 +136,20 @@ class OrderRepositoryImpl implements OrderRepository {
           if (!order.canBeCancelled) {
             return dartz.Left(CacheFailure('Order cannot be cancelled'));
           }
-          
+
+          // First, attempt to cancel the order on the backend if possible.
+          if (remoteDataSource != null &&
+              parsedOrderId != null &&
+              await networkInfo.isConnected) {
+            try {
+              await remoteDataSource!.cancelOrder(orderId: parsedOrderId);
+            } catch (e) {
+              return dartz.Left(
+                ServerFailure('Failed to cancel order: ${e.toString()}'),
+              );
+            }
+          }
+
           final cancelledOrder = order.copyWith(status: OrderStatus.cancelled);
           final orderModel = OrderModel.fromEntity(cancelledOrder);
           await localDataSource.saveOrder(orderModel);

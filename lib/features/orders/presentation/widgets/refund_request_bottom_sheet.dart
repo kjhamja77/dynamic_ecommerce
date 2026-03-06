@@ -81,7 +81,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
             ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
             Text(
-              'Items in this order',
+              loc.itemsInThisOrder,
               style: AppFonts.getTextStyle(
                 fontSize: ResponsiveConstants.mdFontSize,
                 fontWeight: FontWeight.w600,
@@ -131,7 +131,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
                                 height: ResponsiveConstants.xsSpacing,
                               ),
                               Text(
-                                'Ordered qty: ${item.quantity}',
+                                loc.orderedQuantityLabel(item.quantity),
                                 style: AppFonts.getTextStyle(
                                   fontSize: ResponsiveConstants.xsFontSize,
                                   color: colorScheme.onSurfaceVariant,
@@ -148,7 +148,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
             ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
             Text(
-              'Reason for return',
+              loc.reasonForReturn,
               style: AppFonts.getTextStyle(
                 fontSize: ResponsiveConstants.mdFontSize,
                 fontWeight: FontWeight.w600,
@@ -160,8 +160,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
               controller: _reasonController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText:
-                    'Please describe why you want to return these item(s).',
+                hintText: loc.returnReasonHint,
                 border: OutlineInputBorder(
                   borderRadius:
                       BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -204,7 +203,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
                         ),
                       )
                     : Text(
-                        'Submit request',
+                        loc.submitReturnRequest,
                         style: AppFonts.getTextStyle(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.onPrimary,

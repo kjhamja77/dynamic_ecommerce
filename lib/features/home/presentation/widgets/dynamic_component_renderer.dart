@@ -167,7 +167,8 @@ class DynamicComponentRenderer extends StatelessWidget {
                               style: AppFonts.getTextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w800,
-                                color: _fromHex(headingColorHex) ?? Colors.black,
+                                color: _fromHex(headingColorHex) ??
+                                    colorScheme.onSurface,
                                 letterSpacing: -0.2,
                                 height: 1.15,
                               ),
@@ -184,7 +185,8 @@ class DynamicComponentRenderer extends StatelessWidget {
                               style: AppFonts.getTextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: _fromHex(subHeadingColorHex) ?? Colors.grey,
+                                color: _fromHex(subHeadingColorHex) ??
+                                    colorScheme.onSurface.withValues(alpha: 0.75),
                                 height: 1.3,
                               ),
                             ),

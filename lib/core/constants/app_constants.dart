@@ -1,6 +1,6 @@
 class AppConstants {
   // API URLs
-  static const String baseUrl = 'https://kardosi.filesdna.com/';// http://192.168.1.201:8017/
+  static const String baseUrl = 'https://kardosi.filesdna.com/';// http://192.168.1.201:8017/ https://kardosi.filesdna.com/
   static const String apiVersion = '';
   
   // Storage Keys
@@ -22,7 +22,7 @@ class AppConstants {
   
   // App Info
   static const String appName = 'Kardosi'; // TODO: This should be localized in the app
-  static const String appVersion = '1.0.2';
+  static const String appVersion = '1.0.4';
 }
 
 class AppStrings {

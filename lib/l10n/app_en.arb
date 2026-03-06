@@ -1212,6 +1212,36 @@
     "description": "Subtitle for return option"
   },
 
+  "itemsInThisOrder": "Items in this order",
+  "@itemsInThisOrder": {
+    "description": "Title for the list of items in the refund request bottom sheet"
+  },
+
+  "orderedQuantityLabel": "Ordered qty: {quantity}",
+  "@orderedQuantityLabel": {
+    "description": "Label showing ordered quantity in refund request bottom sheet",
+    "placeholders": {
+      "quantity": {
+        "type": "num"
+      }
+    }
+  },
+
+  "reasonForReturn": "Reason for return",
+  "@reasonForReturn": {
+    "description": "Title for the reason for return section"
+  },
+
+  "returnReasonHint": "Please describe why you want to return these item(s).",
+  "@returnReasonHint": {
+    "description": "Hint text for the reason for return field"
+  },
+
+  "submitReturnRequest": "Submit request",
+  "@submitReturnRequest": {
+    "description": "Button label for submitting refund request"
+  },
+
   "couldNotLaunchPhoneDialer": "Could not launch phone dialer",
   "@couldNotLaunchPhoneDialer": {
     "description": "Phone error message"

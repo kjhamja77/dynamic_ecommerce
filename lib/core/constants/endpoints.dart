@@ -43,6 +43,9 @@ class Endpoints {
   static const String returnRequestDetails = '/ecom/sale/getRefundRequestDetails';
   static const String cancelReturnRequest = '/ecom/sale/cancelRefundRequest';
 
+  //order APIs
+  static const String cancelOrder = '/ecom/sale/cancelOrder';
+
   static Map<String, dynamic> withParams(Map<String, dynamic> params) => {
         'params': params,
       };

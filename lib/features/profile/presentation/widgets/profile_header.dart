@@ -29,16 +29,46 @@ class _ProfileHeaderState extends State<ProfileHeader> {
   /// Shows user mobile as: saved country code + saved phone number (e.g. "+964 7901234567").
   /// Accepts country_code from API as ISO ("IQ") or dial code ("964").
   String? _displayPhone(UserProfile profile) {
-    final national = profile.phoneNumber?.trim();
-    final code = profile.countryCode?.trim();
-    if (national == null || national.isEmpty) return null;
-    if (code != null && code.isNotEmpty) {
-      final String? isoCode = RegExp(r'^\d+$').hasMatch(code)
-          ? CountryCodeDetector.detectCountryCode(code)
-          : code;
-      final country = isoCode != null ? CountryCodeDetector.getCountryFromCode(isoCode) : null;
-      if (country != null) return '+${country.phoneCode} $national';
+    final rawPhone = profile.phoneNumber?.trim();
+    final rawCode = profile.countryCode?.trim();
+    if (rawPhone == null || rawPhone.isEmpty) return null;
+
+    // Normalize to digits for consistent handling
+    final digits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return null;
+
+    // Resolve dial code from countryCode (can be ISO like "IQ" or dial like "964")
+    String? dialCode;
+    if (rawCode != null && rawCode.isNotEmpty) {
+      if (RegExp(r'^\d+$').hasMatch(rawCode)) {
+        dialCode = rawCode;
+      } else {
+        final country = CountryCodeDetector.getCountryFromCode(rawCode);
+        dialCode = country?.phoneCode;
+      }
     }
+
+    // Fallback: detect from phone if countryCode missing
+    if (dialCode == null) {
+      final detected = CountryCodeDetector.detectCountry(rawPhone);
+      if (detected != null) {
+        dialCode = detected.phoneCode;
+      }
+    }
+
+    String national = digits;
+    if (dialCode != null &&
+        dialCode.isNotEmpty &&
+        national.startsWith(dialCode)) {
+      // Strip dial code once so we don't show it twice
+      national = national.substring(dialCode.length);
+    }
+
+    if (dialCode != null && dialCode.isNotEmpty) {
+      return '+$dialCode $national';
+    }
+
+    // Fallback: no country code, show digits as-is
     return national;
   }
 

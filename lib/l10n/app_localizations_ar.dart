@@ -759,6 +759,23 @@ class AppLocalizationsAr extends AppLocalizations {
   String get returnThisOrder => 'إرجاع هذا الطلب';
 
   @override
+  String get itemsInThisOrder => 'العناصر في هذا الطلب';
+
+  @override
+  String orderedQuantityLabel(num quantity) {
+    return 'الكمية المطلوبة: $quantity';
+  }
+
+  @override
+  String get reasonForReturn => 'سبب الإرجاع';
+
+  @override
+  String get returnReasonHint => 'يرجى توضيح سبب رغبتك في إرجاع هذه العناصر.';
+
+  @override
+  String get submitReturnRequest => 'إرسال الطلب';
+
+  @override
   String get couldNotLaunchPhoneDialer => 'تعذر فتح تطبيق الهاتف';
 
   @override

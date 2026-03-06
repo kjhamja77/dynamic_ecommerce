@@ -48,17 +48,31 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _handleRegister() {
     if (_formKey.currentState!.validate()) {
-      // Send national number only (no country code prefix); country_code is sent separately.
-      final nationalPhone = _phoneController.text.trim().replaceAll(RegExp(r'\s+'), '');
       final selectedCountry = _phoneFieldKey.currentState?.selectedCountry;
-      final countryCode = selectedCountry?.countryCode; // ISO e.g. 'IQ', 'AE'
+      // What user types in the field is the mobile number. We must:
+      // - Strip all non-digits
+      // - Remove the country dial code prefix if the user typed it again
+      final rawDigits =
+          _phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      String nationalPhone = rawDigits;
+      if (selectedCountry != null &&
+          selectedCountry.phoneCode.isNotEmpty &&
+          nationalPhone.startsWith(selectedCountry.phoneCode)) {
+        nationalPhone =
+            nationalPhone.substring(selectedCountry.phoneCode.length);
+      }
+
+      // Send:
+      // - country_code: selector dial code (e.g. "971")
+      // - phone: national number only (no country code prefix)
+      final dialCode = selectedCountry?.phoneCode; // Dial code e.g. "964", "971"
       context.read<AuthBloc>().add(RegisterRequested(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             phone: nationalPhone.isEmpty ? null : nationalPhone,
-            countryCode: countryCode,
+            countryCode: dialCode,
           ));
     }
   }

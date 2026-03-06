@@ -27,8 +27,16 @@ class RefundRequestCard extends StatelessWidget {
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
 
-    final statusLabel =
-        (refundRequest.stateDisplay ?? refundRequest.state).toString();
+    // Prefer a UX-friendly label over raw backend state.
+    // When state is "processed" we show "Returned" instead of "Processed".
+    String statusLabel;
+    final rawState = (refundRequest.state ?? '').toLowerCase();
+    if (rawState == 'processed') {
+      statusLabel = AppLocalizations.of(context)!.returned;
+    } else {
+      statusLabel =
+          (refundRequest.stateDisplay ?? refundRequest.state).toString();
+    }
     final statusKey = (refundRequest.state ?? '').toLowerCase();
     final Color statusColor = _mapRefundStatusColor(statusKey);
 
@@ -296,8 +304,10 @@ class RefundRequestCard extends StatelessWidget {
       case 'pending':
         return OrderConstants.warningColor;
       case 'approved':
-      case 'processed':
         return OrderConstants.successColor;
+      case 'processed':
+        // Treat processed returns as "Returned" with a distinct, non-green color
+        return OrderConstants.primaryColorLight;
       case 'rejected':
       case 'cancelled':
         return OrderConstants.errorColor;

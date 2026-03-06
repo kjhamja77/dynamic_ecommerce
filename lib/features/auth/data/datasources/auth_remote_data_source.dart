@@ -169,7 +169,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     try {
       // Phone is national number only (no country code). country_code is sent separately.
-      final String nationalPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      // Normalize here in case upper layers still pass full international format.
+      final String digitsOnly = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      String nationalPhone = digitsOnly;
+      final String ccDigits = countryCode.replaceAll(RegExp(r'[^0-9]'), '');
+      if (ccDigits.isNotEmpty && nationalPhone.startsWith(ccDigits)) {
+        nationalPhone = nationalPhone.substring(ccDigits.length);
+      }
 
       final response = await api.requestRpc(
         Endpoints.register,

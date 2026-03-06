@@ -979,6 +979,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   ShippingAddress _convertToShippingAddress(Address address) {
+    // Build display phone: "+{dialCode}{nationalDigits}" when we have both parts.
+    final nationalDigits = address.phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final ccDigits =
+        (address.phoneCountryCode ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    String displayPhone = nationalDigits;
+    if (ccDigits.isNotEmpty && nationalDigits.isNotEmpty) {
+      displayPhone = '+$ccDigits$nationalDigits';
+    }
+
     return ShippingAddress(
       id: address.id,
       firstName: address.fullName.split(' ').first,
@@ -988,7 +997,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       state: address.district,
       zipCode: address.zipCode,
       country: address.country,
-      phone: address.phone,
+      phone: displayPhone,
       isDefault: address.isDefault,
       provinceId: address.provinceId,
     );

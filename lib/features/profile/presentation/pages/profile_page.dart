@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/providers/currency_provider.dart';
@@ -7,7 +8,6 @@ import '../../../../l10n/app_localizations.dart';
 import 'package:zalando_clone_app/features/orders/presentation/pages/orders_page.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:zalando_clone_app/features/orders/presentation/bloc/orders_bloc.dart';
-import 'package:zalando_clone_app/features/orders/presentation/bloc/refund_requests_bloc.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/help_support_page.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/privacy_security_page.dart';
 import 'package:zalando_clone_app/features/profile/presentation/pages/contact_us_page.dart';
@@ -62,6 +62,7 @@ class _ProfilePageState extends State<ProfilePage>
     with AutomaticKeepAliveClientMixin {
   bool _isGuest = false;
   final String _appVersion = AppConstants.appVersion;
+  Completer<void>? _refreshCompleter;
 
   @override
   bool get wantKeepAlive => true;
@@ -74,6 +75,23 @@ class _ProfilePageState extends State<ProfilePage>
     if (currentState is! ProfileLoaded) {
       context.read<ProfileBloc>().add(LoadUserProfile());
     }
+  }
+
+  Future<void> _onRefreshProfile() {
+    // Ensure any previous refresh completer is completed to avoid leaks.
+    if (_refreshCompleter != null && !_refreshCompleter!.isCompleted) {
+      _refreshCompleter!.complete();
+    }
+    _refreshCompleter = Completer<void>();
+    context.read<ProfileBloc>().add(LoadUserProfile());
+
+    // Safety timeout so the indicator doesn't get stuck forever.
+    return _refreshCompleter!.future
+        .timeout(const Duration(seconds: 15), onTimeout: () {
+      if (!_refreshCompleter!.isCompleted) {
+        _refreshCompleter!.complete();
+      }
+    });
   }
 
   Future<void> _checkGuest() async {
@@ -204,6 +222,17 @@ class _ProfilePageState extends State<ProfilePage>
             ).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
+          }
+
+          // Complete refresh when we reach any terminal profile state.
+          if (_refreshCompleter != null &&
+              !_refreshCompleter!.isCompleted &&
+              (state is ProfileLoaded ||
+               state is ProfileUpdated ||
+               state is ProfileError ||
+               state is LoggedOut ||
+               state is AccountDeleted)) {
+            _refreshCompleter!.complete();
           }
         },
         builder: (context, state) {
@@ -386,7 +415,12 @@ class _ProfilePageState extends State<ProfilePage>
             final List<UserOrder> currentOrders = state is ProfileLoaded 
                 ? state.orders 
                 : [];
-            return CustomScrollView(
+            return RefreshIndicator(
+              onRefresh: _onRefreshProfile,
+              color: colorScheme.primary,
+              backgroundColor: colorScheme.surface,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
                   child: AppBar(
@@ -433,16 +467,8 @@ class _ProfilePageState extends State<ProfilePage>
                             context.read<ProfileBloc>().add(LoadUserOrders());
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => MultiBlocProvider(
-                                  providers: [
-                                    BlocProvider<OrdersBloc>(
-                                      create: (context) => di.sl<OrdersBloc>(),
-                                    ),
-                                    BlocProvider<RefundRequestsBloc>(
-                                      create: (context) =>
-                                          di.sl<RefundRequestsBloc>(),
-                                    ),
-                                  ],
+                                builder: (context) => BlocProvider<OrdersBloc>(
+                                  create: (context) => di.sl<OrdersBloc>(),
                                   child: const OrdersPage(),
                                 ),
                               ),
@@ -563,6 +589,7 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                 ),
               ],
+            ),
             );
           }
 
