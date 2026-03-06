@@ -131,17 +131,29 @@ class OrderCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: statusColor,
+                            color: statusColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(
                               ResponsiveConstants.smRadius,
                             ),
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.6),
+                              width: 1,
+                            ),
                           ),
-                          child: Text(
-                            statusText,
-                            style: AppFonts.getTextStyle(
-                              fontSize: ResponsiveConstants.xsFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onPrimary,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: 140,
+                            ),
+                            child: Text(
+                              statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.xsFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
                             ),
                           ),
                         ),

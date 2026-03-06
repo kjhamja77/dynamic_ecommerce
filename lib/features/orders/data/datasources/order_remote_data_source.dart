@@ -645,12 +645,19 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       case 'draft':
       case 'sent':
       case 'pending':
+      case 'في الانتظار':
+      case 'في الإنتظار':
+      case 'بانتظار':
+      case 'معلق':
         return OrderStatus.pending;
 
       // Confirmed
       case 'confirmed':
       case 'confirm':
       case 'order confirmed':
+      case 'مؤكد':
+      case 'تم التأكيد':
+      case 'تم تاكيد الطلب':
         return OrderStatus.confirmed;
 
       // Processing / in progress / sale
@@ -658,29 +665,45 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       case 'processing':
       case 'in progress':
       case 'in_progress':
+      case 'قيد المعالجة':
+      case 'قيد التجهيز':
+      case 'جاري التحضير':
+      case 'جاري المعالجة':
         return OrderStatus.processing;
 
       // Shipped / in transit
       case 'shipped':
       case 'in_transit':
       case 'in transit':
+      case 'تم الشحن':
+      case 'قيد الشحن':
         return OrderStatus.shipped;
 
       // Delivered / completed / done
       case 'done':
       case 'delivered':
       case 'completed':
+      case 'تم التسليم':
+      case 'تم الاستلام':
+      case 'مكتمل':
         return OrderStatus.delivered;
 
       // Cancelled
       case 'cancel':
       case 'cancelled':
       case 'canceled':
+      case 'ملغي':
+      case 'ألغيت':
+      case 'تم الإلغاء':
         return OrderStatus.cancelled;
 
       // Returned
       case 'returned':
       case 'return':
+      case 'مُرجع':
+      case 'مرجع':
+      case 'تم الإرجاع':
+      case 'مرتجع':
         return OrderStatus.returned;
 
       default:

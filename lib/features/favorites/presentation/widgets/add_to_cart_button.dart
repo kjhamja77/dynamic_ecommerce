@@ -9,6 +9,7 @@ import '../bloc/favorites_event.dart';
 import '../../domain/entities/favorite_product.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class AddToCartButton extends StatefulWidget {
   final Product product;
@@ -64,49 +65,102 @@ class _AddToCartButtonState extends State<AddToCartButton>
   Widget build(BuildContext context) {
     return BlocListener<CartBloc, CartState>(
       listener: (context, state) {
+        // Only react to cart state changes when this button initiated the add
+        if (!_isAdding) return;
+
+        final loc = AppLocalizations.of(context)!;
+
+        final localeCode = Localizations.localeOf(context).languageCode;
+
         if (state is CartError) {
+          _isAdding = false;
+          final baseMessage = loc.failedToAddItemToCart;
+          final detail = state.message.isNotEmpty ? state.message : '';
+          final fullMessage = localeCode == 'ar'
+              ? baseMessage
+              : (detail.isNotEmpty ? '$baseMessage\n$detail' : baseMessage);
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
+              content: Text(
+                fullMessage,
+              ),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else if (state is CartStockError) {
+          _isAdding = false;
+          final baseMessage = loc.failedToAddItemToCart;
+          final detail = state.message.isNotEmpty ? state.message : '';
+          final fullMessage = localeCode == 'ar'
+              ? baseMessage
+              : (detail.isNotEmpty ? '$baseMessage\n$detail' : baseMessage);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                fullMessage,
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
             ),
           );
         } else if (state is CartLoaded) {
-          // Show success message when item is added
-          if (_isAdding) {
-            _isAdding = false;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 20),
-                    SizedBox(width: ResponsiveConstants.smSpacing),
-                    Expanded(
-                      child: Text(
-                        '${widget.product.name} added to cart!',
-                        style: AppFonts.getTextStyle(),
-                      ),
+          // Cart successfully updated after add-to-cart from favorites
+          _isAdding = false;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: ResponsiveConstants.smSpacing),
+                  Expanded(
+                    child: Text(
+                      '${widget.product.name} — ${loc.itemAddedToCart}',
+                      style: AppFonts.getTextStyle(),
                     ),
-                    TextButton(
-                      onPressed: () async {
-          await HapticService.buttonClick();
-          // Switch to cart tab (index 3)
-                        widget.onTabChanged?.call(3);
-        },
-                      child: Text(
-                        'VIEW CART',
-                        style: AppFonts.getTextStyle(color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.green.shade600,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 3),
+                  ),
+                ],
               ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+
+          // If this button is used from Favorites, remove item from favorites
+          // only after cart add succeeds and trigger the slide-out animation.
+          if (widget.onAddToCart != null) {
+            final favoriteProduct = FavoriteProduct(
+              id: widget.product.id,
+              name: widget.product.name,
+              brand: widget.product.brand,
+              price: widget.product.price,
+              imageUrl: widget.product.images.isNotEmpty
+                  ? widget.product.images.first
+                  : null,
+              category: widget.product.category,
+              addedAt: DateTime.now(),
             );
+
+            context.read<FavoritesBloc>().add(
+                  ToggleFavorite(favoriteProduct, true),
+                );
+
+            widget.onAddToCart!.call();
+          }
+
+          // Navigate to cart page:
+          // - Use tab callback when available (main home tabs)
+          // - Fall back to explicit /cart route when opened from elsewhere
+          if (widget.onTabChanged != null) {
+            widget.onTabChanged!.call(3);
+          } else {
+            Navigator.of(context).pushNamed('/cart');
           }
         }
       },
@@ -171,6 +225,11 @@ class _AddToCartButtonState extends State<AddToCartButton>
     // Check if product is available
     // Product.isAvailable should be set correctly from FavoriteProduct.isAvailable
     if (!widget.product.isAvailable) {
+      final localeCode = Localizations.localeOf(context).languageCode;
+      final message = localeCode == 'ar'
+          ? 'هذا المنتج غير متوفر في المخزون ولا يمكن إضافته إلى سلة التسوق.'
+          : 'This item is out of stock and cannot be added to your cart.';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -179,7 +238,7 @@ class _AddToCartButtonState extends State<AddToCartButton>
               SizedBox(width: ResponsiveConstants.smSpacing),
               Expanded(
                 child: Text(
-                  '${widget.product.name} is out of stock',
+                  message,
                   style: AppFonts.getTextStyle(),
                 ),
               ),
@@ -225,23 +284,5 @@ class _AddToCartButtonState extends State<AddToCartButton>
     context.read<CartBloc>().add(
       AddItemToCart(cartItem: cartItem),
     );
-
-    // Remove from favorites
-    final favoriteProduct = FavoriteProduct(
-      id: widget.product.id,
-      name: widget.product.name,
-      brand: widget.product.brand,
-      price: widget.product.price,
-      imageUrl: widget.product.images.isNotEmpty ? widget.product.images.first : null,
-      category: widget.product.category,
-      addedAt: DateTime.now(),
-    );
-
-    context.read<FavoritesBloc>().add(
-      ToggleFavorite(favoriteProduct, true), // true means remove from favorites
-    );
-
-    // Trigger the slide animation callback
-    widget.onAddToCart?.call();
   }
 }

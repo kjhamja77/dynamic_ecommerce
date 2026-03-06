@@ -25,6 +25,7 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
   String? selectedStatusFilter;
   List<Order> _cachedOrders = [];
   final ScrollController _statusFilterScrollController = ScrollController();
+  Locale? _lastLocale;
 
   @override
   void initState() {
@@ -38,6 +39,16 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locale = Localizations.localeOf(context);
+    if (_lastLocale != locale) {
+      _lastLocale = locale;
+      setState(() {});
+    }
+  }
 
   @override
   void dispose() {
@@ -67,9 +78,10 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
             if (previous.runtimeType != current.runtimeType) {
               return true;
             }
-            // For OrdersLoaded states, only rebuild if orders list actually changed
+            // For OrdersLoaded states, always rebuild so that locale changes
+            // (e.g. EN ↔ AR) update filter chip labels dynamically
             if (previous is OrdersLoaded && current is OrdersLoaded) {
-              return previous.orders != current.orders;
+              return true;
             }
             // For other same-type states, don't rebuild (they're the same)
             return false;

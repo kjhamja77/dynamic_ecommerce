@@ -373,18 +373,29 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
               child: isLoaded
                   ? Consumer<DynamicVariantController>(
                       builder: (context, variantController, _) {
+                        // Use the currently selected variant (color/size) for favorites.
                         final String favProductId =
                             variantController.variantId.isNotEmpty
                                 ? variantController.variantId
                                 : productDetails!.id;
+
+                        // Prefer the images of the selected variant; fall back to base images.
+                        final List<String> currentImages =
+                            variantController.currentImages.isNotEmpty
+                                ? variantController.currentImages
+                                : productDetails!.images;
+
+                        // Use variant-specific price when available; otherwise template price.
+                        final double favPrice = variantController.currentPrice > 0
+                            ? variantController.currentPrice
+                            : productDetails!.price;
+
                         return FavoriteButton(
                           productId: favProductId,
                           productName: productDetails!.name,
                           brand: productDetails!.brand,
-                          price: productDetails!.price,
-                          imageUrl: productDetails!.images.isNotEmpty
-                              ? productDetails!.images.first
-                              : null,
+                          price: favPrice,
+                          imageUrl: currentImages.isNotEmpty ? currentImages.first : null,
                           category: null,
                           isFavorite: productDetails!.isFavorite,
                           size: ResponsiveConstants.mdIconSize,
