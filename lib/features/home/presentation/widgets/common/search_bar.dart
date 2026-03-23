@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_fonts.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 class HomeSearchBar extends StatefulWidget {
   final Function(String) onSearch;
@@ -32,17 +33,20 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? colorScheme.surfaceContainerHighest : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: homeCardBoxShadow(context, [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
-        ],
+        ]),
       ),
       child: TextField(
         controller: _searchController,

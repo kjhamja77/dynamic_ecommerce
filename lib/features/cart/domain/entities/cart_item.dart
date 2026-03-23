@@ -9,6 +9,12 @@ class CartItem extends Equatable {
   final String selectedSize;
   final double price;
   final DateTime addedAt;
+  /// True when this line represents a coupon/discount item (e.g. negative line).
+  final bool isCoupon;
+  /// Optional override for line subtotal from backend (e.g. price_subtotal).
+  final double? lineSubtotalOverride;
+  /// Optional override for line total from backend (e.g. price_total).
+  final double? lineTotalOverride;
 
   const CartItem({
     required this.id,
@@ -18,9 +24,18 @@ class CartItem extends Equatable {
     required this.selectedSize,
     required this.price,
     required this.addedAt,
+    this.isCoupon = false,
+    this.lineSubtotalOverride,
+    this.lineTotalOverride,
   });
 
   double get totalPrice => price * quantity;
+
+  /// Subtotal for this line. Uses backend override when provided, otherwise price * quantity.
+  double get lineSubtotal => lineSubtotalOverride ?? totalPrice;
+
+  /// Final total for this line. Uses backend override when provided, otherwise [lineSubtotal].
+  double get lineTotal => lineTotalOverride ?? lineSubtotal;
 
   CartItem copyWith({
     String? id,
@@ -30,6 +45,9 @@ class CartItem extends Equatable {
     String? selectedSize,
     double? price,
     DateTime? addedAt,
+    bool? isCoupon,
+    double? lineSubtotalOverride,
+    double? lineTotalOverride,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -39,6 +57,9 @@ class CartItem extends Equatable {
       selectedSize: selectedSize ?? this.selectedSize,
       price: price ?? this.price,
       addedAt: addedAt ?? this.addedAt,
+      isCoupon: isCoupon ?? this.isCoupon,
+      lineSubtotalOverride: lineSubtotalOverride ?? this.lineSubtotalOverride,
+      lineTotalOverride: lineTotalOverride ?? this.lineTotalOverride,
     );
   }
 
@@ -51,5 +72,8 @@ class CartItem extends Equatable {
         selectedSize,
         price,
         addedAt,
+        isCoupon,
+        lineSubtotalOverride,
+        lineTotalOverride,
       ];
 }

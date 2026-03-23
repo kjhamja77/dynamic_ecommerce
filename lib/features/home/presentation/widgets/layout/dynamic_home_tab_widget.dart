@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:zalando_clone_app/features/home/presentation/bloc/home_bloc.dart';
@@ -9,11 +11,13 @@ class DynamicHomeTabWidget extends StatefulWidget {
   final TabController outerTabController;
   final int outerTabIndex;
   final ScrollController? scrollController;
+  final int userId;
 
   const DynamicHomeTabWidget({
     super.key,
     required this.outerTabController,
     required this.outerTabIndex,
+    required this.userId,
     this.scrollController,
   });
 
@@ -39,8 +43,10 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
       if (_currentPages.isEmpty) {
         // Small delay to let welcome section load first
         await Future.delayed(const Duration(milliseconds: 100));
-        const userId = 1; // In real app, get from auth state
-        context.read<HomeBloc>().add(LoadPages(userId));
+        debugPrint(
+          '🔁 DynamicHomeTabWidget:initState → dispatch LoadPages(userId=${widget.userId})',
+        );
+        context.read<HomeBloc>().add(LoadPages(widget.userId));
       }
     });
   }
@@ -83,18 +89,37 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
       for (int i = 0; i < incoming.length; i++) {
         final ia = incoming[i];
         final ic = current[i];
-        if (ia.id != ic.id || (ia.order ?? ia.id) != (ic.order ?? ic.id)) {
+        if (ia.id != ic.id ||
+            (ia.order ?? ia.id) != (ic.order ?? ic.id) ||
+            ia.name != ic.name) {
           changed = true;
           break;
         }
       }
     }
 
-    if (!changed) return;
+    // Keep TabController.length in sync with pages even when the list content
+    // is unchanged (e.g. Bloc skipped a duplicate emit, or a frame showed
+    // truncated tabs before the controller was recreated).
+    final desiredLen = incoming.isEmpty ? 1 : incoming.length;
+    final controllerLen = _innerTabController?.length ?? 0;
+    final needsControllerSync = controllerLen != desiredLen;
+
+    debugPrint(
+      '🧭 DynamicHomeTabWidget:_updateTabs userId=${widget.userId} '
+      'incomingLen=${incoming.length} currentLen=${current.length} '
+      'controllerLen=$controllerLen desiredLen=$desiredLen '
+      'changed=$changed needsSync=$needsControllerSync '
+      'incoming=[${incoming.map((p) => '${p.id}:${p.name}').join(', ')}]',
+    );
+
+    if (!changed && !needsControllerSync) return;
 
     setState(() {
-      _currentPages = incoming;
-      _fetchedPageIds.clear();
+      if (changed) {
+        _currentPages = incoming;
+        _fetchedPageIds.clear();
+      }
       _createInnerTabController();
     });
     
@@ -138,23 +163,59 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
   }
 
   Future<void> _refreshPages() async {
-    // Clear fetched page IDs to force reload of all pages
+    // Clear fetched page IDs so tab switches reload after pages list updates.
     _fetchedPageIds.clear();
-    
-    // Reload pages data from the API, bypassing the local cache so that
-    // pull‑to‑refresh always shows the latest content and then re‑caches it.
-    const userId = 1; // In real app, get from auth state
-    context.read<HomeBloc>().add(LoadPages(userId, forceRefresh: true));
-    
-    // Wait a bit for the pages to load
-    await Future.delayed(const Duration(milliseconds: 500));
+
+    final bloc = context.read<HomeBloc>();
+    final completer = Completer<void>();
+    late final StreamSubscription<HomeState> sub;
+    var sawFetching = false;
+    sub = bloc.stream.listen((s) {
+      if (s is HomeLoaded && s.isFetchingPages) {
+        debugPrint(
+          '🔄 DynamicHomeTabWidget:_refreshPages stream userId=${widget.userId} → isFetchingPages=true pages=${s.pages.length}',
+        );
+        sawFetching = true;
+      } else if (sawFetching && s is HomeLoaded && !s.isFetchingPages) {
+        debugPrint(
+          '✅ DynamicHomeTabWidget:_refreshPages stream userId=${widget.userId} → isFetchingPages=false pages=${s.pages.length} names=[${s.pages.map((p) => p.name).join(', ')}]',
+        );
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }
+    });
+
+    debugPrint(
+      '🔄 DynamicHomeTabWidget:_refreshPages → dispatch LoadPages(userId=${widget.userId}, forceRefresh=true)',
+    );
+    bloc.add(LoadPages(widget.userId, forceRefresh: true));
+
+    try {
+      await completer.future.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      // Allow indicator to dismiss even if stream did not complete as expected.
+    } finally {
+      await sub.cancel();
+      // Force tab controller sync even if the new pages equal the previous
+      // state (Bloc may skip emit) or the UI was stuck with a short controller.
+      if (mounted) {
+        final s = bloc.state;
+        if (s is HomeLoaded) {
+          _updateTabs(s.pages);
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<HomeBloc, HomeState>(
       listener: (context, state) {
-        if (state is HomeLoaded && state.pages.isNotEmpty) {
+        // Sync inner TabController whenever pages finish loading (including
+        // empty or fewer tabs after API changes). Skip while fetch is in
+        // flight so we don't apply stale pages mid-request.
+        if (state is HomeLoaded && !state.isFetchingPages) {
           _updateTabs(state.pages);
         }
       },
@@ -173,7 +234,14 @@ class _DynamicHomeTabWidgetState extends State<DynamicHomeTabWidget>
             child: DynamicTabWidget(
               innerTabController: _innerTabController!,
               outerTab: 'Logo',
+              userId: widget.userId,
               scrollController: widget.scrollController,
+              onTabCountMismatch: () {
+                final s = context.read<HomeBloc>().state;
+                if (s is HomeLoaded) {
+                  _updateTabs(s.pages);
+                }
+              },
             ),
           );
         },

@@ -42,6 +42,9 @@ class ShippingAddressCard extends StatelessWidget {
     final hasAddressDetails = address.fullAddress.trim().isNotEmpty;
 
     final VoidCallback? cardTapHandler = isOnlyAddress ? null : (_isIncomplete ? onEdit : onTap);
+    // Selection is controlled externally (via CheckoutBloc.selectedShippingAddressId).
+    // If there is only one address, it's always selected; otherwise we strictly
+    // follow the isSelected flag so tapping another card correctly updates UI.
     final effectiveIsSelected = isOnlyAddress ? true : isSelected;
     final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
 

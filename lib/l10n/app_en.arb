@@ -549,6 +549,10 @@
   "@failedToLoadImage": {
     "description": "Error message when image fails to load"
   },
+  "noImageData": "No image data",
+  "@noImageData": {
+    "description": "Label shown when an item has no image"
+  },
   
   "onboardingError": "Error loading onboarding",
   "@onboardingError": {
@@ -5103,5 +5107,30 @@
   "deliveryStatusPostponed": "Order re-scheduled for another date for delivery",
   "@deliveryStatusPostponed": {
     "description": "Delivery status - postponed"
+  },
+
+  "couponAppliedSuccessfully": "Coupon applied successfully",
+  "@couponAppliedSuccessfully": {
+    "description": "Snackbar message when a coupon is applied successfully"
+  },
+
+  "couponRemovedSuccessfully": "Coupon removed successfully",
+  "@couponRemovedSuccessfully": {
+    "description": "Snackbar message when a coupon is removed successfully"
+  },
+
+  "coupons": "Coupons",
+  "@coupons": {
+    "description": "Section title for available coupons"
+  },
+
+  "couponCodeCopied": "Coupon code copied to clipboard",
+  "@couponCodeCopied": {
+    "description": "Snackbar message when the coupon code is copied"
+  },
+
+  "enterCouponCode": "Enter coupon code",
+  "@enterCouponCode": {
+    "description": "Text field hint asking user to enter a coupon code"
   }
 }

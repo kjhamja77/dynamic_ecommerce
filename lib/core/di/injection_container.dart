@@ -130,6 +130,7 @@ import '../../features/product/domain/usecases/get_category_hierarchy.dart';
 import '../../features/product/domain/usecases/get_products_by_category_name.dart';
 import '../../features/product/presentation/bloc/product_bloc.dart';
 import '../../features/language_selection/data/datasources/language_remote_data_source.dart';
+import '../../features/catalog/domain/usecases/clear_catalog_cache.dart';
 
 
 final sl = GetIt.instance;
@@ -283,6 +284,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SearchProductsUseCase(sl()));
   sl.registerLazySingleton(() => FetchCatalogPage(sl()));
   sl.registerLazySingleton(() => GetAvailableFilters(sl()));
+  sl.registerLazySingleton(() => ClearCatalogCache(sl()));
   sl.registerLazySingleton(() => ClearAvailableFiltersCache(sl()));
   sl.registerLazySingleton(() => GetFavoritesUseCase(sl()));
   sl.registerLazySingleton(() => AddToFavoritesUseCase(sl()));

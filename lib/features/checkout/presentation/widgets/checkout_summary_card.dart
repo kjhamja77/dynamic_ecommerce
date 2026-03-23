@@ -56,7 +56,6 @@ class CheckoutSummaryCard extends StatelessWidget {
           // Summary details
           _buildSummaryRow(AppLocalizations.of(context)!.subtotal, summary.subtotal, context),
           _buildSummaryRow(AppLocalizations.of(context)!.shipping, summary.shipping, context),
-          _buildSummaryRow(AppLocalizations.of(context)!.tax, summary.tax, context),
           if (summary.discount > 0)
             _buildSummaryRow(AppLocalizations.of(context)!.discount, -summary.discount, context, isDiscount: true),
           

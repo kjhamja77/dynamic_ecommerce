@@ -532,38 +532,38 @@ class _LoginPageState extends State<LoginPage> {
                   //         ),
                   //       ),
                   //     ),
-                  //     const SizedBox(width: 12),
-                  //     Expanded(
-                  //       child: OutlinedButton.icon(
-                  //         onPressed: () {
-                  //           // Handle Apple sign in
-                  //         },
-                  //         icon: Image.asset(
-                  //           'assets/images/apple.png',
-                  //           width: 24,
-                  //           height: 24,
-                  //         ),
-                  //         label: Text(
-                  //           AppLocalizations.of(context)!.apple,
-                  //           style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
-                  //             color: colorScheme.onSurface,
-                  //           ),
-                  //         ),
-                  //         style: OutlinedButton.styleFrom(
-                  //           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  //           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-                  //           foregroundColor: colorScheme.onSurface,
-                  //           backgroundColor: colorScheme.surface,
-                  //           shape: RoundedRectangleBorder(
-                  //             borderRadius: BorderRadius.circular(12),
-                  //           ),
-                  //         ),
-                  //       ),
-                  //     ),
+                  //     // const SizedBox(width: 12),
+                  //     // Expanded(
+                  //     //   child: OutlinedButton.icon(
+                  //     //     onPressed: () {
+                  //     //       // Handle Apple sign in
+                  //     //     },
+                  //     //     icon: Image.asset(
+                  //     //       'assets/images/apple.png',
+                  //     //       width: 24,
+                  //     //       height: 24,
+                  //     //     ),
+                  //     //     label: Text(
+                  //     //       AppLocalizations.of(context)!.apple,
+                  //     //       style: AppFonts.getTextStyle(fontWeight: FontWeight.w500,
+                  //     //         color: colorScheme.onSurface,
+                  //     //       ),
+                  //     //     ),
+                  //     //     style: OutlinedButton.styleFrom(
+                  //     //       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //     //       side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+                  //     //       foregroundColor: colorScheme.onSurface,
+                  //     //       backgroundColor: colorScheme.surface,
+                  //     //       shape: RoundedRectangleBorder(
+                  //     //         borderRadius: BorderRadius.circular(12),
+                  //     //       ),
+                  //     //     ),
+                  //     //   ),
+                  //     // ),
                   //   ],
                   // ),
                   
-                  const SizedBox(height: 14),
+                  // const SizedBox(height: 14),
                   
                   // Biometric Authentication Button / Prompt
                   // BlocBuilder<BiometricBloc, BiometricState>(

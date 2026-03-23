@@ -12,6 +12,9 @@ class CartItemModel extends CartItem {
     required super.selectedSize,
     required super.price,
     required super.addedAt,
+    super.isCoupon = false,
+    super.lineSubtotalOverride,
+    super.lineTotalOverride,
   });
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +26,13 @@ class CartItemModel extends CartItem {
       selectedSize: json['selectedSize'] ?? '',
       price: (json['price'] ?? 0.0).toDouble(),
       addedAt: DateTime.parse(json['addedAt'] ?? DateTime.now().toIso8601String()),
+      isCoupon: json['isCoupon'] ?? false,
+      lineSubtotalOverride: json['lineSubtotalOverride'] != null
+          ? (json['lineSubtotalOverride'] as num).toDouble()
+          : null,
+      lineTotalOverride: json['lineTotalOverride'] != null
+          ? (json['lineTotalOverride'] as num).toDouble()
+          : null,
     );
   }
 
@@ -37,6 +47,9 @@ class CartItemModel extends CartItem {
       'selectedSize': selectedSize,
       'price': price,
       'addedAt': addedAt.toIso8601String(),
+      'isCoupon': isCoupon,
+      'lineSubtotalOverride': lineSubtotalOverride,
+      'lineTotalOverride': lineTotalOverride,
     };
   }
 
@@ -49,6 +62,9 @@ class CartItemModel extends CartItem {
       selectedSize: cartItem.selectedSize,
       price: cartItem.price,
       addedAt: cartItem.addedAt,
+      isCoupon: cartItem.isCoupon,
+      lineSubtotalOverride: cartItem.lineSubtotalOverride,
+      lineTotalOverride: cartItem.lineTotalOverride,
     );
   }
 
@@ -76,6 +92,9 @@ class CartItemModel extends CartItem {
     String? selectedSize,
     double? price,
     DateTime? addedAt,
+    bool? isCoupon,
+    double? lineSubtotalOverride,
+    double? lineTotalOverride,
   }) {
     return CartItemModel(
       id: id ?? this.id,
@@ -85,6 +104,9 @@ class CartItemModel extends CartItem {
       selectedSize: selectedSize ?? this.selectedSize,
       price: price ?? this.price,
       addedAt: addedAt ?? this.addedAt,
+      isCoupon: isCoupon ?? this.isCoupon,
+      lineSubtotalOverride: lineSubtotalOverride ?? this.lineSubtotalOverride,
+      lineTotalOverride: lineTotalOverride ?? this.lineTotalOverride,
     );
   }
 }

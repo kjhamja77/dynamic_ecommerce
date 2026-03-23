@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/responsive_constants.dart';
@@ -32,7 +33,6 @@ class CatalogPage extends StatefulWidget {
 }
 
 class _CatalogPageState extends State<CatalogPage> {
-  bool _filtersApplied = false; // Flag to ensure filters are applied only once
   Future<FilterOptions?>? _filterOptionsFuture; // Cache filter options
   final ScrollController _scrollController = ScrollController();
   bool _isAppBarVisible = true;
@@ -80,28 +80,9 @@ class _CatalogPageState extends State<CatalogPage> {
         ),
         BlocProvider(create: (_) => CompareCubit()),
       ],
-      child: BlocListener<CatalogBloc, CatalogState>(
-        listener: (context, state) {
-          // Apply initial filters after catalog loads (only once)
-          if (widget.args.initialFilters != null && 
-              state is CatalogLoaded && 
-              !_filtersApplied) {
-            _filtersApplied = true; // Mark as applied to prevent duplicate application
-            final criteria = widget.args.initialFilters!;
-            final bloc = context.read<CatalogBloc>();
-            
-            // Apply filters after a short delay to ensure catalog is fully loaded
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                // Pass FilterCriteria directly to preserve exact values
-                bloc.add(UpdateCatalogFilters(
-                  filterCriteria: criteria.copyWith(searchQuery: state.query), // Preserve search query
-                ));
-              }
-            });
-          }
-        },
-        child: Builder(
+      // Initial offer/deep-link filters are applied in CatalogBloc._onLoad via
+      // filter-search only (no duplicate fetch here).
+      child: Builder(
           builder: (context) {
             final theme = Theme.of(context);
             final colorScheme = theme.colorScheme;
@@ -138,6 +119,17 @@ class _CatalogPageState extends State<CatalogPage> {
                       onRefresh: () async {
                         final bloc = context.read<CatalogBloc>();
                         final current = bloc.state as CatalogLoaded;
+                        // Offer / home component: re-run same filter-search payload (no generic catalog).
+                        if (widget.args.initialFilters != null) {
+                          final base = widget.args.initialFilters!;
+                          debugPrint('🔄 CatalogPage pull-to-refresh: re-applying offer initialFilters (filter-search)');
+                          bloc.add(UpdateCatalogFilters(
+                            filterCriteria: base.copyWith(
+                              searchQuery: current.query ?? base.searchQuery,
+                            ),
+                          ));
+                          return;
+                        }
                         bloc.add(UpdateCatalogFilters(
                           category: current.selectedCategory,
                           categoryIds: current.categoryIds, // Preserve categoryIds during refresh
@@ -648,8 +640,8 @@ class _CatalogPageState extends State<CatalogPage> {
                           ? SliverGrid(
                               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: ResponsiveConstants.gridCrossAxisCount,
-                                crossAxisSpacing: ResponsiveConstants.gridSpacing,
-                                mainAxisSpacing: ResponsiveConstants.gridSpacing,
+                                crossAxisSpacing: ResponsiveConstants.catalogGridSpacing,
+                                mainAxisSpacing: ResponsiveConstants.catalogGridSpacing,
                                 childAspectRatio: ResponsiveConstants.catalogGridChildAspectRatio,
                               ),
                               delegate: SliverChildBuilderDelegate(
@@ -660,8 +652,8 @@ class _CatalogPageState extends State<CatalogPage> {
                           : SliverGrid(
                               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: ResponsiveConstants.gridCrossAxisCount,
-                                crossAxisSpacing: ResponsiveConstants.gridSpacing,
-                                mainAxisSpacing: ResponsiveConstants.gridSpacing,
+                                crossAxisSpacing: ResponsiveConstants.catalogGridSpacing,
+                                mainAxisSpacing: ResponsiveConstants.catalogGridSpacing,
                                 childAspectRatio: ResponsiveConstants.catalogGridChildAspectRatio,
                               ),
                               delegate: SliverChildBuilderDelegate(
@@ -901,7 +893,6 @@ class _CatalogPageState extends State<CatalogPage> {
             );
           },
         ),
-      ),
     );
   }
 }

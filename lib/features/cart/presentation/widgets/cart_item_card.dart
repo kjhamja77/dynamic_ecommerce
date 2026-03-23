@@ -11,7 +11,6 @@ import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../core/services/app_localization_service.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../data/models/cart_response_model.dart';
 import '../../../checkout/presentation/constants/checkout_constants.dart';
 
 class CartItemCard extends StatelessWidget {
@@ -35,20 +34,26 @@ class CartItemCard extends StatelessWidget {
         children: [
           // Main content with margin for buttons (responsive to language direction)
           Padding(
-            padding: EdgeInsets.only(
-              left: isRTL ? ResponsiveConstants.mdPadding + 80 : ResponsiveConstants.mdPadding,
-              top: ResponsiveConstants.mdPadding,
-              bottom: ResponsiveConstants.mdPadding + 56, // reserve space for quantity control
-              right: isRTL ? ResponsiveConstants.mdPadding : ResponsiveConstants.mdPadding + 80,
+            padding: EdgeInsets.all(
+              10
+              // left: isRTL ? ResponsiveConstants.mdPadding + 80 : ResponsiveConstants.mdPadding,
+              // top: ResponsiveConstants.mdPadding,
+              // bottom: ResponsiveConstants.mdPadding + 56, // reserve space for quantity control
+              // right: isRTL ? ResponsiveConstants.mdPadding : ResponsiveConstants.mdPadding + 80,
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isNarrow = constraints.maxWidth < 340;
-                final imageSize = constraints.maxWidth * (isNarrow ? 0.22 : 0.18);
+                // Slightly larger image for better visual emphasis
+                final imageSize =
+                    constraints.maxWidth * (isNarrow ? 0.26 : 0.22);
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProductImage(context, size: imageSize.clamp(56.0, 96.0)),
+                    _buildProductImage(
+                      context,
+                      imageSize.clamp(110.0, 110.0),
+                    ),
                     SizedBox(width: ResponsiveConstants.mdSpacing),
                     _buildProductDetails(context),
                   ],
@@ -57,12 +62,12 @@ class CartItemCard extends StatelessWidget {
             ),
           ),
           // Delete button - top right for LTR, top left for RTL
-          Positioned(
-            top: ResponsiveConstants.smPadding,
-            right: isRTL ? null : ResponsiveConstants.smPadding,
-            left: isRTL ? ResponsiveConstants.smPadding : null,
-            child: _buildRemoveButton(context),
-          ),
+          // Positioned(
+          //   top: ResponsiveConstants.smPadding,
+          //   right: isRTL ? null : ResponsiveConstants.xsPadding,
+          //   left: isRTL ? ResponsiveConstants.xsPadding : null,
+          //   child: _buildRemoveButton(context),
+          // ),
           // Quantity selector - bottom right for LTR, bottom left for RTL
           Positioned(
             bottom: ResponsiveConstants.smPadding,
@@ -101,7 +106,7 @@ class CartItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildProductImage(BuildContext context, {double size = 80}) {
+  Widget _buildProductImage(BuildContext context, double? size) {
     final colorScheme = Theme.of(context).colorScheme;
     
     return GestureDetector(
@@ -179,13 +184,17 @@ class CartItemCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildProductHeader(context),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(child: _buildProductHeader(context)),
+              _buildRemoveButton(context),
+            ],
+          ),
           SizedBox(height: ResponsiveConstants.smSpacing),
           _buildProductAttributes(context),
           SizedBox(height: ResponsiveConstants.smSpacing),
           _buildPriceSection(),
-          SizedBox(height: ResponsiveConstants.xsSpacing),
-          _buildTaxDetails(context),
         ],
       ),
     );
@@ -217,8 +226,9 @@ class CartItemCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
-            maxLines: 2,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
+            softWrap: true,
           ),
         ),
       ],
@@ -351,198 +361,11 @@ class CartItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTaxDetails(BuildContext context) {
-    return BlocBuilder<CartBloc, CartState>(
-      builder: (context, state) {
-        if (state is CartLoading) {
-          return const _TaxShimmer();
-        }
-        if (state is CartUpdating && state.updatingProductId == cartItem.product.id) {
-          return const _TaxShimmer();
-        }
-        CartResponseModel? response;
-        if (state is CartLoaded && state.cartResponse != null && state.cartResponse!.lines.isNotEmpty) {
-          response = state.cartResponse!;
-        } else if (state is CartUpdating && state.cartResponse != null && state.cartResponse!.lines.isNotEmpty) {
-          response = state.cartResponse!;
-        }
-        if (response != null) {
-          // Try match by line_id first (cartItem.id maps from lineId)
-          final int? lineId = int.tryParse(cartItem.id);
-          var lineItem = lineId != null
-              ? (response.lines.where((line) => line.lineId == lineId).isNotEmpty
-                  ? response.lines.firstWhere((line) => line.lineId == lineId)
-                  : null)
-              : null;
-
-          // Fallback match by product_id if line_id didn't match semantically
-          if (lineItem == null || (lineId != null && lineItem.lineId != lineId)) {
-            final matches = response.lines.where(
-              (line) => line.productId.toString() == cartItem.product.id,
-            );
-            if (matches.isNotEmpty) {
-              lineItem = matches.first;
-            }
-          }
-
-          if (lineItem == null) return const SizedBox.shrink();
-
-          // Store in local non-nullable variable for use in closures
-          final nonNullLineItem = lineItem!;
-
-          // Prefer detailed breakdown if available
-          if (nonNullLineItem.taxDetails.isNotEmpty) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...nonNullLineItem.taxDetails.map((taxDetail) => Padding(
-                  padding: EdgeInsets.only(bottom: 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: ResponsiveConstants.xsIconSize,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                      SizedBox(width: ResponsiveConstants.xsSpacing),
-                      Expanded(
-                        child: Text(
-                          '${taxDetail.taxName}: ${_formatCurrency(taxDetail.taxAmount, context)}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.xsFontSize,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-                Padding(
-                  padding: EdgeInsets.only(top: ResponsiveConstants.xsSpacing),
-                  child: Builder(
-                    builder: (context) {
-                      final colorScheme = Theme.of(context).colorScheme;
-                      
-                      return Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              AppLocalizations.of(context)!.totalWithTax,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.xsFontSize,
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: ResponsiveConstants.xsSpacing),
-                          Flexible(
-                            child: Text(
-                              _formatCurrency(nonNullLineItem.priceTotal, context),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.smFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          }
-
-          // Fallback to show item-level tax and total if no taxDetails
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Builder(
-                builder: (context) {
-                  final colorScheme = Theme.of(context).colorScheme;
-                  
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: ResponsiveConstants.xsIconSize,
-                            color: colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                          SizedBox(width: ResponsiveConstants.xsSpacing),
-                          Expanded(
-                            child: Text(
-                              '${AppLocalizations.of(context)!.tax}: ${_formatCurrency(nonNullLineItem.taxAmount, context)}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.xsFontSize,
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: ResponsiveConstants.xsSpacing),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              AppLocalizations.of(context)!.totalWithTax,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.xsFontSize,
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: ResponsiveConstants.xsSpacing),
-                          Flexible(
-                            child: Text(
-                              _formatCurrency(nonNullLineItem.priceTotal, context),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.smFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
   String _formatCurrency(double amount, BuildContext context) {
     // Use the cached currency from provider for consistent formatting
     final currencyProvider = context.watch<CurrencyProvider>();
     return currencyProvider.formatPrice(amount, locale: Localizations.localeOf(context));
   }
-
-
-
   Widget _buildRemoveButton(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     
@@ -583,38 +406,6 @@ class CartItemCard extends StatelessWidget {
           'price': cartItem.price,
         },
       },
-    );
-  }
-}
-
-class _TaxShimmer extends StatelessWidget {
-  const _TaxShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: colorScheme.outline.withValues(alpha: 0.3),
-            shape: BoxShape.circle,
-          ),
-        ),
-        SizedBox(width: ResponsiveConstants.xsSpacing),
-        Expanded(
-          child: Container(
-            height: 12,
-            decoration: BoxDecoration(
-              color: colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

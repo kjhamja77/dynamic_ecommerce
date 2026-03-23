@@ -79,6 +79,7 @@ class SearchBarWidget extends StatelessWidget {
               ),
             ),
           ),
+          SizedBox(width: ResponsiveConstants.smSpacing),
           GestureDetector(
             onTap: () async {
               await HapticService.buttonClick();
@@ -121,10 +122,22 @@ class SearchBarWidget extends StatelessWidget {
                 color: colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
               ),
-              child: Icon(
-                Icons.tune,
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-                size: ResponsiveConstants.smIconSize,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Icon(
+                    Icons.tune,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    size: ResponsiveConstants.smIconSize,
+                  ),
+                  Text(
+                    AppLocalizations.of(context)!.filters,
+                    style: AppFonts.getTextStyle(
+                      fontSize: ResponsiveConstants.smFontSize,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

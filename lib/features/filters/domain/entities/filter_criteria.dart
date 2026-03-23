@@ -25,6 +25,9 @@ class FilterCriteria extends Equatable {
   final String? searchQuery;
   final int page;
   final int limit;
+  /// When true (e.g. offer banner → filter-search), [toJson] omits `page` and `limit`
+  /// so the request body only carries filter fields from the page component.
+  final bool omitPaginationInRequest;
   // Backend sort params
   final String? sortByField; // e.g., 'list_price', 'create_date', 'name', 'sales_count'
   final String? sortOrder; // 'asc' | 'desc'
@@ -50,6 +53,7 @@ class FilterCriteria extends Equatable {
     this.searchQuery,
     this.page = 1,
     this.limit = 20,
+    this.omitPaginationInRequest = false,
     this.sortByField,
     this.sortOrder,
   }) : extraAttributes = extraAttributes;
@@ -75,6 +79,7 @@ class FilterCriteria extends Equatable {
     Object? searchQuery = _undefined,
     int? page,
     int? limit,
+    bool? omitPaginationInRequest,
     Object? sortByField = _undefined,
     Object? sortOrder = _undefined,
   }) {
@@ -99,6 +104,7 @@ class FilterCriteria extends Equatable {
       searchQuery: searchQuery == _undefined ? this.searchQuery : searchQuery as String?,
       page: page ?? this.page,
       limit: limit ?? this.limit,
+      omitPaginationInRequest: omitPaginationInRequest ?? this.omitPaginationInRequest,
       sortByField: sortByField == _undefined ? this.sortByField : sortByField as String?,
       sortOrder: sortOrder == _undefined ? this.sortOrder : sortOrder as String?,
     );
@@ -183,9 +189,12 @@ class FilterCriteria extends Equatable {
     // Build params object according to API specification
     // Note: Endpoints.withParams will wrap this in a "params" object
     // When filtering (not searching), search_term should NOT be included
-    final json = {
-      'page': page,
-      'limit': limit,
+    final json = <String, dynamic>{
+      // Pagination: omit for offer-only filter-search payloads
+      if (!omitPaginationInRequest) ...{
+        'page': page,
+        'limit': limit,
+      },
       // Backend expects category_ids as a list.
       // Send ONLY the deepest (most specific) selected category IDs
       if (deepestCategoryIds.isNotEmpty) 'category_ids': deepestCategoryIds,
@@ -207,7 +216,11 @@ class FilterCriteria extends Equatable {
     print('📦 FilterCriteria.toJson() - Request Body:');
     print('   ==========================================');
     print('   Full JSON Body: $json');
-    print('   Page: $page, Limit: $limit');
+    if (!omitPaginationInRequest) {
+      print('   Page: $page, Limit: $limit');
+    } else {
+      print('   Page/Limit: omitted (omitPaginationInRequest=true)');
+    }
     if (categoryIds.isNotEmpty) {
       print('   Category IDs (all selected): $categoryIds');
       print('   Deepest Category IDs (sent to API): $deepestCategoryIds');
@@ -547,6 +560,7 @@ class FilterCriteria extends Equatable {
         searchQuery,
         page,
         limit,
+        omitPaginationInRequest,
         sortByField,
         sortOrder,
       ];

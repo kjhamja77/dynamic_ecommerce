@@ -3,6 +3,7 @@ import '../../domain/entities/checkout_item.dart';
 import '../../domain/entities/checkout_summary.dart';
 import '../../domain/entities/shipping_address.dart';
 import '../../domain/entities/payment_method.dart';
+import '../../domain/entities/coupon.dart';
 
 abstract class CheckoutState extends Equatable {
   const CheckoutState();
@@ -20,6 +21,7 @@ class CheckoutLoaded extends CheckoutState {
   final CheckoutSummary summary;
   final List<ShippingAddress> shippingAddresses;
   final List<PaymentMethod> paymentMethods;
+  // Promo / coupon data
   final String? selectedShippingAddressId;
   final String? selectedPaymentMethodId;
   final int? selectedShippingMethodId;
@@ -27,6 +29,15 @@ class CheckoutLoaded extends CheckoutState {
   final bool useCartTotals;
   final bool isApplyingPaymentMethod;
   final bool isProcessingDialogVisible;
+  final List<Map<String, dynamic>> promoPricelists;
+  final bool isLoadingPromo;
+  final bool isApplyingPromo;
+  final String? promoError;
+  final String? appliedPromoCode;
+  final List<Coupon> coupons;
+  final bool isLoadingCoupons;
+  final String? couponsError;
+  final int? appliedCouponId;
 
   const CheckoutLoaded({
     required this.items,
@@ -40,6 +51,15 @@ class CheckoutLoaded extends CheckoutState {
     this.useCartTotals = true,
     this.isApplyingPaymentMethod = false,
     this.isProcessingDialogVisible = false,
+    this.promoPricelists = const [],
+    this.isLoadingPromo = false,
+    this.isApplyingPromo = false,
+    this.promoError,
+    this.appliedPromoCode,
+    this.coupons = const [],
+    this.isLoadingCoupons = false,
+    this.couponsError,
+    this.appliedCouponId,
   });
 
   CheckoutLoaded copyWith({
@@ -54,6 +74,15 @@ class CheckoutLoaded extends CheckoutState {
     bool? useCartTotals,
     bool? isApplyingPaymentMethod,
     bool? isProcessingDialogVisible,
+    List<Map<String, dynamic>>? promoPricelists,
+    bool? isLoadingPromo,
+    bool? isApplyingPromo,
+    String? promoError,
+    String? appliedPromoCode,
+    List<Coupon>? coupons,
+    bool? isLoadingCoupons,
+    String? couponsError,
+    int? appliedCouponId,
   }) {
     return CheckoutLoaded(
       items: items ?? this.items,
@@ -67,6 +96,15 @@ class CheckoutLoaded extends CheckoutState {
       useCartTotals: useCartTotals ?? this.useCartTotals,
       isApplyingPaymentMethod: isApplyingPaymentMethod ?? this.isApplyingPaymentMethod,
       isProcessingDialogVisible: isProcessingDialogVisible ?? this.isProcessingDialogVisible,
+      promoPricelists: promoPricelists ?? this.promoPricelists,
+      isLoadingPromo: isLoadingPromo ?? this.isLoadingPromo,
+      isApplyingPromo: isApplyingPromo ?? this.isApplyingPromo,
+      promoError: promoError ?? this.promoError,
+      appliedPromoCode: appliedPromoCode ?? this.appliedPromoCode,
+      coupons: coupons ?? this.coupons,
+      isLoadingCoupons: isLoadingCoupons ?? this.isLoadingCoupons,
+      couponsError: couponsError ?? this.couponsError,
+      appliedCouponId: appliedCouponId ?? this.appliedCouponId,
     );
   }
 
@@ -83,6 +121,15 @@ class CheckoutLoaded extends CheckoutState {
         useCartTotals,
         isApplyingPaymentMethod,
         isProcessingDialogVisible,
+        promoPricelists,
+        isLoadingPromo,
+        isApplyingPromo,
+        promoError,
+        appliedPromoCode,
+        coupons,
+        isLoadingCoupons,
+        couponsError,
+        appliedCouponId,
       ];
 }
 

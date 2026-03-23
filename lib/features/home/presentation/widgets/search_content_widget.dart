@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 class SearchContentWidget extends StatefulWidget {
   const SearchContentWidget({super.key});
@@ -58,15 +59,13 @@ class _SearchContentWidgetState extends State<SearchContentWidget>
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
               ),
-              boxShadow: [
+              boxShadow: homeCardBoxShadow(context, [
                 BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.05,
-                  ),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
-              ],
+              ]),
             ),
             child: Row(
               children: [

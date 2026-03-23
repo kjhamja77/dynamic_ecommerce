@@ -65,14 +65,35 @@ class ComponentChildModel extends ComponentChild {
     required super.name,
     required super.valueType,
     required super.content,
+    super.productCount,
   });
 
   factory ComponentChildModel.fromJson(Map<String, dynamic> json) {
+    final String valueType = _safeStringCast(json['value_type']);
+    final Map<String, dynamic> content = json['content'] as Map<String, dynamic>? ?? {};
+
+    int? resolvedProductCount;
+    if (valueType == 'category_content') {
+      final category = content['category'];
+      if (category is Map<String, dynamic>) {
+        final raw = category['product_count'];
+        if (raw is num) {
+          resolvedProductCount = raw.toInt();
+        } else if (raw != null) {
+          final parsed = int.tryParse(raw.toString());
+          if (parsed != null) {
+            resolvedProductCount = parsed;
+          }
+        }
+      }
+    }
+
     return ComponentChildModel(
       componentId: json['component_id'] as int? ?? 0,
       name: _safeStringCast(json['name']),
-      valueType: _safeStringCast(json['value_type']),
-      content: json['content'] as Map<String, dynamic>? ?? {},
+      valueType: valueType,
+      content: content,
+      productCount: resolvedProductCount,
     );
   }
 
@@ -90,6 +111,7 @@ class ComponentChildModel extends ComponentChild {
       'name': name,
       'value_type': valueType,
       'content': content,
+      if (productCount != null) 'product_count': productCount,
     };
   }
 }

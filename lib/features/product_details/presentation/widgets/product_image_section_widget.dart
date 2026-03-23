@@ -11,12 +11,18 @@ class ProductImageSectionWidget extends StatefulWidget {
   final ProductDetails productDetails;
   final PageController pageController;
   final List<String>? overrideImages;
+  /// How the image should be fit inside its box.
+  final BoxFit fit;
+  /// Alignment of the image within its box.
+  final Alignment alignment;
 
   const ProductImageSectionWidget({
     super.key,
     required this.productDetails,
     required this.pageController,
     this.overrideImages,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.topCenter,
   });
 
   @override
@@ -110,28 +116,19 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
               );
             },
             child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-              ),
-                child: Hero(
+              width: double.infinity,
+              color: Colors.transparent,
+              child: Hero(
                 tag: 'product_image_${widget.productDetails.id}',
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: ImageCacheUtils.getAuthenticatedImageData(displayImages[index]),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
-                      return Center(
-                        child: AppLoadingWidget.small(
-                          message: 'Loading image...',
-                          showMessage: false,
-                        ),
-                      );
+                      return const ProductImageLoader();
                     }
                     final data = snapshot.data!;
                     final imageUrl = data['url'] as String;
                     final headers = data['headers'] as Map<String, String>;
-                    
-                    // debugPrint('ProductImageSectionWidget → Loading image: ${imageUrl.substring(0, imageUrl.length > 100 ? 100 : imageUrl.length)}...');
-                    // debugPrint('ProductImageSectionWidget → Headers: ${headers.keys.join(", ")}');
                     
                     // Test the URL first to see what response we get
                     ImageCacheUtils.testImageUrl(displayImages[index]).then((testResult) {
@@ -142,14 +139,10 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
                     
                     return CachedNetworkImage(
                       imageUrl: imageUrl,
-                      fit: BoxFit.contain,
+                      fit: widget.fit,
+                      alignment: widget.alignment,
                       httpHeaders: headers,
-                      placeholder: (context, url) => Center(
-                        child: AppLoadingWidget.small(
-                          message: 'Loading image...',
-                          showMessage: false,
-                        ),
-                      ),
+                      placeholder: (context, url) => const ProductImageLoader(),
                       errorWidget: (context, url, error) {
                         debugPrint('❌ ProductImageSectionWidget → Image load error');
                         debugPrint('   URL: $url');
@@ -159,7 +152,6 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
                           debugPrint('   Exception: ${error.toString()}');
                         }
                         final colorScheme = Theme.of(context).colorScheme;
-                        
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -188,6 +180,22 @@ class _ProductImageSectionWidgetState extends State<ProductImageSectionWidget> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Full-area loader while image is loading; no background container. Exposed for use in preview and other image loading states.
+class ProductImageLoader extends StatelessWidget {
+  const ProductImageLoader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }

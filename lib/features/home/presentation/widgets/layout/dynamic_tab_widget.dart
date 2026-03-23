@@ -12,12 +12,19 @@ class DynamicTabWidget extends StatefulWidget {
   final TabController innerTabController;
   final String outerTab;
   final ScrollController? scrollController;
+  final int userId;
+
+  /// Called when [HomeBloc] has more pages than [innerTabController.length]
+  /// so the parent can recreate the controller (never truncate tabs).
+  final VoidCallback? onTabCountMismatch;
 
   const DynamicTabWidget({
     super.key,
     required this.innerTabController,
     required this.outerTab,
+    required this.userId,
     this.scrollController,
+    this.onTabCountMismatch,
   });
 
   @override
@@ -25,7 +32,6 @@ class DynamicTabWidget extends StatefulWidget {
 }
 
 class _DynamicTabWidgetState extends State<DynamicTabWidget> {
-  List<home_page.Page> _lastPages = const [];
   @override
   void initState() {
     super.initState();
@@ -34,9 +40,7 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
   }
 
   void _loadPages() {
-    // For now, use a hardcoded user ID - in real app, get from auth state
-    const userId = 1;
-    context.read<HomeBloc>().add(LoadPages(userId, forceRefresh: true));
+    context.read<HomeBloc>().add(LoadPages(widget.userId, forceRefresh: true));
   }
 
   @override
@@ -51,7 +55,6 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
           builder: (context, state) {
             if (state is HomeLoaded) {
               if (state.pages.isNotEmpty) {
-                _lastPages = state.pages;
                 final sortedPages = List<home_page.Page>.from(state.pages)
                   ..sort((a, b) => ((a.order ?? a.id).compareTo(b.order ?? b.id)));
                 return Column(
@@ -73,19 +76,8 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
             } else if (state is HomeError) {
               return _buildErrorTabBar(state.message);
             } else {
-              // While loading or initial, keep last known pages if available
-              final pages = _lastPages;
-              if (pages.isNotEmpty) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDynamicTabBar(pages),
-                    if (state is HomeLoading)
-                      const _ShimmerLine(height: 2),
-                  ],
-                );
-              }
-              // No pages available during initial load - show loading indicator
+              // During loading/initial states, don't render stale tabs from cache.
+              // Show only a loading line until HomeLoaded arrives.
               if (state is HomeLoading || state is HomeInitial) {
                 return const SizedBox(
                   height: 2,
@@ -103,7 +95,6 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
             builder: (context, state) {
               if (state is HomeLoaded) {
                 if (state.pages.isNotEmpty) {
-                  _lastPages = state.pages;
                   final sortedPages = List<home_page.Page>.from(state.pages)
                     ..sort((a, b) => ((a.order ?? a.id).compareTo(b.order ?? b.id)));
                   return _buildDynamicTabView(sortedPages);
@@ -117,19 +108,8 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
               } else if (state is HomeError) {
                 return _buildErrorContent(state.message);
               } else {
-                // While loading or initial, keep last known content if available
-                final pages = _lastPages;
-                if (pages.isNotEmpty) {
-                  return Column(
-                    children: [
-                      if (state is HomeLoading)
-                        const _ShimmerLine(height: 2),
-                      Expanded(child: _buildDynamicTabView(pages)),
-                    ],
-                  );
-                }
-                // No pages yet during initial load – present the same
-                // home skeleton so the loading experience is consistent.
+                // During loading/initial states, avoid rendering stale page views
+                // tied to previous tab definitions.
                 if (state is HomeLoading || state is HomeInitial) {
                   return const HomeSkeleton();
                 }
@@ -151,7 +131,19 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
     if (basePages.length == targetLen) {
       effectivePages = basePages;
     } else if (basePages.length > targetLen) {
-      effectivePages = basePages.take(targetLen).toList();
+      // Never truncate extra API tabs: the inner TabController is stale short.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          widget.onTabCountMismatch?.call();
+        }
+      });
+      return const SizedBox(
+        height: 48,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: _ShimmerLine(height: 2),
+        ),
+      );
     } else {
       // Pad with fallback pages to reach the controller length
       effectivePages = List<home_page.Page>.from(basePages);
@@ -230,7 +222,12 @@ class _DynamicTabWidgetState extends State<DynamicTabWidget> {
     if (basePages.length == targetLen) {
       effectivePages = basePages;
     } else if (basePages.length > targetLen) {
-      effectivePages = basePages.take(targetLen).toList();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          widget.onTabCountMismatch?.call();
+        }
+      });
+      return const HomeSkeleton();
     } else {
       // Pad with fallback pages to reach the controller length
       effectivePages = List<home_page.Page>.from(basePages);

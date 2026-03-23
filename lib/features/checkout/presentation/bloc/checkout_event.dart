@@ -79,19 +79,34 @@ class SelectPaymentMethod extends CheckoutEvent {
 
 class LoadShippingMethods extends CheckoutEvent {
   final int orderId;
-  const LoadShippingMethods(this.orderId);
+  final String? addressId;
+  /// When true, automatically apply the first returned shipping method
+  /// after loading (used when user changes address).
+  final bool autoApplyFirstMethod;
+
+  const LoadShippingMethods(
+    this.orderId, {
+    this.addressId,
+    this.autoApplyFirstMethod = false,
+  });
 
   @override
-  List<Object?> get props => [orderId];
+  List<Object?> get props => [orderId, addressId, autoApplyFirstMethod];
 }
 
 class ApplyShippingMethod extends CheckoutEvent {
   final int orderId;
   final int shippingMethodId;
-  const ApplyShippingMethod({required this.orderId, required this.shippingMethodId});
+  final double? amount;
+
+  const ApplyShippingMethod({
+    required this.orderId,
+    required this.shippingMethodId,
+    this.amount,
+  });
 
   @override
-  List<Object?> get props => [orderId, shippingMethodId];
+  List<Object?> get props => [orderId, shippingMethodId, amount];
 }
 
 class ApplyPaymentMethod extends CheckoutEvent {
@@ -101,6 +116,55 @@ class ApplyPaymentMethod extends CheckoutEvent {
 
   @override
   List<Object?> get props => [orderId, paymentMethodId];
+}
+
+class LoadPromoPricelists extends CheckoutEvent {
+  final int orderId;
+  const LoadPromoPricelists({required this.orderId});
+
+  @override
+  List<Object?> get props => [orderId];
+}
+
+class ApplyPromo extends CheckoutEvent {
+  final int orderId;
+  final int pricelistId;
+  final String promoCode;
+
+  const ApplyPromo({
+    required this.orderId,
+    required this.pricelistId,
+    required this.promoCode,
+  });
+
+  @override
+  List<Object?> get props => [orderId, pricelistId, promoCode];
+}
+
+class LoadCoupons extends CheckoutEvent {
+  const LoadCoupons();
+}
+
+class ApplyCoupon extends CheckoutEvent {
+  final int orderId;
+  final String couponCode;
+
+  const ApplyCoupon({
+    required this.orderId,
+    required this.couponCode,
+  });
+
+  @override
+  List<Object?> get props => [orderId, couponCode];
+}
+
+class RemoveCoupon extends CheckoutEvent {
+  final int orderId;
+
+  const RemoveCoupon({required this.orderId});
+
+  @override
+  List<Object?> get props => [orderId];
 }
 
 class SelectShippingMethod extends CheckoutEvent {

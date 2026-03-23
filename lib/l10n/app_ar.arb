@@ -549,6 +549,10 @@
   "@failedToLoadImage": {
     "description": "Error message when image fails to load"
   },
+  "noImageData": "لا توجد بيانات صورة",
+  "@noImageData": {
+    "description": "Label shown when an item has no image"
+  },
   
   "onboardingError": "خطأ في تحميل التعريف",
   "@onboardingError": {
@@ -5088,5 +5092,30 @@
   "deliveryStatusPostponed": "تم إعادة جدولة الطلب لتاريخ آخر للتسليم",
   "@deliveryStatusPostponed": {
     "description": "Delivery status - postponed"
+  },
+
+  "couponAppliedSuccessfully": "تم تطبيق الكوبون بنجاح",
+  "@couponAppliedSuccessfully": {
+    "description": "رسالة تظهر عند تطبيق الكوبون بنجاح"
+  },
+
+  "couponRemovedSuccessfully": "تم إزالة الكوبون بنجاح",
+  "@couponRemovedSuccessfully": {
+    "description": "رسالة تظهر عند إزالة الكوبون بنجاح"
+  },
+
+  "coupons": "الكوبونات",
+  "@coupons": {
+    "description": "عنوان قسم الكوبونات المتاحة"
+  },
+
+  "couponCodeCopied": "تم نسخ كود الكوبون إلى الحافظة",
+  "@couponCodeCopied": {
+    "description": "رسالة تظهر عند نسخ كود الكوبون"
+  },
+
+  "enterCouponCode": "أدخل كود الكوبون",
+  "@enterCouponCode": {
+    "description": "نص التلميح لحقل إدخال كود الكوبون"
   }
 }

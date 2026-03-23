@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/painting.dart';
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../bloc/product_details_bloc.dart';
 import '../../domain/entities/product_details.dart';
 import '../widgets/collapsible_image_section_widget.dart';
 import '../widgets/color_selection_widget.dart';
+import '../widgets/product_image_section_widget.dart';
 import '../widgets/product_info_section.dart';
+import '../widgets/preview_header.dart';
 import '../widgets/product_details_shimmer.dart';
 import '../widgets/add_to_cart_bottom_sheet.dart';
 import '../../domain/entities/product_details_card_preview.dart';
@@ -27,6 +32,7 @@ import '../../../cart/presentation/widgets/cart_button_with_badge.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../../../core/services/app_localization_service.dart';
 import '../../../../core/services/language_service.dart';
+import '../../../../core/utils/image_cache_utils.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final String productId;
@@ -151,7 +157,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
     return ChangeNotifierProvider<DynamicVariantController>.value(
       value: _variantController,
       child: Scaffold(
-        backgroundColor: colorScheme.background,
+      // Let the main image extend behind the app bar/status bar so the
+      // header looks like the reference design.
+      extendBodyBehindAppBar: true,
+      backgroundColor: colorScheme.background,
         body: BlocConsumer<ProductDetailsBloc, ProductDetailsState>(
         listener: (context, state) {
           // Initialize dynamic variant controller ONLY on first load
@@ -346,108 +355,165 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
     ProductDetailsCardPreview? cardPreview,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final screenWidth = mediaSize.width;
+    final topInset = MediaQuery.paddingOf(context).top;
+    // Use the original header ratio; the image section itself now
+    // fills the full height of this area, so no gaps remain.
+    final headerHeight = screenWidth * 1.4;
     final isLoaded = productDetails != null;
 
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        SliverAppBar(
-          expandedHeight: ResponsiveConstants.productDetailsAppBarHeight,
-          floating: false,
-          pinned: true,
-          elevation: 0,
-          backgroundColor: colorScheme.background,
-          leading: Padding(
-            padding: EdgeInsets.only(left: ResponsiveConstants.mdPadding),
-            child: _buildBackButton(),
-          ),
-          title: isLoaded
-              ? _buildAppBarTitle(productDetails!)
-              : _buildAppBarTitleFromPreview(cardPreview!),
-          iconTheme: IconThemeData(color: colorScheme.onBackground),
-          actions: [
-            _buildShareButton(productDetails: productDetails, cardPreview: cardPreview),
-            const CartButtonWithBadge(),
-            Padding(
-              padding: EdgeInsetsDirectional.only(end: ResponsiveConstants.mdPadding),
-              child: isLoaded
-                  ? Consumer<DynamicVariantController>(
-                      builder: (context, variantController, _) {
-                        // Use the currently selected variant (color/size) for favorites.
-                        final String favProductId =
-                            variantController.variantId.isNotEmpty
-                                ? variantController.variantId
-                                : productDetails!.id;
-
-                        // Prefer the images of the selected variant; fall back to base images.
-                        final List<String> currentImages =
-                            variantController.currentImages.isNotEmpty
-                                ? variantController.currentImages
-                                : productDetails!.images;
-
-                        // Use variant-specific price when available; otherwise template price.
-                        final double favPrice = variantController.currentPrice > 0
-                            ? variantController.currentPrice
-                            : productDetails!.price;
-
-                        return FavoriteButton(
-                          productId: favProductId,
-                          productName: productDetails!.name,
-                          brand: productDetails!.brand,
-                          price: favPrice,
-                          imageUrl: currentImages.isNotEmpty ? currentImages.first : null,
-                          category: null,
-                          isFavorite: productDetails!.isFavorite,
-                          size: ResponsiveConstants.mdIconSize,
-                          isCompact: true,
-                        );
-                      },
-                    )
-                  : FavoriteButton(
-                      productId: widget.productId,
-                      productName: cardPreview!.productTitle,
-                      brand: cardPreview!.brand,
-                      price: cardPreview!.price,
-                      imageUrl: cardPreview!.imageUrl,
-                      category: null,
-                      isFavorite: false,
-                      size: ResponsiveConstants.mdIconSize,
-                      isCompact: true,
-                    ),
-            ),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: isLoaded
-                ? Consumer<DynamicVariantController>(
-                    builder: (context, variantController, _) {
-                      return CollapsibleImageSectionWidget(
-                        productDetails: productDetails!,
-                        pageController: _pageController,
-                        variantImageUrls: variantController.currentImages,
-                      );
-                    },
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildPreviewImage(cardPreview!),
-                      Positioned(
-                        bottom: ResponsiveConstants.mdSpacing,
-                        left: ResponsiveConstants.mdSpacing,
-                        right: ResponsiveConstants.mdSpacing,
-                        child: const ColorSelectionSkeleton(),
-                      ),
-                    ],
+        // App bar disappears when scrolling down and reappears when scrolling up (floating).
+        // App bar floats on top of the main image, similar to the
+        // reference design, with the image visible behind it.
+        // Let the header image extend behind the status bar for a full-bleed look.
+        SliverSafeArea(
+          top: false,
+          sliver: SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final collapseTrigger = (headerHeight - (kToolbarHeight + topInset)).clamp(0.0, double.infinity);
+              final isCollapsed = constraints.scrollOffset >= collapseTrigger;
+              return SliverAppBar(
+                // Fixed header height so preview and final image share exactly
+                // the same space and we avoid jumps when data arrives.
+                expandedHeight: headerHeight,
+                floating: !isLoaded,
+                snap: !isLoaded,
+                pinned: true,
+                toolbarHeight: kToolbarHeight,
+                collapsedHeight: kToolbarHeight,
+                titleSpacing: 0,
+                elevation: isCollapsed ? 1 : 0,
+                scrolledUnderElevation: 1,
+                backgroundColor: isCollapsed ? colorScheme.surface : Colors.transparent,
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                  statusBarBrightness: Brightness.light,
+                ),
+                leading: Padding(
+                  padding: EdgeInsets.only(left: ResponsiveConstants.mdPadding),
+                  child: _buildBackButton(),
+                ),
+                // Keep title visible in both expanded and collapsed states
+                // so users always see product context while scrolling.
+                title: isLoaded
+                    ? _buildAppBarTitle(productDetails!)
+                    : (cardPreview != null
+                        ? _buildAppBarTitleFromPreview(cardPreview)
+                        : null),
+                iconTheme: IconThemeData(color: colorScheme.onBackground),
+                actions: [
+                  _buildShareButton(productDetails: productDetails, cardPreview: cardPreview),
+                  const CartButtonWithBadge(),
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(end: ResponsiveConstants.mdPadding),
+                    child: isLoaded
+                        ? Consumer<DynamicVariantController>(
+                            builder: (context, variantController, _) {
+                              final String favProductId =
+                                  variantController.variantId.isNotEmpty
+                                      ? variantController.variantId
+                                      : productDetails!.id;
+                              final List<String> currentImages =
+                                  variantController.currentImages.isNotEmpty
+                                      ? variantController.currentImages
+                                      : productDetails!.images;
+                              final double favPrice = variantController.currentPrice > 0
+                                  ? variantController.currentPrice
+                                  : productDetails!.price;
+                              return FavoriteButton(
+                                productId: favProductId,
+                                productName: productDetails!.name,
+                                brand: productDetails!.brand,
+                                price: favPrice,
+                                imageUrl: currentImages.isNotEmpty ? currentImages.first : null,
+                                category: null,
+                                isFavorite: productDetails!.isFavorite,
+                                size: ResponsiveConstants.mdIconSize,
+                                isCompact: true,
+                              );
+                            },
+                          )
+                        : (cardPreview != null
+                            ? FavoriteButton(
+                                productId: widget.productId,
+                                productName: cardPreview.productTitle,
+                                brand: cardPreview.brand,
+                                price: cardPreview.price,
+                                imageUrl: cardPreview.imageUrl,
+                                category: null,
+                                isFavorite: false,
+                                size: ResponsiveConstants.mdIconSize,
+                                isCompact: true,
+                              )
+                            : const SizedBox.shrink()),
                   ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: isLoaded
+                      ? Consumer<DynamicVariantController>(
+                          builder: (context, variantController, _) {
+                            // Main API image header.
+                            return CollapsibleImageSectionWidget(
+                              productDetails: productDetails!,
+                              pageController: _pageController,
+                              variantImageUrls: variantController.currentImages,
+                              scrollWithPage: true,
+                              showColorSelection: false,
+                            );
+                          },
+                        )
+                      : (cardPreview != null
+                          ? PreviewHeader(preview: cardPreview!)
+                          : Container(color: colorScheme.background)),
+                ),
+              );
+            },
           ),
         ),
+        if (isLoaded)
+          SliverToBoxAdapter(
+            child: Consumer<DynamicVariantController>(
+              builder: (context, variantController, _) {
+                final currentProduct = productDetails!;
+                final colorScheme = Theme.of(context).colorScheme;
+                return Container(
+                  color: colorScheme.surface,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveConstants.smPadding,
+                    vertical: ResponsiveConstants.smSpacing,
+                  ),
+                  child: ColorSelectionWidget(
+                    productDetails: currentProduct,
+                    overlayOnImage: false,
+                  ),
+                );
+              },
+            ),
+          ),
+        // When loading with only preview data, skip rendering the preview
+        // image in the main details scroll. We want to show a stable loader
+        // first and then the final image once details are ready, instead of
+        // briefly showing the preview image again and then replacing it.
         ProductInfoSection(
           productDetails: productDetails,
           cardPreview: cardPreview,
           scrollController: _scrollController,
         ),
         SliverToBoxAdapter(
-          child: SizedBox(height: ResponsiveConstants.lgSpacing),
+          child: SizedBox(
+            height: isLoaded &&
+                    productDetails != null &&
+                    productDetails!.optionalProducts.isEmpty &&
+                    productDetails!.accessoryProducts.isEmpty &&
+                    productDetails!.alternativeProducts.isEmpty
+                ? ResponsiveConstants.smSpacing
+                : ResponsiveConstants.lgSpacing,
+          ),
         ),
       ],
     );
@@ -455,31 +521,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
 
   Widget _buildAppBarTitleFromPreview(ProductDetailsCardPreview preview) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          preview.brand,
-          style: AppFonts.getTextStyle(
-            fontSize: ResponsiveConstants.smFontSize,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onBackground,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        Text(
-          preview.productTitle,
-          style: AppFonts.getTextStyle(
-            fontSize: ResponsiveConstants.mdFontSize,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onBackground,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+    return Text(
+      '${preview.brand} - ${preview.productTitle}',
+      style: AppFonts.getTextStyle(
+        fontSize: ResponsiveConstants.mdFontSize,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onBackground,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -497,6 +547,25 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
               ),
             )
           : null,
+    );
+  }
+
+  /// Preview image + color skeleton for loading state; scrolls with the page. Image shown at full size from aspect ratio.
+  Widget _buildPreviewImageSection(ProductDetailsCardPreview preview) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _AdaptivePreviewImage(preview: preview),
+        Padding(
+          padding: EdgeInsets.only(
+            left: ResponsiveConstants.mdSpacing,
+            right: ResponsiveConstants.mdSpacing,
+            bottom: ResponsiveConstants.mdSpacing,
+          ),
+          child: const ColorSelectionSkeleton(),
+        ),
+      ],
     );
   }
 
@@ -518,29 +587,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
 
   Widget _buildAppBarTitle(ProductDetails productDetails) {
     final colorScheme = Theme.of(context).colorScheme;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          productDetails.brand,
-          style: AppFonts.getTextStyle(
-            fontSize: ResponsiveConstants.smFontSize,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onBackground,
-          ),
-        ),
-        Text(
-          productDetails.name,
-          style: AppFonts.getTextStyle(
-            fontSize: ResponsiveConstants.mdFontSize,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onBackground,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+
+    return Text(
+      '${productDetails.brand} - ${productDetails.name}',
+      style: AppFonts.getTextStyle(
+        fontSize: ResponsiveConstants.mdFontSize,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onBackground,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -617,6 +673,106 @@ class _ProductDetailsPageState extends State<ProductDetailsPage>
           Share.share(lines.join('\n'), subject: cardPreview.productTitle);
         }
       },
+    );
+  }
+}
+
+/// Sizes the preview image by its aspect ratio so it shows in full (no cropping) in the preview/shimmer state.
+class _AdaptivePreviewImage extends StatefulWidget {
+  final ProductDetailsCardPreview preview;
+
+  const _AdaptivePreviewImage({required this.preview});
+
+  @override
+  State<_AdaptivePreviewImage> createState() => _AdaptivePreviewImageState();
+}
+
+class _AdaptivePreviewImageState extends State<_AdaptivePreviewImage> {
+  double? _aspectRatio;
+  String? _lastResolvedUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveAspectRatio();
+  }
+
+  @override
+  void didUpdateWidget(_AdaptivePreviewImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.preview.imageUrl != widget.preview.imageUrl) {
+      _lastResolvedUrl = null;
+      _aspectRatio = null;
+      _resolveAspectRatio();
+    }
+  }
+
+  Future<void> _resolveAspectRatio() async {
+    final url = widget.preview.imageUrl;
+    if (url == null || url.isEmpty) {
+      if (mounted) setState(() => _aspectRatio = 0.6);
+      return;
+    }
+    if (_lastResolvedUrl == url) return;
+    _lastResolvedUrl = url;
+    try {
+      final data = await ImageCacheUtils.getAuthenticatedImageData(url);
+      final imageUrl = data['url'] as String;
+      final headers = data['headers'] as Map<String, String>;
+      final provider = NetworkImage(imageUrl, headers: headers);
+      final completer = provider.resolve(const ImageConfiguration());
+      if (!mounted) return;
+      completer.addListener(ImageStreamListener((ImageInfo info, bool _) {
+        if (!mounted) return;
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        if (w > 0 && h > 0) {
+          setState(() => _aspectRatio = h / w);
+        }
+      }, onError: (dynamic _, StackTrace? __) {
+        if (mounted) setState(() => _aspectRatio = 0.6);
+      }));
+    } catch (_) {
+      if (mounted) setState(() => _aspectRatio = 0.6);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final ratio = _aspectRatio ?? 0.6;
+    final minH = width * 0.4;
+    final maxH = 2.0 * 1.sh;
+    final height = (width * ratio).clamp(minH, maxH);
+    final preview = widget.preview;
+
+    // Decide how to render the preview image:
+    // - Taller images fill more vertically and can be shown covering the header.
+    // - Flatter/smaller images are centered and scaled to width.
+    const double tallThreshold = 1.2;
+    final bool isTallImage = ratio >= tallThreshold;
+    final BoxFit fit = isTallImage ? BoxFit.cover : BoxFit.fitWidth;
+    final Alignment alignment =
+        isTallImage ? Alignment.topCenter : Alignment.center;
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Container(
+        color: colorScheme.surface,
+        child: preview.imageUrl != null && preview.imageUrl!.isNotEmpty
+            ? Center(
+                child: CachedNetworkImage(
+                  imageUrl: preview.imageUrl!,
+                  fit: fit,
+                  alignment: alignment,
+                  placeholder: (_, __) => const ProductImageLoader(),
+                  errorWidget: (_, __, ___) => Container(color: colorScheme.surface),
+                ),
+              )
+            : null,
+      ),
     );
   }
 }

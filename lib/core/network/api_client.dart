@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import '../constants/app_constants.dart';
 import '../constants/endpoints.dart';
 import '../services/language_service.dart';
@@ -307,6 +308,15 @@ class ApiClient {
     Options? options,
   }) async {
     final data = Endpoints.withParams(params ?? <String, dynamic>{});
+    // Lightweight debug log of RPC request payload
+    if (kDebugMode) {
+      try {
+        final pretty = const JsonEncoder.withIndent('  ').convert(data);
+        debugPrint('📤 ApiClient.requestRpc → $method $path\nPayload: $pretty');
+      } catch (e) {
+        debugPrint('📤 ApiClient.requestRpc → $method $path\nPayload (raw): $data');
+      }
+    }
     // Serialize requests to avoid spikes/timeouts when multiple screens load at once.
     return _queue.schedule(() {
       switch (method.toUpperCase()) {

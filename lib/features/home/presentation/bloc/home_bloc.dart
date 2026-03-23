@@ -173,22 +173,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     LoadFeaturedProducts event,
     Emitter<HomeState> emit,
   ) async {
-    // Always emit a loading state while fetching featured products so that
-    // Home can show its skeleton loader even during refreshes (e.g. after
-    // changing the locale). Preserve the previous data so we can restore
-    // other fields when the load completes.
+    // Avoid emitting HomeLoading here because it can race with page refresh
+    // and temporarily restore stale tabs from an older snapshot.
     final previousState = state;
-    emit(HomeLoading());
 
     final result = await getFeaturedProductsUseCase(NoParams());
 
     result.fold(
       (failure) => emit(HomeError(failure.message)),
       (products) {
-        // If we had a HomeLoaded state before loading, restore its fields
-        // while updating only the featuredProducts list. Otherwise, create
-        // a fresh HomeLoaded state.
-        if (previousState is HomeLoaded) {
+        // Re-read the latest state after await to avoid overwriting newly
+        // refreshed pages/components with older captured data.
+        final latestState = state;
+        if (latestState is HomeLoaded) {
+          emit(latestState.copyWith(featuredProducts: products));
+        } else if (previousState is HomeLoaded) {
           emit(previousState.copyWith(featuredProducts: products));
         } else {
           emit(HomeLoaded(
@@ -244,11 +243,30 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     var currentState = state;
+    debugPrint(
+      '📥 HomeBloc:_onLoadPages START userId=${event.userId} forceRefresh=${event.forceRefresh} '
+      'state=${currentState.runtimeType}',
+    );
 
     if (currentState is HomeLoaded) {
-      emit(currentState.copyWith(isFetchingPages: true));
+      debugPrint(
+        '📥 HomeBloc:_onLoadPages set fetching=true existingPages=${currentState.pages.length} '
+        'existingNames=[${currentState.pages.map((p) => p.name).join(', ')}]',
+      );
+      // For locale-triggered hard refreshes, clear stale tabs/components immediately
+      // so the UI shows loading skeleton instead of previous-language content.
+      if (event.forceRefresh) {
+        emit(currentState.copyWith(
+          pages: const [],
+          componentsByPageId: const {},
+          isFetchingPages: true,
+        ));
+      } else {
+        emit(currentState.copyWith(isFetchingPages: true));
+      }
     } else {
       // If not in HomeLoaded state, emit HomeLoading first
+      debugPrint('📥 HomeBloc:_onLoadPages emit HomeLoading');
       emit(HomeLoading());
     }
 
@@ -259,9 +277,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ),
     );
     currentState = state; // re-read after await
+    debugPrint(
+      '📥 HomeBloc:_onLoadPages AFTER API state=${currentState.runtimeType}',
+    );
 
     result.fold(
       (failure) {
+        debugPrint(
+          '❌ HomeBloc:_onLoadPages FAILED userId=${event.userId} forceRefresh=${event.forceRefresh} error=${failure.message}',
+        );
         if (currentState is HomeLoaded) {
           emit(currentState.copyWith(isFetchingPages: false));
         } else {
@@ -269,9 +293,26 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         }
       },
       (pages) {
+        debugPrint(
+          '✅ HomeBloc:_onLoadPages SUCCESS userId=${event.userId} forceRefresh=${event.forceRefresh} '
+          'pages=${pages.length} names=[${pages.map((p) => '${p.id}:${p.name}').join(', ')}]',
+        );
         if (currentState is HomeLoaded) {
-          emit(currentState.copyWith(pages: pages, isFetchingPages: false));
+          final validPageIds = pages.map((p) => p.id).toSet();
+          final prunedComponents = Map<int, PageComponents>.fromEntries(
+            currentState.componentsByPageId.entries
+                .where((e) => validPageIds.contains(e.key)),
+          );
+          debugPrint(
+            '✅ HomeBloc:_onLoadPages PRUNE components before=${currentState.componentsByPageId.length} after=${prunedComponents.length}',
+          );
+          emit(currentState.copyWith(
+            pages: pages,
+            componentsByPageId: prunedComponents,
+            isFetchingPages: false,
+          ));
         } else {
+          debugPrint('✅ HomeBloc:_onLoadPages emit fresh HomeLoaded');
           emit(HomeLoaded(
             featuredProducts: const [],
             categories: const [],

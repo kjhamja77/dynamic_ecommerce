@@ -106,33 +106,7 @@ class ProductDetailsShimmer extends StatelessWidget {
           ),
         ),
 
-        // Variant / thumbnail selectors: label + 3 rounded squares
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: ResponsiveConstants.horizontalMdEdgeInsets,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: ResponsiveConstants.lgSpacing),
-                _ShimmerLine(
-                    height: 14, width: 80, radius: 6.r),
-                SizedBox(height: ResponsiveConstants.mdSpacing),
-                Row(
-                  children: [
-                    for (int i = 0; i < 3; i++) ...[
-                      if (i > 0) SizedBox(width: ResponsiveConstants.smSpacing),
-                      _ShimmerLine(
-                          height: 56,
-                          width: 56,
-                          radius: ResponsiveConstants.smRadius),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
+        // No skeleton containers in image area; go straight to minimal product details (like preview screen).
         // Product info card: brand, name, price placeholder, small placeholder
         SliverToBoxAdapter(
           child: Padding(

@@ -1,7 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/checkout_item.dart';
 import '../../domain/entities/checkout_summary.dart';
 import '../../domain/repositories/checkout_repository.dart';
+import '../../domain/entities/coupon.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
 import 'checkout_event.dart';
 import 'checkout_state.dart';
@@ -27,6 +29,11 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<SetProcessingDialogVisible>(_onSetProcessingDialogVisible);
     on<UpdateCheckoutFromCart>(_onUpdateCheckoutFromCart);
     on<UpdateShippingAddresses>(_onUpdateShippingAddresses);
+    on<LoadPromoPricelists>(_onLoadPromoPricelists);
+    on<ApplyPromo>(_onApplyPromo);
+    on<LoadCoupons>(_onLoadCoupons);
+    on<ApplyCoupon>(_onApplyCoupon);
+    on<RemoveCoupon>(_onRemoveCoupon);
   }
 
   Future<void> _onLoadCheckout(
@@ -44,12 +51,46 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
         final addresses = addressesResult.getOrElse(() => []);
         final methods = methodsResult.getOrElse(() => []);
 
+        // Optionally load promo pricelists if we already have an order id from the cart
+        List<Map<String, dynamic>> promoPricelists = const [];
+        if (event.cartState is CartLoaded) {
+          final cartLoaded = event.cartState as CartLoaded;
+          final orderId = cartLoaded.cartResponse?.orderId;
+          if (orderId != null) {
+            final promoResult = await checkoutRepository.getPromoPricelists(orderId: orderId);
+            promoResult.fold(
+              (_) {},
+              (list) {
+                promoPricelists = list;
+              },
+            );
+          }
+        }
+
         // Set default selections
-        final defaultAddress = addresses.isNotEmpty 
-            ? addresses.firstWhere(
-                (address) => address.isDefault,
-                orElse: () => addresses.first,
-              )
+        // Load coupons up-front so the first CheckoutLoaded already contains them.
+        List<Coupon> coupons = const <Coupon>[];
+        String? couponsError;
+        final couponsResult = await checkoutRepository.getCoupons();
+        couponsResult.fold(
+          (failure) {
+            couponsError = failure.message;
+            coupons = const <Coupon>[];
+          },
+          (list) {
+            coupons = list;
+          },
+        );
+
+        // If a previous CheckoutLoaded existed, preserve applied coupon id so totals stay consistent.
+        final CheckoutLoaded? previousLoaded =
+            state is CheckoutLoaded ? state as CheckoutLoaded : null;
+        final int? appliedCouponId = previousLoaded?.appliedCouponId;
+        // Only auto-select an address if the backend explicitly marks it as default.
+        // If no address is flagged as default, leave selection empty so that
+        // shipping stays at 0 until the user chooses an address.
+        final defaultAddress = addresses.where((address) => address.isDefault).isNotEmpty
+            ? addresses.firstWhere((address) => address.isDefault)
             : null;
         final defaultMethod = methods.isNotEmpty 
             ? methods.firstWhere(
@@ -109,7 +150,12 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
           paymentMethods: methods,
           selectedShippingAddressId: defaultAddress?.id,
           selectedPaymentMethodId: defaultMethod?.id,
+          promoPricelists: promoPricelists,
           useCartTotals: true,
+          coupons: coupons,
+          isLoadingCoupons: false,
+          couponsError: couponsError,
+          appliedCouponId: appliedCouponId,
         ));
       } else {
         emit(const CheckoutError(message: 'Failed to load checkout data'));
@@ -142,12 +188,41 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     LoadShippingMethods event,
     Emitter<CheckoutState> emit,
   ) async {
-    final previousState = state is CheckoutLoaded ? state as CheckoutLoaded : null;
+    // Capture initial state, but we'll also re-check after the async call
+    CheckoutLoaded? previousState = state is CheckoutLoaded ? state as CheckoutLoaded : null;
     emit(ShippingMethodsLoading());
-    final result = await checkoutRepository.getShippingMethods(orderId: event.orderId);
+    final result = await checkoutRepository.getShippingMethods(
+      orderId: event.orderId,
+      addressId: event.addressId,
+    );
     result.fold(
       (failure) => emit(CheckoutError(message: failure.message)),
-      (methods) => emit(ShippingMethodsLoaded(methods, previousState: previousState)),
+      (methods) {
+        // If checkout state was updated (e.g. coupons loaded) while the request
+        // was in flight, prefer the latest CheckoutLoaded so we don't lose data.
+        final CheckoutLoaded? effectiveState =
+            state is CheckoutLoaded ? state as CheckoutLoaded : previousState;
+
+        emit(ShippingMethodsLoaded(methods, previousState: effectiveState));
+
+        // Decide when to auto-apply a method:
+        // - Initial load: no method selected yet.
+        // - Address change: caller set autoApplyFirstMethod to true.
+        final base = effectiveState;
+        final shouldAutoApply = base != null &&
+            methods.isNotEmpty &&
+            (base.selectedShippingMethodId == null || event.autoApplyFirstMethod);
+
+        if (shouldAutoApply) {
+          final dynamic firstMethod = methods.first;
+          final int? methodId = (firstMethod as dynamic).id as int?;
+          final double? amount =
+              (firstMethod as dynamic).price is num ? ((firstMethod as dynamic).price as num).toDouble() : null;
+          if (methodId != null && methodId > 0) {
+            add(ApplyShippingMethod(orderId: event.orderId, shippingMethodId: methodId, amount: amount));
+          }
+        }
+      },
     );
   }
 
@@ -155,33 +230,57 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     ApplyShippingMethod event,
     Emitter<CheckoutState> emit,
   ) async {
-    CheckoutLoaded? currentState;
+    CheckoutLoaded? snapshot;
     if (state is CheckoutLoaded) {
-      currentState = state as CheckoutLoaded;
+      snapshot = state as CheckoutLoaded;
     } else if (state is ShippingMethodsLoaded) {
-      currentState = (state as ShippingMethodsLoaded).previousState;
+      snapshot = (state as ShippingMethodsLoaded).previousState;
     }
-    
-    if (currentState == null) return;
-    
-    final stateToUse = currentState; // Capture for use in callbacks
-    emit(ShippingMethodApplying(stateToUse));
-    final result = await checkoutRepository.applyShippingMethod(orderId: event.orderId, shippingMethodId: event.shippingMethodId);
+
+    if (snapshot == null) return;
+
+    // Emit applying state with a snapshot (may not yet include coupons)
+    emit(ShippingMethodApplying(snapshot));
+    final result = await checkoutRepository.applyShippingMethod(
+      orderId: event.orderId,
+      shippingMethodId: event.shippingMethodId,
+      amount: event.amount,
+    );
     result.fold(
       (failure) {
         emit(CheckoutError(message: failure.message));
-        emit(stateToUse); // Restore previous state on error
+        emit(snapshot!); // Restore previous state on error
       },
       (summary) {
-        // Preserve totalItems from current state since API doesn't return it
+        // Backend returns authoritative totals (subtotal, tax, total, discount).
+        // Derive the shipping amount from these so that:
+        //   subtotal + shipping + tax - discount == total
+        // and keep totalItems from the previous state (API doesn't return it).
+        final derivedShipping = summary.total -
+            summary.subtotal -
+            summary.tax +
+            summary.discount;
+
+        // Prefer the latest loaded state (which may already include coupons)
+        final CheckoutLoaded baseState =
+            state is CheckoutLoaded ? state as CheckoutLoaded : snapshot!;
+
+        // Preserve any coupons that might have been loaded after the snapshot
+        final List<Coupon> mergedCoupons =
+            (state is CheckoutLoaded && (state as CheckoutLoaded).coupons.isNotEmpty)
+                ? (state as CheckoutLoaded).coupons
+                : snapshot!.coupons;
+
         final updatedSummary = summary.copyWith(
-          totalItems: stateToUse.summary.totalItems,
+          totalItems: baseState.summary.totalItems,
+          shipping: derivedShipping,
         );
         // Directly transition to CheckoutLoaded with updated summary
-        emit(stateToUse.copyWith(
+        emit(baseState.copyWith(
           summary: updatedSummary,
           selectedShippingMethodId: event.shippingMethodId,
           useCartTotals: false,
+          coupons: mergedCoupons,
         ));
       },
     );
@@ -422,6 +521,209 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
         shippingAddresses: event.addresses,
       ));
     }
+  }
+
+  Future<void> _onLoadPromoPricelists(
+    LoadPromoPricelists event,
+    Emitter<CheckoutState> emit,
+  ) async {
+    if (state is! CheckoutLoaded) return;
+    final current = state as CheckoutLoaded;
+    emit(current.copyWith(
+      isLoadingPromo: true,
+      promoError: null,
+    ));
+
+    final result = await checkoutRepository.getPromoPricelists(orderId: event.orderId);
+    result.fold(
+      (failure) => emit(current.copyWith(
+        isLoadingPromo: false,
+        promoError: failure.message,
+      )),
+      (list) => emit(current.copyWith(
+        isLoadingPromo: false,
+        promoPricelists: list,
+        promoError: null,
+      )),
+    );
+  }
+
+  Future<void> _onApplyPromo(
+    ApplyPromo event,
+    Emitter<CheckoutState> emit,
+  ) async {
+    if (state is! CheckoutLoaded) return;
+    final current = state as CheckoutLoaded;
+
+    emit(current.copyWith(
+      isApplyingPromo: true,
+      promoError: null,
+    ));
+
+    final result = await checkoutRepository.applyPromo(
+      orderId: event.orderId,
+      pricelistId: event.pricelistId,
+      promoCode: event.promoCode,
+    );
+
+    result.fold(
+      (failure) => emit(current.copyWith(
+        isApplyingPromo: false,
+        promoError: failure.message,
+      )),
+      (summary) {
+        final updatedSummary = summary.copyWith(
+          totalItems: current.summary.totalItems,
+        );
+        emit(current.copyWith(
+          isApplyingPromo: false,
+          summary: updatedSummary,
+          useCartTotals: false,
+          promoError: null,
+          appliedPromoCode: event.promoCode,
+        ));
+      },
+    );
+  }
+
+  Future<void> _onLoadCoupons(
+    LoadCoupons event,
+    Emitter<CheckoutState> emit,
+  ) async {
+    if (state is! CheckoutLoaded) return;
+    final current = state as CheckoutLoaded;
+    emit(current.copyWith(
+      isLoadingCoupons: true,
+      couponsError: null,
+    ));
+
+    final result = await checkoutRepository.getCoupons();
+    result.fold(
+      (failure) => emit(current.copyWith(
+        isLoadingCoupons: false,
+        couponsError: failure.message,
+      )),
+      (list) => emit(current.copyWith(
+        isLoadingCoupons: false,
+        coupons: list,
+        couponsError: null,
+      )),
+    );
+  }
+
+  Future<void> _onApplyCoupon(
+    ApplyCoupon event,
+    Emitter<CheckoutState> emit,
+  ) async {
+    if (state is! CheckoutLoaded) return;
+    final current = state as CheckoutLoaded;
+
+    final String targetCode = event.couponCode.trim().toLowerCase();
+    if (targetCode.isEmpty) {
+      return;
+    }
+
+    // Find matching coupon by code from the loaded coupons list
+    final matched = current.coupons.where(
+      (c) => c.code.trim().toLowerCase() == targetCode,
+    );
+
+    if (matched.isEmpty) {
+      debugPrint('❌ No coupon found for code: ${event.couponCode}');
+      emit(
+        current.copyWith(
+          promoError: 'Apply coupon failed',
+        ),
+      );
+      return;
+    }
+
+    final coupon = matched.first;
+
+    final result = await checkoutRepository.applyCoupon(
+      orderId: event.orderId,
+      couponId: coupon.cardId,
+    );
+
+    result.fold(
+      (failure) {
+        debugPrint('❌ Failed to apply coupon: ${failure.message}');
+        emit(
+          current.copyWith(
+            promoError: 'APPLY_COUPON_FAILED',
+          ),
+        );
+      },
+      (summary) {
+        final base = current.summary;
+        final double couponDiscount = summary.discount;
+        final double recalculatedTotal =
+            base.subtotal + base.shipping + base.tax - couponDiscount;
+
+        final updatedSummary = base.copyWith(
+          discount: couponDiscount,
+          total: recalculatedTotal,
+          totalItems: current.summary.totalItems,
+        );
+        emit(
+          current.copyWith(
+            summary: updatedSummary,
+            useCartTotals: false,
+            appliedCouponId: coupon.cardId,
+            // Drive UI success snackbar for apply-coupon
+            promoError: 'APPLY_COUPON_SUCCESS',
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onRemoveCoupon(
+    RemoveCoupon event,
+    Emitter<CheckoutState> emit,
+  ) async {
+    if (state is! CheckoutLoaded) return;
+    final current = state as CheckoutLoaded;
+    final couponId = current.appliedCouponId;
+    if (couponId == null) return;
+
+    final result = await checkoutRepository.removeCoupon(
+      orderId: event.orderId,
+      couponId: couponId,
+    );
+
+    result.fold(
+      (failure) {
+        debugPrint('❌ Failed to remove coupon: ${failure.message}');
+        emit(
+          current.copyWith(
+            // Drive UI failure snackbar for remove-coupon
+            promoError: 'REMOVE_COUPON_FAILED',
+          ),
+        );
+      },
+      (summary) {
+        final base = current.summary;
+        final double couponDiscount = summary.discount;
+        final double recalculatedTotal =
+            base.subtotal + base.shipping + base.tax - couponDiscount;
+
+        final updatedSummary = base.copyWith(
+          discount: couponDiscount,
+          total: recalculatedTotal,
+          totalItems: current.summary.totalItems,
+        );
+        emit(
+          current.copyWith(
+            summary: updatedSummary,
+            useCartTotals: false,
+            appliedCouponId: null,
+            // Drive UI success snackbar for remove-coupon
+            promoError: 'REMOVE_COUPON_SUCCESS',
+          ),
+        );
+      },
+    );
   }
 
 }

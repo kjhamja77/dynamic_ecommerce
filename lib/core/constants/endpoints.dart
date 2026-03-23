@@ -37,6 +37,15 @@ class Endpoints {
   // Cart APIs
   static const String cart = '/ecom/product/cart';
 
+  //promo APIs
+  static const String getPromo = '/ecom/get/Pricelists';
+  static const String applyPromo = '/ecom/apply/Pricelist';
+
+  //Coupon APIs
+  static const String getCoupons = '/ecom/get/coupons';
+  static const String applyCoupon = '/ecom/apply/coupon';
+  static const String removeCoupon = '/ecom/remove/coupon';
+
   //Return APIs
   static const String returnRequest = '/ecom/sale/createRefundRequest';
   static const String returnList = '/ecom/sale/getRefundRequests';

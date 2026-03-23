@@ -6,6 +6,7 @@ import 'package:zalando_clone_app/core/widgets/section_header.dart';
 import 'package:zalando_clone_app/features/catalog/domain/models/catalog_args.dart';
 import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 class TrendingNowSection extends StatelessWidget {
   const TrendingNowSection({super.key});
@@ -111,13 +112,13 @@ class _TrendingItemCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: item.color,
             borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-            boxShadow: [
+            boxShadow: homeCardBoxShadow(context, [
               BoxShadow(
                 color: Colors.grey.shade200,
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
-            ],
+            ]),
           ),
           child: Stack(
             children: [

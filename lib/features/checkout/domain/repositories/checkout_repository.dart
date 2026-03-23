@@ -4,6 +4,7 @@ import '../entities/checkout_item.dart';
 import '../entities/checkout_summary.dart';
 import '../entities/shipping_address.dart';
 import '../entities/payment_method.dart';
+import '../entities/coupon.dart';
 
 abstract class CheckoutRepository {
   Future<Either<Failure, List<CheckoutItem>>> getCheckoutItems();
@@ -24,8 +25,32 @@ abstract class CheckoutRepository {
   });
 
   // Remote checkout extensions
-  Future<Either<Failure, List<dynamic>>> getShippingMethods({required int orderId});
-  Future<Either<Failure, CheckoutSummary>> applyShippingMethod({required int orderId, required int shippingMethodId});
+  Future<Either<Failure, List<dynamic>>> getShippingMethods({
+    required int orderId,
+    String? addressId,
+  });
+  Future<Either<Failure, CheckoutSummary>> applyShippingMethod({
+    required int orderId,
+    required int shippingMethodId,
+    double? amount,
+  });
   Future<Either<Failure, String>> applyPaymentMethod({required int orderId, required int paymentMethodId});
   Future<Either<Failure, Map<String, String>>> createAlQasehPayment({required int orderId});
+
+  // Promo APIs
+  Future<Either<Failure, List<Map<String, dynamic>>>> getPromoPricelists({required int orderId});
+  Future<Either<Failure, CheckoutSummary>> applyPromo({
+    required int orderId,
+    required int pricelistId,
+    required String promoCode,
+  });
+  Future<Either<Failure, List<Coupon>>> getCoupons();
+  Future<Either<Failure, CheckoutSummary>> applyCoupon({
+    required int orderId,
+    required int couponId,
+  });
+  Future<Either<Failure, CheckoutSummary>> removeCoupon({
+    required int orderId,
+    required int couponId,
+  });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'catalog_event.dart';
 import 'catalog_state.dart';
@@ -113,8 +114,81 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
         categoryIds = [catId];
       }
     }
-    print('🚀 CatalogBloc: Loading catalog with args: category=${event.args.category}, categoryId=${event.args.categoryId}, categoryIds=$categoryIds');
+    debugPrint(
+      '🚀 CatalogBloc: Loading catalog — category=${event.args.category}, '
+      'categoryId=${event.args.categoryId}, categoryIds=$categoryIds, '
+      'initialFilters=${event.args.initialFilters != null}',
+    );
+
     emit(CatalogLoading());
+
+    // Offer / deep-link: load products only via filter-search with component filter map
+    // (no prior generic catalog fetch, no duplicate UpdateCatalogFilters).
+    if (event.args.initialFilters != null) {
+      final criteria = event.args.initialFilters!;
+      debugPrint('📬 CatalogBloc: Initial load uses filter-search only (filter-search API)');
+      debugPrint('   category_ids: ${criteria.categoryIds}');
+      debugPrint('   brand_ids: ${criteria.brandIds}');
+      debugPrint('   product_ids: ${criteria.productIds}');
+      debugPrint('   search_term: ${criteria.searchQuery}');
+      debugPrint('   omitPaginationInRequest: ${criteria.omitPaginationInRequest}');
+
+      final resp = await repository.fetchProductsWithFilterCriteria(criteria: criteria);
+
+      debugPrint('📊 CatalogBloc: filter-search returned ${resp.items.length} products (totalCount=${resp.totalCount})');
+
+      final List<Product> items = resp.items;
+      final List<String> categories = ['All', ...{...items.map((p) => p.category)}];
+
+      final brandsFuture = _loadAllBrands(items);
+      final colorsFuture = _loadAllColors(items);
+      final priceBoundsFuture = _loadPriceBounds();
+
+      emit(CatalogLoaded(
+        products: items,
+        categories: categories,
+        brands: const ['All'],
+        selectedCategory: event.args.category ?? 'All',
+        selectedCategoryId: event.args.categoryId,
+        categoryIds: criteria.categoryIds.isNotEmpty ? criteria.categoryIds : categoryIds,
+        selectedBrand: event.args.brand ?? 'All',
+        sortBy: 'newest_first',
+        query: criteria.searchQuery ?? event.args.query,
+        page: resp.page,
+        hasMore: resp.hasMore,
+        totalCount: resp.totalCount,
+        minPrice: criteria.minPrice,
+        maxPrice: criteria.maxPrice,
+        priceMinBound: null,
+        priceMaxBound: null,
+        minRating: criteria.minRating,
+        onSale: criteria.onSale,
+        inStock: criteria.inStock,
+        sizes: criteria.sizes,
+        colors: const ['All'],
+        selectedColors: criteria.colors,
+        materials: criteria.materials,
+        seasons: criteria.seasons,
+        genders: criteria.genders,
+        extraAttributes: criteria.extraAttributes,
+      ));
+
+      final brands = await brandsFuture;
+      final colorData = await colorsFuture;
+      final priceBounds = await priceBoundsFuture;
+
+      final currentState = state;
+      if (currentState is! CatalogLoaded) return;
+
+      emit(currentState.copyWith(
+        brands: brands,
+        colors: colorData.colors,
+        priceMinBound: priceBounds.minPrice,
+        priceMaxBound: priceBounds.maxPrice,
+      ));
+      return;
+    }
+
     final resp = await fetchCatalogPage(
       page: 1,
       pageSize: 20,
@@ -126,7 +200,7 @@ class CatalogBloc extends Bloc<CatalogEvent, CatalogState> {
       query: event.args.query,
       featured: event.args.featured,
     );
-    
+
     print('📊 CatalogBloc: Received ${resp.items.length} products');
 
     final List<Product> items = resp.items;

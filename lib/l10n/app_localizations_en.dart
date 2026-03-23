@@ -334,6 +334,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get failedToLoadImage => 'Failed to load image';
 
   @override
+  String get noImageData => 'No image data';
+
+  @override
   String get onboardingError => 'Error loading onboarding';
 
   @override
@@ -2895,4 +2898,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deliveryStatusPostponed =>
       'Order re-scheduled for another date for delivery';
+
+  @override
+  String get couponAppliedSuccessfully => 'Coupon applied successfully';
+
+  @override
+  String get couponRemovedSuccessfully => 'Coupon removed successfully';
+
+  @override
+  String get coupons => 'Coupons';
+
+  @override
+  String get couponCodeCopied => 'Coupon code copied to clipboard';
+
+  @override
+  String get enterCouponCode => 'Enter coupon code';
 }

@@ -333,6 +333,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get failedToLoadImage => 'فشل في تحميل الصورة';
 
   @override
+  String get noImageData => 'لا توجد بيانات صورة';
+
+  @override
   String get onboardingError => 'خطأ في تحميل التعريف';
 
   @override
@@ -2897,4 +2900,19 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get deliveryStatusPostponed =>
       'تم إعادة جدولة الطلب لتاريخ آخر للتسليم';
+
+  @override
+  String get couponAppliedSuccessfully => 'تم تطبيق الكوبون بنجاح';
+
+  @override
+  String get couponRemovedSuccessfully => 'تم إزالة الكوبون بنجاح';
+
+  @override
+  String get coupons => 'الكوبونات';
+
+  @override
+  String get couponCodeCopied => 'تم نسخ كود الكوبون إلى الحافظة';
+
+  @override
+  String get enterCouponCode => 'أدخل كود الكوبون';
 }

@@ -72,7 +72,11 @@ class HomeRepositoryImpl implements HomeRepository {
                 }
               }(),
               category: productModel.category.name,
-              brand: productModel.brand ?? 'Unknown Brand',
+              // If brand is null/empty, keep it empty so UI can
+              // decide whether to render a brand label or not.
+              brand: (productModel.brand == null || productModel.brand!.trim().isEmpty)
+                  ? ''
+                  : productModel.brand!,
               type: productModel.type,
               rating: 4.5, // Mock rating
               reviewCount: 100, // Mock review count
@@ -119,7 +123,9 @@ class HomeRepositoryImpl implements HomeRepository {
                       ? [_constructImageUrl(productModel.mainImage!)]
                       : []),
               category: productModel.category.name,
-              brand: productModel.brand ?? 'Unknown Brand',
+              brand: (productModel.brand == null || productModel.brand!.trim().isEmpty)
+                  ? ''
+                  : productModel.brand!,
               type: productModel.type,
               rating: 4.5,
               reviewCount: 100,
@@ -199,7 +205,9 @@ class HomeRepositoryImpl implements HomeRepository {
                       ? [_constructImageUrl(productModel.mainImage!)]
                       : []),
               category: productModel.category.name,
-              brand: productModel.brand ?? 'Unknown Brand',
+              brand: (productModel.brand == null || productModel.brand!.trim().isEmpty)
+                  ? ''
+                  : productModel.brand!,
               type: productModel.type,
               rating: 4.5,
               reviewCount: 100,

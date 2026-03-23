@@ -740,6 +740,12 @@ abstract class AppLocalizations {
   /// **'فشل في تحميل الصورة'**
   String get failedToLoadImage;
 
+  /// Label shown when an item has no image
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد بيانات صورة'**
+  String get noImageData;
+
   /// Error message for onboarding loading failure
   ///
   /// In ar, this message translates to:
@@ -5537,6 +5543,36 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تم إعادة جدولة الطلب لتاريخ آخر للتسليم'**
   String get deliveryStatusPostponed;
+
+  /// رسالة تظهر عند تطبيق الكوبون بنجاح
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تطبيق الكوبون بنجاح'**
+  String get couponAppliedSuccessfully;
+
+  /// رسالة تظهر عند إزالة الكوبون بنجاح
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إزالة الكوبون بنجاح'**
+  String get couponRemovedSuccessfully;
+
+  /// عنوان قسم الكوبونات المتاحة
+  ///
+  /// In ar, this message translates to:
+  /// **'الكوبونات'**
+  String get coupons;
+
+  /// رسالة تظهر عند نسخ كود الكوبون
+  ///
+  /// In ar, this message translates to:
+  /// **'تم نسخ كود الكوبون إلى الحافظة'**
+  String get couponCodeCopied;
+
+  /// نص التلميح لحقل إدخال كود الكوبون
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل كود الكوبون'**
+  String get enterCouponCode;
 }
 
 class _AppLocalizationsDelegate

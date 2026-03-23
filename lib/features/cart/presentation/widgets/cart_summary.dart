@@ -69,19 +69,21 @@ class _CartSummaryState extends State<CartSummary> with TickerProviderStateMixin
         if (state is CartLoaded && state.cartResponse != null) {
           // Use exact API values but with cached currency
           subtotal = state.subtotal;
-          taxAmount = state.taxAmount;
-          total = state.total;
+          // Display logic: ignore tax, show untaxed total
+          taxAmount = 0.0;
+          total = subtotal;
           totalItems = state.totalItems;
           
-          // Build tax labels from API tax summary
-          taxLabels = state.taxSummary.map((tax) => '${tax.taxName}').toList();
+          // No tax labels in UI anymore
+          taxLabels = const [];
         } else {
           // Fallback to local calculations
           subtotal = widget.cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
-          taxAmount = subtotal * 0.15; // 15% VAT fallback
-          total = subtotal + taxAmount;
+          // Fallback logic: no tax applied in UI
+          taxAmount = 0.0;
+          total = subtotal;
           totalItems = widget.cartItems.fold(0, (sum, item) => sum + item.quantity);
-          taxLabels = [AppLocalizations.of(context)!.vatFallback];
+          taxLabels = const [];
         }
 
         final theme = Theme.of(context);
@@ -329,21 +331,6 @@ class _CartSummaryState extends State<CartSummary> with TickerProviderStateMixin
       AppLocalizations.of(context)!.subtotal,
       _formatCurrency(subtotal, currency, currencyProvider, context),
     ));
-
-    if (state is CartLoaded && state.cartResponse != null && state.taxSummary.isNotEmpty) {
-      for (final tax in state.taxSummary) {
-        rows.add(buildRow(
-          // Show only the tax name to avoid repeating the percentage many times
-          tax.taxName,
-          _formatCurrency(tax.totalTaxAmount, currency, currencyProvider, context),
-        ));
-      }
-    } else {
-      rows.add(buildRow(
-        taxLabels.isNotEmpty ? taxLabels.first : AppLocalizations.of(context)!.tax,
-        _formatCurrency(taxAmount, currency, currencyProvider, context),
-      ));
-    }
 
     rows.add(buildRow(
       AppLocalizations.of(context)!.total,

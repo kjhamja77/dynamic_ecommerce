@@ -8,6 +8,7 @@ import 'package:zalando_clone_app/features/home/domain/entities/banner.dart' as 
 import 'package:zalando_clone_app/features/home/presentation/widgets/banner/banner_carousel_widget.dart';
 import '../../../../../core/providers/currency_provider.dart';
 import '../../../../../core/theme/app_fonts.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 import '../../../../../core/services/haptic_service.dart';
 class ElectronicsContentWidget extends StatelessWidget {
   const ElectronicsContentWidget({super.key});
@@ -88,7 +89,7 @@ class ElectronicsContentWidget extends StatelessWidget {
             itemCount: _getElectronicsCategories().length,
             itemBuilder: (context, index) {
               final category = _getElectronicsCategories()[index];
-              return _buildCategoryCard(category);
+              return _buildCategoryCard(context, category);
             },
           ),
         ],
@@ -96,18 +97,21 @@ class ElectronicsContentWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryCard(CategoryData category) {
+  Widget _buildCategoryCard(BuildContext context, CategoryData category) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? colorScheme.surfaceContainerHighest : Colors.white,
         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-        boxShadow: [
+        boxShadow: homeCardBoxShadow(context, [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
-        ],
+        ]),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

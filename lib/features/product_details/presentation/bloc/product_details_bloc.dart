@@ -387,6 +387,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       var updated = ProductDetails(
         id: p.id,
         brand: p.brand,
+        brandId: p.brandId,
+        brandImageUrl: p.brandImageUrl,
         name: p.name,
         description: p.description,
         price: p.price,
@@ -557,6 +559,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       var updated = ProductDetails(
         id: p.id,
         brand: p.brand,
+        brandId: p.brandId,
+        brandImageUrl: p.brandImageUrl,
         name: p.name,
         description: p.description,
         price: p.price,
@@ -1912,6 +1916,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       final updatedProduct = ProductDetails(
         id: currentProduct.id,
         brand: currentProduct.brand,
+        brandId: currentProduct.brandId,
+        brandImageUrl: currentProduct.brandImageUrl,
         name: currentProduct.name,
         description: currentProduct.description,
         price: currentProduct.price,
@@ -2994,6 +3000,8 @@ class ProductDetailsBloc extends Bloc<ProductDetailsEvent, ProductDetailsState> 
       var updatedProduct = ProductDetails(
         id: currentProduct.id,
         brand: currentProduct.brand,
+        brandId: currentProduct.brandId,
+        brandImageUrl: currentProduct.brandImageUrl,
         name: currentProduct.name,
         description: currentProduct.description,
         price: currentProduct.price,

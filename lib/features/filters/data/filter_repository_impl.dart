@@ -257,7 +257,8 @@ class FilterRepositoryImpl implements FilterRepository {
     _cachedQuery = null;
     _cachedCategoryId = null;
     _cacheTimestamp = null;
-    print('🧹 FilterRepository: Cleared available-filters cache');
+    remoteDataSource.clearAttributesCache();
+    print('🧹 FilterRepository: Cleared available-filters cache and remote attributes cache');
   }
 }
 

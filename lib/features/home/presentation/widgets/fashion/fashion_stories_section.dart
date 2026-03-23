@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/utils/image_cache_utils.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../pages/story_detail_page.dart';
+import '../common/no_image_data_placeholder.dart';
 // Removed localization uses for unavailable keys
 
 class FashionStoriesSection extends StatelessWidget {
@@ -157,6 +158,9 @@ class _StoryImageLoaderState extends State<_StoryImageLoader> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.imageUrl.trim().isEmpty) {
+      return const NoImageDataPlaceholder(compact: true);
+    }
     return FutureBuilder<Map<String, dynamic>>(
       future: _imageDataFuture,
       builder: (context, snapshot) {
@@ -185,14 +189,8 @@ class _StoryImageLoaderState extends State<_StoryImageLoader> {
               ),
             ),
           ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey.shade100,
-            child: Icon(
-              Icons.image_not_supported_outlined,
-              color: Colors.grey.shade400,
-              size: ResponsiveConstants.lgIconSize,
-            ),
-          ),
+          errorWidget: (context, url, error) =>
+              const NoImageDataPlaceholder(compact: true),
         );
       },
     );

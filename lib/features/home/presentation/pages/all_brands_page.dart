@@ -20,18 +20,22 @@ class AllBrandsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
         title: Text(
           title?.isNotEmpty == true ? title! : 'All Brands',
-          style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
+          style: AppFonts.getTextStyle(
+            fontSize: ResponsiveConstants.lgFontSize,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
+            color: colorScheme.onSurface,
           ),
         ),
       ),
@@ -93,7 +97,7 @@ class _BrandTile extends StatelessWidget {
       errorWidget: (context, url, error) => Center(
         child: Icon(
           Icons.business,
-          color: Colors.grey.shade400,
+          color: Theme.of(context).colorScheme.outline,
           size: ResponsiveConstants.lgIconSize,
         ),
       ),
@@ -102,6 +106,9 @@ class _BrandTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: () async {
           await HapticService.buttonClick();
@@ -132,9 +139,10 @@ class _BrandTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.mdFontSize,
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.mdFontSize,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: colorScheme.onSurface,
             ),
           ),
           SizedBox(height: ResponsiveConstants.xsSpacing),
@@ -145,14 +153,15 @@ class _BrandTile extends StatelessWidget {
                 vertical: ResponsiveConstants.xsSpacing / 2,
               ),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
               ),
               child: Text(
                 _tr(context, en: 'Premium', ar: 'مميز'),
-                style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.xsFontSize,
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.xsFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             )
@@ -161,8 +170,9 @@ class _BrandTile extends StatelessWidget {
           SizedBox(height: ResponsiveConstants.xsSpacing),
           Text(
             _tr(context, en: '${brand.productCount} products', ar: '${brand.productCount} منتج'),
-            style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.xsFontSize,
-              color: Colors.grey.shade600,
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.xsFontSize,
+              color: colorScheme.onSurfaceVariant,
             ),
             textAlign: TextAlign.center,
           ),

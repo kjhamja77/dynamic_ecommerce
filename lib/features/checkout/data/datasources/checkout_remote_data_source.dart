@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:zalando_clone_app/core/network/api_client.dart';
+import 'package:zalando_clone_app/core/constants/endpoints.dart';
+import '../models/coupon_model.dart';
 
 class ShippingMethodDto {
   final int id;
@@ -26,6 +29,7 @@ class OrderTotalsDto {
   final String currencySymbol;
   final double shippingPrice;
   final String? shippingName;
+  final double couponDiscountAmount;
 
   OrderTotalsDto({
     required this.orderId,
@@ -36,6 +40,7 @@ class OrderTotalsDto {
     required this.currencySymbol,
     required this.shippingPrice,
     this.shippingName,
+    this.couponDiscountAmount = 0.0,
   });
 
   factory OrderTotalsDto.fromJson(Map<String, dynamic> json) {
@@ -56,6 +61,7 @@ class OrderTotalsDto {
       currencySymbol: (json['currency_symbol'] ?? '').toString(),
       shippingPrice: shippingPrice,
       shippingName: shippingName,
+      couponDiscountAmount: (json['coupon_discount_amount'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -120,10 +126,26 @@ class AlQasehPaymentResponse {
 }
 
 abstract class CheckoutRemoteDataSource {
-  Future<List<ShippingMethodDto>> getShippingMethods({required int orderId});
-  Future<OrderTotalsDto> applyShippingMethod({required int orderId, required int shippingMethodId});
+  Future<List<ShippingMethodDto>> getShippingMethods({
+    required int orderId,
+    int? addressId,
+  });
+  Future<OrderTotalsDto> applyShippingMethod({
+    required int orderId,
+    required int shippingMethodId,
+    double? amount,
+  });
   Future<List<Map<String, dynamic>>> getPromoPricelists({required int orderId});
   Future<OrderTotalsDto> applyPromo({required int orderId, required int pricelistId, required String promoCode});
+  Future<List<CouponModel>> getCoupons();
+  Future<OrderTotalsDto> applyCoupon({
+    required int orderId,
+    required int couponId,
+  });
+  Future<OrderTotalsDto> removeCoupon({
+    required int orderId,
+    required int couponId,
+  });
   Future<List<PaymentMethodDto>> getPaymentMethods();
   Future<String> applyPaymentMethod({required int orderId, required int paymentMethodId});
   Future<String> placeOrder({required int orderId, required int addressId});
@@ -135,13 +157,24 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
   CheckoutRemoteDataSourceImpl({required this.apiClient});
 
   @override
-  Future<List<ShippingMethodDto>> getShippingMethods({required int orderId}) async {
+  Future<List<ShippingMethodDto>> getShippingMethods({
+    required int orderId,
+    int? addressId,
+  }) async {
     try {
       final response = await apiClient.requestRpc(
         '/ecom/get/ShippingMethods',
         method: 'POST',
-        params: {'order_id': orderId},
+        params: {
+          'order_id': orderId,
+          if (addressId != null) 'address_id': addressId,
+        },
       );
+      if (kDebugMode) {
+        // Helpful for verifying which address/order produced which methods
+        debugPrint('🟧 getShippingMethods response (order_id=$orderId, address_id=$addressId):');
+        debugPrint(response.data.toString());
+      }
       final envelope = apiClient.parseRpcEnvelope(response.data);
       final root = envelope.data;
       // Some endpoints return methods under data.shipping_method, others under shipping_method directly.
@@ -163,7 +196,11 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
   }
 
   @override
-  Future<OrderTotalsDto> applyShippingMethod({required int orderId, required int shippingMethodId}) async {
+  Future<OrderTotalsDto> applyShippingMethod({
+    required int orderId,
+    required int shippingMethodId,
+    double? amount,
+  }) async {
     try {
       final response = await apiClient.requestRpc(
         '/ecom/apply/ShippingMethods',
@@ -171,9 +208,14 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         params: {
           'order_id': orderId,
           'shipping_method_id': shippingMethodId,
+          if (amount != null) 'amount': amount,
         },
       );
       final envelope = apiClient.parseRpcEnvelope(response.data);
+      if (kDebugMode) {
+        debugPrint('🟧 applyShippingMethod response (order_id=$orderId, shipping_method_id=$shippingMethodId, amount = $amount):');
+        debugPrint(envelope.data.toString());
+      }
       final root = envelope.data;
       final orderNode = (root is Map && root['order_details'] is Map)
           ? root['order_details']
@@ -199,17 +241,139 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
       );
       final envelope = apiClient.parseRpcEnvelope(response.data);
       final root = envelope.data;
+      debugPrint('📦 getPromoPricelists raw envelope for order $orderId: status=${envelope.status}, message=${envelope.message}, data=${envelope.data}');
       final listNode = (root is Map && root['pricelists'] is List)
           ? root['pricelists']
           : (root is Map && root['data'] is Map && (root['data'] as Map)['pricelists'] is List)
               ? (root['data'] as Map)['pricelists']
               : null;
       if (listNode is List) {
-        return listNode.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        final mapped = listNode
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        debugPrint('✅ Parsed promo pricelists for order $orderId: $mapped');
+        return mapped;
       }
+      debugPrint('ℹ️ getPromoPricelists returned empty list for order $orderId (no pricelists key found)');
       return <Map<String, dynamic>>[];
-    } on DioException catch (e) {
+    } on DioException catch (e, s) {
+      debugPrint('❌ getPromoPricelists Dio error for order $orderId: $e\n$s');
       throw Exception(e.message ?? 'Failed to fetch promo pricelists');
+    }
+  }
+
+  @override
+  Future<List<CouponModel>> getCoupons() async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.getCoupons,
+        method: 'GET',
+        params: const {},
+      );
+      final envelope = apiClient.parseRpcEnvelope(response.data);
+      final root = envelope.data;
+      debugPrint('🎟️ getCoupons raw envelope: status=${envelope.status}, message=${envelope.message}, data=${envelope.data}');
+      final listNode = (root is Map && root['items'] is List)
+          ? root['items']
+          : (root is Map && root['data'] is Map && (root['data'] as Map)['items'] is List)
+              ? (root['data'] as Map)['items']
+              : null;
+      if (listNode is List) {
+        final mapped = listNode
+            .whereType<Map>()
+            .map((e) => CouponModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        debugPrint('✅ Parsed coupons: $mapped');
+        return mapped;
+      }
+      debugPrint('ℹ️ getCoupons returned empty list (no items key found)');
+      return <CouponModel>[];
+    } on DioException catch (e, s) {
+      debugPrint('❌ getCoupons Dio error: $e\n$s');
+      throw Exception(e.message ?? 'Failed to fetch coupons');
+    }
+  }
+
+  @override
+  Future<OrderTotalsDto> applyCoupon({
+    required int orderId,
+    required int couponId,
+  }) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.applyCoupon,
+        method: 'POST',
+        params: {
+          'order_id': orderId,
+          'coupon_id': couponId,
+        },
+      );
+
+      final data = response.data;
+      Map<String, dynamic>? orderNode;
+
+      if (data is Map<String, dynamic>) {
+        final result = data['result'];
+        if (result is Map<String, dynamic>) {
+          final resultData = result['data'];
+          if (resultData is Map<String, dynamic>) {
+            final order = resultData['order'];
+            if (order is Map<String, dynamic>) {
+              orderNode = order;
+            }
+          }
+        }
+      }
+
+      if (orderNode == null) {
+        throw Exception('Invalid response for applyCoupon');
+      }
+
+      return OrderTotalsDto.fromJson(orderNode);
+    } on DioException catch (e) {
+      throw Exception(e.message ?? 'Failed to apply coupon');
+    }
+  }
+
+  @override
+  Future<OrderTotalsDto> removeCoupon({
+    required int orderId,
+    required int couponId,
+  }) async {
+    try {
+      final response = await apiClient.requestRpc(
+        Endpoints.removeCoupon,
+        method: 'POST',
+        params: {
+          'order_id': orderId,
+          'coupon_id': couponId,
+        },
+      );
+
+      final data = response.data;
+      Map<String, dynamic>? orderNode;
+
+      if (data is Map<String, dynamic>) {
+        final result = data['result'];
+        if (result is Map<String, dynamic>) {
+          final resultData = result['data'];
+          if (resultData is Map<String, dynamic>) {
+            final order = resultData['order'];
+            if (order is Map<String, dynamic>) {
+              orderNode = order;
+            }
+          }
+        }
+      }
+
+      if (orderNode == null) {
+        throw Exception('Invalid response for removeCoupon');
+      }
+
+      return OrderTotalsDto.fromJson(orderNode);
+    } on DioException catch (e) {
+      throw Exception(e.message ?? 'Failed to remove coupon');
     }
   }
 

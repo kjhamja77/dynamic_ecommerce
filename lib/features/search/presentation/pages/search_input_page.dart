@@ -115,31 +115,31 @@ class _SearchInputPageState extends State<SearchInputPage> {
                 onChanged: (_) => setState(() {}),
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
-                  color: Colors.black,
+                  // Adapt typing color to current theme
+                  color: colorScheme.onSurface,
                 ),
                 decoration: InputDecoration(
                   hintText: AppLocalizations.of(context)!.searchHint,
                   hintStyle: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.mdFontSize,
-                    color: Colors.grey.shade500,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: Colors.grey.shade500,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                     size: ResponsiveConstants.lgIconSize,
                   ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: Icon(
                             Icons.clear,
-                            color: Colors.grey.shade500,
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                             size: ResponsiveConstants.mdIconSize,
                           ),
                           onPressed: () async {
-          await HapticService.buttonClick();
-          _searchController.clear();
-                            setState(() {
-        });
+                            await HapticService.buttonClick();
+                            _searchController.clear();
+                            setState(() {});
                           },
                         )
                       : null,
@@ -175,8 +175,8 @@ class _SearchInputPageState extends State<SearchInputPage> {
               child: ElevatedButton(
                 onPressed: _searchController.text.trim().isNotEmpty ? _performSearch : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: EdgeInsets.symmetric(
                     vertical: ResponsiveConstants.mdPadding,
                   ),
@@ -190,7 +190,7 @@ class _SearchInputPageState extends State<SearchInputPage> {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.mdFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                 ),
               ),

@@ -5,6 +5,7 @@ import '../../domain/entities/checkout_item.dart';
 import '../../domain/entities/checkout_summary.dart';
 import '../../domain/entities/shipping_address.dart';
 import '../../domain/entities/payment_method.dart';
+import '../../domain/entities/coupon.dart';
 import '../../domain/repositories/checkout_repository.dart';
 import '../datasources/checkout_remote_data_source.dart';
 import '../datasources/checkout_local_data_source.dart';
@@ -179,12 +180,20 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
-  Future<Either<Failure, List<dynamic>>> getShippingMethods({required int orderId}) async {
+  Future<Either<Failure, List<dynamic>>> getShippingMethods({
+    required int orderId,
+    String? addressId,
+  }) async {
     try {
       if (remoteDataSource == null) {
         return const Right(<dynamic>[]);
       }
-      final list = await remoteDataSource!.getShippingMethods(orderId: orderId);
+      final parsedAddressId =
+          addressId != null ? int.tryParse(addressId) : null;
+      final list = await remoteDataSource!.getShippingMethods(
+        orderId: orderId,
+        addressId: parsedAddressId,
+      );
       return Right(list);
     } catch (e) {
       return Left(CacheFailure('Failed to get shipping methods: $e'));
@@ -192,24 +201,36 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
-  Future<Either<Failure, CheckoutSummary>> applyShippingMethod({required int orderId, required int shippingMethodId}) async {
+  Future<Either<Failure, CheckoutSummary>> applyShippingMethod({
+    required int orderId,
+    required int shippingMethodId,
+    double? amount,
+  }) async {
     try {
       if (remoteDataSource == null) {
         return Left(CacheFailure('Remote DS not configured'));
       }
-      final totals = await remoteDataSource!.applyShippingMethod(orderId: orderId, shippingMethodId: shippingMethodId);
+      final totals = await remoteDataSource!.applyShippingMethod(
+        orderId: orderId,
+        shippingMethodId: shippingMethodId,
+        amount: amount,
+      );
       // Fallback compute shipping if backend didn't include it explicitly
       double computedShipping = totals.shippingPrice;
       if (computedShipping == 0.0) {
         final diff = totals.amountTotal - totals.amountUntaxed - totals.amountTax;
         computedShipping = diff > 0 ? diff : 0.0;
       }
+      // Display logic: totals without tax
+      final displayedSubtotal = totals.amountUntaxed;
+      final displayedTax = 0.0;
+      final displayedTotal = displayedSubtotal + computedShipping;
       final summary = CheckoutSummary(
-        subtotal: totals.amountUntaxed,
+        subtotal: displayedSubtotal,
         shipping: computedShipping,
-        tax: totals.amountTax,
+        tax: displayedTax,
         discount: 0.0,
-        total: totals.amountTotal,
+        total: displayedTotal,
         totalItems: 0,
       );
       return Right(summary);
@@ -251,6 +272,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     }
   }
 
+  @override
   // Promo APIs passthrough (optional exposure if needed later for UI)
   Future<Either<Failure, List<Map<String, dynamic>>>> getPromoPricelists({required int orderId}) async {
     try {
@@ -262,21 +284,109 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     }
   }
 
+  @override
   Future<Either<Failure, CheckoutSummary>> applyPromo({required int orderId, required int pricelistId, required String promoCode}) async {
     try {
       if (remoteDataSource == null) return Left(CacheFailure('Remote DS not configured'));
       final totals = await remoteDataSource!.applyPromo(orderId: orderId, pricelistId: pricelistId, promoCode: promoCode);
+      // Display logic: totals without tax
+      final displayedSubtotal = totals.amountUntaxed;
+      final displayedTax = 0.0;
+      final displayedTotal = displayedSubtotal; // No shipping included in this summary
       final summary = CheckoutSummary(
-        subtotal: totals.amountUntaxed,
+        subtotal: displayedSubtotal,
         shipping: 0.0,
-        tax: totals.amountTax,
+        tax: displayedTax,
         discount: 0.0,
-        total: totals.amountTotal,
+        total: displayedTotal,
         totalItems: 0,
       );
       return Right(summary);
     } catch (e) {
       return Left(CacheFailure('Failed to apply promo: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Coupon>>> getCoupons() async {
+    try {
+      if (remoteDataSource == null) return const Right(<Coupon>[]);
+      final list = await remoteDataSource!.getCoupons();
+      return Right(list);
+    } catch (e) {
+      return Left(CacheFailure('Failed to get coupons: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CheckoutSummary>> applyCoupon({
+    required int orderId,
+    required int couponId,
+  }) async {
+    try {
+      if (remoteDataSource == null) {
+        return Left(CacheFailure('Remote DS not configured'));
+      }
+      final totals = await remoteDataSource!.applyCoupon(
+        orderId: orderId,
+        couponId: couponId,
+      );
+
+      final displayedSubtotal = totals.amountUntaxed;
+      final displayedDiscount = totals.couponDiscountAmount;
+      final displayedShipping = totals.shippingPrice;
+      final displayedTax = 0.0;
+      final displayedTotal =
+          displayedSubtotal + displayedShipping + displayedTax - displayedDiscount;
+
+      final summary = CheckoutSummary(
+        subtotal: displayedSubtotal,
+        shipping: displayedShipping,
+        tax: displayedTax,
+        discount: displayedDiscount,
+        total: displayedTotal,
+        totalItems: 0,
+      );
+
+      return Right(summary);
+    } catch (e) {
+      return Left(CacheFailure('Failed to apply coupon: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CheckoutSummary>> removeCoupon({
+    required int orderId,
+    required int couponId,
+  }) async {
+    try {
+      if (remoteDataSource == null) {
+        return Left(CacheFailure('Remote DS not configured'));
+      }
+      final totals = await remoteDataSource!.removeCoupon(
+        orderId: orderId,
+        couponId: couponId,
+      );
+
+      final displayedSubtotal = totals.amountUntaxed;
+      final displayedDiscount = totals.couponDiscountAmount;
+      final displayedShipping = totals.shippingPrice;
+      final displayedTax = 0.0;
+      final displayedTotal =
+          displayedSubtotal + displayedShipping + displayedTax - displayedDiscount;
+
+      final summary = CheckoutSummary(
+        subtotal: displayedSubtotal,
+        shipping: displayedShipping,
+        tax: displayedTax,
+        discount: displayedDiscount,
+        total: displayedTotal,
+        totalItems: 0,
+      );
+
+      return Right(summary);
+    } catch (e) {
+      return Left(CacheFailure('Failed to remove coupon: $e'));
     }
   }
 

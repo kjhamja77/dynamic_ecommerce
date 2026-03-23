@@ -14,6 +14,7 @@ import '../../../catalog/domain/models/catalog_args.dart';
 import '../pages/story_detail_page.dart';
 import '../../../../core/services/haptic_service.dart';
 import 'package:zalando_clone_app/features/filters/domain/entities/filter_criteria.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 /// Safely cast a value to String, but return empty string for bool values (to avoid showing "false")
 String _safeStringCastNonNull(dynamic value) {
@@ -702,7 +703,7 @@ class DynamicComponentRenderer extends StatelessWidget {
                           ],
                         ),
                         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
-                        boxShadow: [
+                        boxShadow: homeCardBoxShadow(context, [
                           BoxShadow(
                             color: Colors.orange.withValues(alpha: 0.3),
                             blurRadius: 20,
@@ -715,7 +716,7 @@ class DynamicComponentRenderer extends StatelessWidget {
                             offset: const Offset(0, 4),
                             spreadRadius: 0,
                           ),
-                        ],
+                        ]),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
@@ -826,14 +827,14 @@ class DynamicComponentRenderer extends StatelessWidget {
                                       height: 140,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                                        boxShadow: [
+                                        boxShadow: homeCardBoxShadow(context, [
                                           BoxShadow(
                                             color: Colors.black.withValues(alpha: 0.3),
                                             blurRadius: 15,
                                             offset: const Offset(0, 6),
                                             spreadRadius: 0,
                                           ),
-                                        ],
+                                        ]),
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
@@ -962,10 +963,12 @@ class DynamicComponentRenderer extends StatelessWidget {
     
     final offerName = content['name'] as String? ?? 'Special Offer';
     
-    // Extract filter criteria
+    // Extract filter criteria from offer filters map
     final List<dynamic> categoryIdsRaw = filters['offer_category_id'] as List<dynamic>? ?? [];
     final List<dynamic> brandIdsRaw = filters['offer_brand_id'] as List<dynamic>? ?? [];
-    final dynamic productIdRaw = filters['offer_product_id'];
+    // New API key is `offer_product_ids` (list). Keep old key fallback.
+    final dynamic productIdRaw =
+        filters['offer_product_ids'] ?? filters['offer_product_id'];
     final String? keyword = filters['offer_keyword'] as String?;
     
     // Convert to proper types
@@ -987,29 +990,36 @@ class DynamicComponentRenderer extends StatelessWidget {
       }
     }
     
-    print('🎯 Offer Navigation - Name: $offerName');
-    print('  - Category IDs: $categoryIds');
-    print('  - Brand IDs: $brandIds');
-    print('  - Product IDs: $productIds');
-    print('  - Keyword: $keyword');
+    // Debug: show exactly what we extracted from the offer component
+    debugPrint('🎯 [Offer → Catalog] Offer tapped: $offerName');
+    debugPrint('   🔹 Raw filters map: $filters');
+    debugPrint('   🔹 Parsed categoryIds: $categoryIds');
+    debugPrint('   🔹 Parsed brandIds: $brandIds');
+    debugPrint('   🔹 Parsed productIds: $productIds');
+    debugPrint('   🔹 Parsed keyword (offer_keyword): $keyword');
     
-    // Create FilterCriteria with all filters combined
+    // Build FilterCriteria specifically for filter-search:
+    // - Always send brand IDs and product IDs as lists
+    // - Use offer_keyword as search_term
+    // - Also forward category IDs from offer_category_id
     final filterCriteria = FilterCriteria(
       categoryIds: categoryIds,
       brandIds: brandIds,
       productIds: productIds,
       searchQuery: keyword?.isNotEmpty == true ? keyword : null,
-      page: 1,
-      limit: 20,
+      omitPaginationInRequest: true,
     );
     
-    print('✅ Created FilterCriteria for offer:');
-    print('  - Category IDs: ${filterCriteria.categoryIds}');
-    print('  - Brand IDs: ${filterCriteria.brandIds}');
-    print('  - Product IDs: ${filterCriteria.productIds}');
-    print('  - Search Query: ${filterCriteria.searchQuery}');
+    // Debug: log the exact pieces that will go into filter-search body
+    debugPrint('📦 [Offer → Catalog] FilterCriteria built for filter-search:');
+    debugPrint('   ➤ category_ids (FilterCriteria.categoryIds): ${filterCriteria.categoryIds}');
+    debugPrint('   ➤ brand_ids    (FilterCriteria.brandIds): ${filterCriteria.brandIds}');
+    debugPrint('   ➤ product_ids  (FilterCriteria.productIds): ${filterCriteria.productIds}');
+    debugPrint('   ➤ search_term  (FilterCriteria.searchQuery): ${filterCriteria.searchQuery}');
+    debugPrint('   ➤ omitPaginationInRequest: ${filterCriteria.omitPaginationInRequest} (page/limit not sent)');
     
     // Navigate to catalog with combined filters
+    debugPrint('🚀 [Offer → Catalog] Navigating to /catalog with initialFilters from offer...');
     Navigator.pushNamed(
       context,
       '/catalog',

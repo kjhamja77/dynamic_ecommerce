@@ -8,21 +8,84 @@ import 'package:zalando_clone_app/features/home/presentation/pages/all_categorie
 import 'package:zalando_clone_app/core/navigation/navigation_service.dart';
 import 'package:zalando_clone_app/l10n/app_localizations.dart';
 import 'package:zalando_clone_app/core/constants/app_constants.dart';
+import 'package:zalando_clone_app/core/di/injection_container.dart';
+import 'package:zalando_clone_app/features/search/domain/services/category_service.dart';
 import 'package:zalando_clone_app/core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../common/no_image_data_placeholder.dart';
 
-class FeaturedCategoriesSection extends StatelessWidget {
+class FeaturedCategoriesSection extends StatefulWidget {
   final String? title;
   final List<CategoryData>? categories;
 
   const FeaturedCategoriesSection({super.key, this.title, this.categories});
 
   @override
+  State<FeaturedCategoriesSection> createState() => _FeaturedCategoriesSectionState();
+}
+
+class _FeaturedCategoriesSectionState extends State<FeaturedCategoriesSection> {
+  List<CategoryData>? _fetchedCategories;
+  bool _isLoading = false;
+  bool _hasTriedFetch = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // If categories are not provided, fetch from API once on init.
+    if (widget.categories == null) {
+      _fetchRootCategories();
+    }
+  }
+
+  Future<void> _fetchRootCategories() async {
+    if (_hasTriedFetch) return;
+    _hasTriedFetch = true;
+    setState(() => _isLoading = true);
+    try {
+      final service = sl<CategoryService>();
+      final result = await service.getRootCategories(maxDepth: 1);
+      result.fold(
+        (_) {
+          // Leave _fetchedCategories as null to fall back to local demo
+        },
+        (productCategories) {
+          final mapped = productCategories.map((c) {
+            // Build absolute image URL if backend returns relative path
+            String imageUrl = '';
+            if (c.image != null && c.image!.isNotEmpty) {
+              imageUrl = c.image!.startsWith('http')
+                  ? c.image!
+                  : '${AppConstants.baseUrl}${c.image!.startsWith('/') ? c.image! : '/${c.image!}'}';
+            }
+            return CategoryData(
+              id: c.id.toString(),
+              name: c.name,
+              imageUrl: imageUrl,
+              // Product count is not prominently shown in this UI; keep simple
+              productCount: (c.productCount > 0) ? '${c.productCount}' : '',
+              // Provide a soft background; reuse a consistent palette
+              color: Colors.grey.shade200,
+            );
+          }).toList();
+          _fetchedCategories = mapped;
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (categories != null && categories!.isEmpty) {
+    final provided = widget.categories;
+    if (provided != null && provided.isEmpty) {
       return const SizedBox.shrink();
     }
-    final data = categories ?? _getFeaturedCategories();
+    final List<CategoryData> data = provided ??
+        (_fetchedCategories != null && _fetchedCategories!.isNotEmpty
+            ? _fetchedCategories!
+            : (_isLoading ? const [] : _getFeaturedCategories()));
     final locTitle = AppLocalizations.of(context)!.featuredCategories;
     return Container(
       margin: EdgeInsets.only(
@@ -38,7 +101,9 @@ class FeaturedCategoriesSection extends StatelessWidget {
             title: locTitle,
             actionText: AppLocalizations.of(context)!.viewAll,
             onAction: () {
-              final categories = data;
+              final categories = data.isNotEmpty
+                  ? data
+                  : _getFeaturedCategories();
               context.pushCatalog(
                 AllCategoriesPage(
                   categories: categories,
@@ -53,7 +118,14 @@ class FeaturedCategoriesSection extends StatelessWidget {
           // Categories Grid
           SizedBox(
             height: ResponsiveConstants.productImageHeight,
-            child: ListView.separated(
+            child: _isLoading && (provided == null) && (data.isEmpty)
+                ? Center(
+                    child: AppLoadingWidget.small(
+                      message: AppLocalizations.of(context)!.loading,
+                      showMessage: false,
+                    ),
+                  )
+                : ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.mdPadding),
               itemCount: data.length,
@@ -160,13 +232,7 @@ class _CategoryCard extends StatelessWidget {
                       // Inner image radius same as search image cards (~16)
                       borderRadius: BorderRadius.circular(16),
                       child: category.imageUrl.isEmpty
-                          ? Center(
-                              child: Icon(
-                                Icons.category_outlined,
-                                color: Colors.grey.shade400,
-                                size: ResponsiveConstants.lgIconSize,
-                              ),
-                            )
+                          ? const NoImageDataPlaceholder(compact: true)
                           : CachedNetworkImage(
                               imageUrl: category.imageUrl.startsWith('http')
                                   ? category.imageUrl
@@ -181,13 +247,8 @@ class _CategoryCard extends StatelessWidget {
                                   showMessage: false,
                                 ),
                               ),
-                              errorWidget: (context, url, error) => Center(
-                                child: Icon(
-                                  Icons.category_outlined,
-                                  color: Colors.grey.shade400,
-                                  size: ResponsiveConstants.lgIconSize,
-                                ),
-                              ),
+                              errorWidget: (context, url, error) =>
+                                  const NoImageDataPlaceholder(compact: true),
                             ),
                     ),
                   );
@@ -209,6 +270,8 @@ class _CategoryCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            // We intentionally hide the product count label (e.g. "0 products")
+            // from featured categories to keep the UI clean.
           ],
         ),
       ),

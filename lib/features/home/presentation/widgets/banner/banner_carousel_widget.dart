@@ -7,6 +7,7 @@ import '../../../../../core/widgets/app_loading_widget.dart';
 import '../../../domain/entities/banner.dart' as home_banner;
 import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import '../common/no_image_data_placeholder.dart';
 
 class BannerCarouselWidget extends StatefulWidget {
   final List<home_banner.Banner> banners;
@@ -141,82 +142,42 @@ class _BannerCarouselWidgetState extends State<BannerCarouselWidget> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
+            boxShadow: isDark
+                ? const <BoxShadow>[]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                      spreadRadius: 0,
+                    ),
+                  ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
             child: Stack(
               children: [
-                CachedNetworkImage(
-                  imageUrl: banner.imageUrl,
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) {
-                    // While loading, match theme (avoid bright block in dark mode)
-                    return Container(
-                      color: isDark
-                          ? colorScheme.surface
-                          : Colors.grey.shade200,
-                      child: const AppLoadingWidget.small(),
-                    );
-                  },
-                  errorWidget: (context, url, error) {
-                    print('❌ Banner error: $url - $error');
-                    return Container(
-                      color: isDark
-                          ? colorScheme.error.withValues(alpha: 0.1)
-                          : Colors.red.shade100,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: colorScheme.error,
-                            size: ResponsiveConstants.lgIconSize,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Failed to load image',
-                            style: TextStyle(
-                              color: colorScheme.error,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            url,
-                            style: TextStyle(
-                              color: colorScheme.error.withValues(alpha: 0.8),
-                              fontSize: 10,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Error: $error',
-                            style: TextStyle(
-                              color:
-                                  colorScheme.error.withValues(alpha: 0.7),
-                              fontSize: 8,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                if (banner.imageUrl.trim().isEmpty)
+                  const NoImageDataPlaceholder()
+                else
+                  CachedNetworkImage(
+                    imageUrl: banner.imageUrl,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) {
+                      // While loading, match theme (avoid bright block in dark mode)
+                      return Container(
+                        color: isDark
+                            ? colorScheme.surface
+                            : Colors.grey.shade200,
+                        child: const AppLoadingWidget.small(),
+                      );
+                    },
+                    errorWidget: (context, url, error) {
+                      return const NoImageDataPlaceholder();
+                    },
+                  ),
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(

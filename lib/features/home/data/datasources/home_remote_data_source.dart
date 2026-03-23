@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/endpoints.dart';
@@ -22,6 +21,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   @override
   Future<List<PageModel>> getPages(int userId) async {
     try {
+      debugPrint('🌐 HomeRemoteDataSource:getPages REQUEST userId=$userId');
       final response = await apiClient.requestRpc(
         Endpoints.getPages,
         method: 'POST',
@@ -44,6 +44,11 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           final pagesData = (data['pages'] as List)
               .map((pageJson) => Map<String, dynamic>.from(pageJson as Map))
               .toList();
+          debugPrint(
+            '🌐 HomeRemoteDataSource:getPages RESPONSE userId=$userId status=$status '
+            'total=${data['total_count']} pages=${pagesData.length} '
+            'names=[${pagesData.map((p) => '${p['id']}:${p['name']}').join(', ')}]',
+          );
 
           // Offload heavy JSON → PageModel parsing to a background isolate.
           return parseHomePagesInBackground(pagesData);

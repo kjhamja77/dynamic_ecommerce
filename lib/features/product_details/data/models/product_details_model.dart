@@ -6,6 +6,8 @@ class ProductDetailsModel extends ProductDetails {
   const ProductDetailsModel({
     required super.id,
     required super.brand,
+    super.brandId,
+    super.brandImageUrl,
     required super.name,
     required super.description,
     required super.price,
@@ -88,7 +90,16 @@ class ProductDetailsModel extends ProductDetails {
   factory ProductDetailsModel.fromApiJson(Map<String, dynamic> json) {
     try {
       print('🔍 ProductDetailsModel: Parsing API response for product: ${json['name']}');
+      print('🔍 ProductDetailsModel: Raw brand payload from API: ${json['brand']}');
       
+      // Resolve brand map once so we have a single source of truth
+      final Map<String, dynamic>? brandMap = _extractBrandMap(json);
+      if (brandMap != null) {
+        print('✅ ProductDetailsModel: Resolved brand map: $brandMap');
+      } else {
+        print('⚠️ ProductDetailsModel: Could not resolve brand map from API payload');
+      }
+
       // Parse variant combinations and build options for all variant attributes
       // Backend can return variant_combinations either as a List or as a Map.
       // Normalize to a List for the rest of the logic.
@@ -552,6 +563,10 @@ class ProductDetailsModel extends ProductDetails {
     }
 
     final Map<String, List<String>> colorToImages = {};
+    // Map keyed by color value_id (string). Currently only used in the
+    // color-options branch; initialized here to avoid undefined reference
+    // and can be populated from colorToImages/value_ids when needed.
+    final Map<String, List<String>> colorIdToImages = {};
     // template image
     String? templateImage;
     for (final e in (json['images'] as List<dynamic>? ?? const [])) {
@@ -732,11 +747,15 @@ class ProductDetailsModel extends ProductDetails {
         }
         
         final nameForData = finalEnglishName;
-          
-          List<String> imagesForColor = colorToImages[localizedName] ?? 
-                                     colorToImages[englishName] ?? 
-                                     (templateImage != null ? [templateImage] : parsedImages);
-          print('🎨 Color: English="$nameForData", Display="${displayName ?? nameForData}", ID=$colorId');
+
+        // IMPORTANT: use stable value_id from API (colorId) to resolve images,
+        // never localized/English names. This keeps Arabic/English thumbnails
+        // consistent because both sides use the same numeric identifier.
+        List<String> imagesForColor =
+            colorIdToImages[colorId] ??
+            (templateImage != null ? [templateImage] : parsedImages);
+
+        print('🎨 Color: English="$nameForData", Display="${displayName ?? nameForData}", ID=$colorId, images=${imagesForColor.length}');
         
         // If this is the selected color, and selected_variant image exists, prefer that single image
         if (selectedColorName != null && (localizedName == selectedColorName || englishName == selectedColorName)) {
@@ -937,10 +956,7 @@ class ProductDetailsModel extends ProductDetails {
             brand = (brandData['name'] ?? '').toString();
           }
           
-          // Fallback to "Unknown Brand" if brand is empty
-          if (brand.isEmpty) {
-            brand = 'Unknown Brand';
-          }
+          // If brand is empty, keep it empty so UI can decide how to render.
           
           return RelatedProduct(
             id: (m['id'] ?? '').toString(),
@@ -963,13 +979,33 @@ class ProductDetailsModel extends ProductDetails {
         }
       }
 
+      // Parse discount: price = sale price; before-discount from original_price, price_before_discount, or list_price
+      final price = _parsePrice(json['price']);
+      final rawOriginal = json['original_price'] ?? json['price_before_discount'] ?? json['list_price'];
+      final originalPriceValue = rawOriginal != null ? _parsePrice(rawOriginal) : null;
+      final hasDiscount = originalPriceValue != null && originalPriceValue > price;
+      final double? finalOriginalPrice = hasDiscount ? originalPriceValue : null;
+      final int? discountPercentageValue = hasDiscount && originalPriceValue! > 0
+          ? (100 - (price / originalPriceValue * 100)).round()
+          : null;
+
+      // Use brandMap (if available) so name/id/image stay consistent
+      final parsedBrandName = brandMap != null ? _parseBrand(brandMap) : _parseBrand(json['brand']);
+      final parsedBrandId = brandMap != null ? _parseBrandId(brandMap) : _parseBrandId(json['brand']);
+      final parsedBrandImage = brandMap != null ? _parseBrandImage(brandMap) : _parseBrandImage(json['brand']);
+
+      print('✅ ProductDetailsModel: Parsed brand data → '
+          'id=$parsedBrandId, name="$parsedBrandName", image="$parsedBrandImage"');
+
       return ProductDetailsModel(
       id: json['id']?.toString() ?? '',
-      brand: _parseBrand(json['brand']),
+      brand: parsedBrandName,
+      brandId: parsedBrandId,
+      brandImageUrl: parsedBrandImage,
       name: json['name']?.toString() ?? '',
       description: _parseDescription(json),
-      price: _parsePrice(json['price']),
-      originalPrice: null,
+      price: price,
+      originalPrice: finalOriginalPrice,
       rating: 0,
       reviewCount: 0,
       images: mainImages,
@@ -981,8 +1017,8 @@ class ProductDetailsModel extends ProductDetails {
           : '',
       selectedSize: selectedSize,
       isFavorite: json['favourite'] ?? false,
-      hasDiscount: false,
-      discountPercentage: null,
+      hasDiscount: hasDiscount,
+      discountPercentage: discountPercentageValue,
       features: features,
       material: '',
       materialsList: const [],
@@ -1132,10 +1168,54 @@ class ProductDetailsModel extends ProductDetails {
 
   // Helper methods for safe parsing
   static String _parseBrand(dynamic brand) {
-    if (brand == null) return 'Unknown Brand';
+    // Preserve empty/missing brand as empty string. UI layers can then
+    // decide whether to show a brand label or not instead of displaying
+    // a hardcoded "Unknown Brand" placeholder.
+    if (brand == null) return '';
     if (brand is String) return brand;
-    if (brand is Map) return brand['name']?.toString() ?? 'Unknown Brand';
+    if (brand is Map) return brand['name']?.toString() ?? '';
     return brand.toString();
+  }
+
+  /// Try to resolve a consistent brand map from various possible API shapes.
+  /// - Preferred: json['brand'] as Map<String, dynamic>
+  /// - Fallbacks: json['brand_data'], json['brandInfo'], json['brand_info']
+  static Map<String, dynamic>? _extractBrandMap(Map<String, dynamic> json) {
+    final dynamic direct = json['brand'];
+    if (direct is Map<String, dynamic>) {
+      return direct;
+    }
+    for (final key in ['brand_data', 'brandInfo', 'brand_info']) {
+      final dynamic alt = json[key];
+      if (alt is Map<String, dynamic>) {
+        return alt;
+      }
+    }
+    return null;
+  }
+
+  static int? _parseBrandId(dynamic brand) {
+    if (brand is Map) {
+      final rawId = brand['id'];
+      if (rawId is int) return rawId;
+      if (rawId is String) return int.tryParse(rawId);
+      if (rawId is num) return rawId.toInt();
+    }
+    return null;
+  }
+
+  static String? _parseBrandImage(dynamic brand) {
+    if (brand is Map) {
+      final raw = brand['image']?.toString();
+      if (raw == null || raw.isEmpty) return null;
+      // Backend returns paths like /web/image/bs.ecom.product.brand/8/brand_image
+      // Normalize to full URL using AppConstants.baseUrl
+      if (raw.startsWith('/')) {
+        return '${AppConstants.baseUrl}${raw.substring(1)}';
+      }
+      return raw;
+    }
+    return null;
   }
 
   static String _parseDescription(Map<String, dynamic> json) {

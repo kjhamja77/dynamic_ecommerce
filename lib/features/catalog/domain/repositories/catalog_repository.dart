@@ -32,6 +32,10 @@ abstract class CatalogRepository {
   Future<PaginatedProducts> fetchProductsWithFilterCriteria({
     required FilterCriteria criteria,
   });
+
+  /// Clear any in-memory catalog cache (used on language change so that
+  /// product lists are always reloaded in the newly selected language).
+  void clearCache();
 }
 
 

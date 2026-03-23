@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/responsive_constants.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/app_localization_service.dart';
 import '../../../../core/services/first_launch_service.dart';
 import '../../../../core/services/language_service.dart';
@@ -19,6 +20,8 @@ import '../../../favorites/presentation/bloc/favorites_event.dart';
 import '../../../profile/presentation/bloc/profile_bloc.dart';
 import '../../../profile/presentation/bloc/profile_event.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
+import '../../../filters/domain/usecases/clear_available_filters_cache.dart';
+import '../../../catalog/domain/usecases/clear_catalog_cache.dart';
 import '../../../../core/widgets/app_loading_widget.dart';
 
 class LanguageSelector extends StatelessWidget {
@@ -89,6 +92,12 @@ class LanguageSelector extends StatelessWidget {
                         // - Marks language as selected
                         // - Syncs LanguageService / Accept-Language header.
                         await localizationService.setLanguage(language.code.code);
+
+                        // Clear filter + catalog caches so the next time the
+                        // filters or catalog pages are opened they fetch fresh
+                        // data from the API in the new language (no stale lists).
+                        di.sl<ClearAvailableFiltersCache>().call();
+                        di.sl<ClearCatalogCache>().call();
                         
                         // Update SettingsBloc for consistency
                         if (context.mounted) {

@@ -16,29 +16,50 @@ import '../../../../l10n/app_localizations.dart';
 
 class ColorSelectionWidget extends StatelessWidget {
   final ProductDetails productDetails;
+  /// When true, positions the widget at the bottom of a Stack (over image).
+  /// When false, returns the content only so it can be placed below the image in a Column.
+  final bool overlayOnImage;
 
   const ColorSelectionWidget({
     super.key,
     required this.productDetails,
+    this.overlayOnImage = true,
   });
+
+  Widget _buildContent(BuildContext context) {
+    return productDetails.colorOptions.isEmpty
+        ? const ColorSelectionSkeleton()
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildColorLabel(context),
+              SizedBox(height: ResponsiveConstants.smSpacing),
+              _buildColorThumbnails(context),
+            ],
+          );
+  }
 
   @override
   Widget build(BuildContext context) {
-        return Positioned(
-      bottom: ResponsiveConstants.mdSpacing,
-      left: ResponsiveConstants.mdSpacing,
-      right: ResponsiveConstants.mdSpacing,
-      child: productDetails.colorOptions.isEmpty
-          ? const ColorSelectionSkeleton()
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildColorLabel(context),
-                SizedBox(height: ResponsiveConstants.smSpacing),
-                _buildColorThumbnails(context),
-              ],
-            ),
+    final content = Padding(
+      padding: EdgeInsets.only(
+        left: ResponsiveConstants.mdSpacing,
+        right: ResponsiveConstants.mdSpacing,
+        bottom: overlayOnImage ? ResponsiveConstants.mdSpacing : 0,
+        top: overlayOnImage ? 0 : ResponsiveConstants.smSpacing,
+      ),
+      child: _buildContent(context),
     );
+    if (overlayOnImage) {
+      return Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: content,
+      );
+    }
+    return content;
   }
 
   Widget _buildColorLabel(BuildContext context) {

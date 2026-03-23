@@ -3,6 +3,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Google Services plugin to process google-services.json (Firebase, analytics, etc.).
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -44,6 +46,11 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // Firebase / Google SDK BOM to keep versions in sync.
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    // Analytics (provides google_app_id usage); extend with other Firebase SDKs as needed.
+    implementation("com.google.firebase:firebase-analytics-ktx")
 }
 
 flutter {

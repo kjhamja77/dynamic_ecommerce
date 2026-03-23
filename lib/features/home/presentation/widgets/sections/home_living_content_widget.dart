@@ -9,6 +9,7 @@ import 'package:zalando_clone_app/features/home/presentation/widgets/banner/bann
 import '../../../../../core/providers/currency_provider.dart';
 import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 
 class HomeLivingContentWidget extends StatelessWidget {
@@ -90,7 +91,7 @@ class HomeLivingContentWidget extends StatelessWidget {
             itemCount: _getRoomCategories().length,
             itemBuilder: (context, index) {
               final room = _getRoomCategories()[index];
-              return _buildRoomCard(room);
+              return _buildRoomCard(context, room);
             },
           ),
         ],
@@ -98,17 +99,17 @@ class HomeLivingContentWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRoomCard(RoomData room) {
+  Widget _buildRoomCard(BuildContext context, RoomData room) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-        boxShadow: [
+        boxShadow: homeCardBoxShadow(context, [
           BoxShadow(
             color: Colors.grey.shade200,
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
-        ],
+        ]),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),

@@ -5,6 +5,10 @@ import '../../../../core/constants/app_constants.dart';
 class ProductDetails extends Equatable {
   final String id;
   final String brand;
+  /// Optional brand id from backend response.
+  final int? brandId;
+  /// Optional full URL for the brand image.
+  final String? brandImageUrl;
   final String name;
   final String description;
   final double price;
@@ -54,6 +58,8 @@ class ProductDetails extends Equatable {
   const ProductDetails({
     required this.id,
     required this.brand,
+    this.brandId,
+    this.brandImageUrl,
     required this.name,
     required this.description,
     required this.price,
@@ -98,6 +104,8 @@ class ProductDetails extends Equatable {
   List<Object?> get props => [
         id,
         brand,
+        brandId,
+        brandImageUrl,
         name,
         description,
         price,
@@ -222,6 +230,8 @@ class ProductDetails extends Equatable {
   ProductDetails copyWith({
     String? id,
     String? brand,
+    int? brandId,
+    String? brandImageUrl,
     String? name,
     String? description,
     double? price,
@@ -264,6 +274,8 @@ class ProductDetails extends Equatable {
     return ProductDetails(
       id: id ?? this.id,
       brand: brand ?? this.brand,
+      brandId: brandId ?? this.brandId,
+      brandImageUrl: brandImageUrl ?? this.brandImageUrl,
       name: name ?? this.name,
       description: description ?? this.description,
       price: price ?? this.price,

@@ -11,6 +11,8 @@ import '../../../domain/entities/product.dart';
 import '../../../../catalog/domain/models/catalog_args.dart';
 import '../../../../../../l10n/app_localizations.dart';
 import 'package:zalando_clone_app/features/filters/domain/entities/filter_criteria.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
+import '../common/no_image_data_placeholder.dart';
 
 class SpecialOffersSection extends StatelessWidget {
   final String? title;
@@ -149,13 +151,16 @@ class SpecialOffersSection extends StatelessWidget {
     print('  - Product IDs: ${filters.productIds}');
     print('  - Keyword: ${filters.keyword}');
     
-    // Create FilterCriteria with all filters combined
+    // Create FilterCriteria with all filters combined.
+    // CRITICAL: Always send brand IDs and product IDs as lists, and
+    // send offer_keyword as plain text so the filter-search API
+    // can return the products attached to this offer.
     final filterCriteria = FilterCriteria(
       categoryIds: filters.categoryIds ?? const [],
       brandIds: filters.brandIds ?? const [],
+      productIds: filters.productIds ?? const [],
       searchQuery: filters.keyword?.isNotEmpty == true ? filters.keyword : null,
-      page: 1,
-      limit: 20,
+      omitPaginationInRequest: true,
     );
     
     print('✅ Created FilterCriteria for offer:');
@@ -221,6 +226,23 @@ class _SpecialOfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasImage = offer.imageUrl.trim().isNotEmpty;
+    final titleColor = hasImage ? Colors.white : colorScheme.onSurface;
+    final descColor = hasImage
+        ? Colors.white.withValues(alpha: 0.9)
+        : colorScheme.onSurfaceVariant;
+    final timeChipColor = hasImage
+        ? Colors.white.withValues(alpha: 0.2)
+        : colorScheme.surfaceContainerHighest;
+    final timeIconColor = hasImage
+        ? Colors.white
+        : colorScheme.onSurfaceVariant;
+    final timeTextColor = hasImage
+        ? Colors.white
+        : colorScheme.onSurface;
+
     return Container(
       margin: EdgeInsets.only(bottom: ResponsiveConstants.mdSpacing),
       child: GestureDetector(
@@ -228,15 +250,15 @@ class _SpecialOfferCard extends StatelessWidget {
         child: Container(
           height: 140,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? colorScheme.surfaceContainerHighest : Colors.white,
             borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-            boxShadow: [
+            boxShadow: homeCardBoxShadow(context, [
               BoxShadow(
                 color: Colors.grey.shade200,
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
-            ],
+            ]),
           ),
           child: Stack(
             children: [
@@ -244,50 +266,45 @@ class _SpecialOfferCard extends StatelessWidget {
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                  child: CachedNetworkImage(
-                    imageUrl: offer.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: offer.backgroundColor,
-                      child: Center(
-                        child: AppLoadingWidget.small(
-                          message: 'Loading...',
-                          showMessage: false,
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: offer.backgroundColor,
-                      child: Center(
-                        child: Icon(
-                          Icons.local_offer,
-                          color: Colors.grey.shade400,
-                          size: ResponsiveConstants.lgIconSize,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: hasImage
+                      ? CachedNetworkImage(
+                          imageUrl: offer.imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: offer.backgroundColor,
+                            child: Center(
+                              child: AppLoadingWidget.small(
+                                message: 'Loading...',
+                                showMessage: false,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) =>
+                              const NoImageDataPlaceholder(),
+                        )
+                      : const NoImageDataPlaceholder(),
                 ),
               ),
               
               // Gradient overlay for better text readability
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.black.withOpacity(0.3),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.6, 1.0],
+              if (hasImage)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
               
               // Content
               Positioned.fill(
@@ -310,14 +327,14 @@ class _SpecialOfferCard extends StatelessWidget {
                                   offer.title,
                                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: titleColor,
                                   ),
                                 ),
                                 SizedBox(height: ResponsiveConstants.xsSpacing),
                                 Text(
                                   offer.description,
                                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: descColor,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -331,20 +348,20 @@ class _SpecialOfferCard extends StatelessWidget {
                                 Container(
                                   padding: EdgeInsets.all(ResponsiveConstants.xsSpacing),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: timeChipColor,
                                     borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
                                   ),
                                   child: Icon(
                                     Icons.access_time,
                                     size: ResponsiveConstants.smIconSize,
-                                    color: Colors.white,
+                                    color: timeIconColor,
                                   ),
                                 ),
                                 SizedBox(width: ResponsiveConstants.xsSpacing),
                                 Text(
                                   offer.timeLeft,
                                   style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.smFontSize,
-                                    color: Colors.white,
+                                    color: timeTextColor,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -355,33 +372,34 @@ class _SpecialOfferCard extends StatelessWidget {
                       ),
                       
                       // Right side - Discount badge
-                      Container(
-                        alignment: Alignment.topRight,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveConstants.mdSpacing,
-                            vertical: ResponsiveConstants.smSpacing,
-                          ),
-                          decoration: BoxDecoration(
-                            color: offer.textColor,
-                            borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
-                            boxShadow: [
-                              BoxShadow(
-                                color: offer.textColor.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                      if (offer.discount.trim().isNotEmpty)
+                        Container(
+                          alignment: Alignment.topRight,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: ResponsiveConstants.mdSpacing,
+                              vertical: ResponsiveConstants.smSpacing,
+                            ),
+                            decoration: BoxDecoration(
+                              color: offer.textColor,
+                              borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                              boxShadow: homeCardBoxShadow(context, [
+                                BoxShadow(
+                                  color: offer.textColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]),
+                            ),
+                            child: Text(
+                              offer.discount,
+                              style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            offer.discount,
-                            style: AppFonts.getTextStyle(fontSize: ResponsiveConstants.lgFontSize,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -433,12 +451,48 @@ class OfferFilterData {
 
   factory OfferFilterData.fromMap(Map<String, dynamic>? filters) {
     if (filters == null) return const OfferFilterData();
-    
+
+    // New API key is `offer_product_ids` (list). Keep backward compatibility
+    // with legacy `offer_product_id` (single id or list).
+    final dynamic productIdsRaw =
+        filters['offer_product_ids'] ?? filters['offer_product_id'];
+
     return OfferFilterData(
-      categoryIds: (filters['offer_category_id'] as List<dynamic>?)?.cast<int>(),
-      brandIds: (filters['offer_brand_id'] as List<dynamic>?)?.cast<int>(),
-      productIds: (filters['offer_product_id'] as List<dynamic>?)?.cast<int>(),
-      keyword: filters['offer_keyword'] as String?,
+      categoryIds: _parseIdList(filters['offer_category_id']),
+      brandIds: _parseIdList(filters['offer_brand_id']),
+      productIds: _parseIdList(productIdsRaw),
+      keyword: _parseOfferKeyword(filters['offer_keyword']),
     );
   }
+}
+
+/// Odoo/API may send a single id as [int] or many as [List]; normalize to [List<int>].
+List<int>? _parseIdList(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value > 0 ? [value] : null;
+  if (value is num) {
+    final i = value.toInt();
+    return i > 0 ? [i] : null;
+  }
+  if (value is List) {
+    final out = <int>[];
+    for (final e in value) {
+      if (e is int) {
+        if (e > 0) out.add(e);
+      } else {
+        final p = int.tryParse(e.toString()) ?? 0;
+        if (p > 0) out.add(p);
+      }
+    }
+    return out.isEmpty ? null : out;
+  }
+  final parsed = int.tryParse(value.toString());
+  if (parsed != null && parsed > 0) return [parsed];
+  return null;
+}
+
+String? _parseOfferKeyword(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value.isNotEmpty ? value : null;
+  return value.toString();
 }

@@ -14,6 +14,7 @@ import 'package:zalando_clone_app/features/favorites/presentation/widgets/favori
 import '../../../../../core/providers/currency_provider.dart';
 import '../../../../../core/theme/app_fonts.dart';
 import 'cart_quantity_button.dart';
+import 'no_image_data_placeholder.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -50,13 +51,14 @@ class ProductCard extends StatelessWidget {
   // Responsive helper method for aspect ratio. Smaller value = taller image (image fills more card height).
   double _getImageAspectRatio() {
     if (isCompact) {
-      if (1.sw >= 900) return 1.0;  // Increased height for compact mode
-      if (1.sw >= 600) return 1.05;
-      return 1.1;
+      // Catalog: balanced ratio for mobile – image block not too wide or squat
+      if (1.sw >= 900) return 0.98;
+      if (1.sw >= 600) return 0.95;
+      return 0.92; // small mobile – slightly taller image area
     }
-    if (1.sw >= 900) return 0.75; // Tablet and desktop – taller image
-    if (1.sw >= 600) return 0.78; // Large phones
-    return 0.82;                  // Small phones – taller image
+    if (1.sw >= 900) return 0.80; // Tablet and desktop
+    if (1.sw >= 600) return 0.84; // Large phones
+    return 0.88;                   // Small phones – shorter card
   }
 
   // Responsive helper method for brand font size
@@ -99,6 +101,15 @@ class ProductCard extends StatelessWidget {
   bool _containsArabic(String text) {
     final arabicRegex = RegExp(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]");
     return arabicRegex.hasMatch(text);
+  }
+
+  /// Whether to show a dedicated brand line (omit placeholders like API "Unknown").
+  bool _hasDisplayableBrand(String brand) {
+    final t = brand.trim();
+    if (t.isEmpty) return false;
+    final lower = t.toLowerCase();
+    if (lower == 'unknown' || lower == 'unknown brand') return false;
+    return true;
   }
 
   // Extract clean product name (remove variant details in parentheses)
@@ -224,8 +235,12 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Spacing between image and info section
-                    SizedBox(height: hasBoundedHeight ? 2.h : ResponsiveConstants.smSpacing),
+                    // Spacing between image and info section (catalog card: extra space after image)
+                    SizedBox(
+                      height: isCompact
+                          ? ResponsiveConstants.smSpacing
+                          : (hasBoundedHeight ? 2.h : ResponsiveConstants.smSpacing),
+                    ),
 
                     // Info section - adapts to content and constraints
                     if (hasBoundedHeight)
@@ -261,7 +276,9 @@ class ProductCard extends StatelessWidget {
     required bool isHorizontal,
   }) {
     final isRtl = useRtl ?? (Directionality.of(context) == TextDirection.rtl);
-    final isBrandArabic = _containsArabic(product.brand);
+    final hasBrand = _hasDisplayableBrand(product.brand);
+    final brandText = product.brand.trim();
+    final isBrandArabic = hasBrand && _containsArabic(brandText);
     final isNameArabic = _containsArabic(product.name);
     final brandTextDirection = isBrandArabic
         ? TextDirection.rtl
@@ -288,68 +305,115 @@ class ProductCard extends StatelessWidget {
                   : (isConstrained ? 2.h : 3.h)),
         );
 
+        // Catalog card (isCompact): adaptive spacing between brand, name, and price for better readability.
         final verticalSpacing = isHorizontal 
             ? 3.h // Tighter spacing for horizontal layout
-            : (isConstrained ? 5.h : 5.h);
+            : (isCompact 
+                ? ResponsiveConstants.smSpacing // catalog: clear gap between brand, name, price
+                : (isConstrained ? 5.h : 5.h));
 
         final columnContent = Column(
           crossAxisAlignment:
               useRtlValue ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Brand name
-            Directionality(
+            // Brand name (only when provided and not a placeholder)
+            if (hasBrand) ...[
+              Directionality(
                 textDirection: brandTextDirection,
-                child: Text(
-                  product.brand,
-                  style: AppFonts.getTextStyle(
-                    fontSize: _getResponsiveBrandFontSize(),
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    height: 1.0,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 5),
+                  child: Text(
+                    brandText,
+                    style: AppFonts.getTextStyle(
+                      fontSize: _getResponsiveBrandFontSize(),
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      height: 1.0,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: brandTextDirection == TextDirection.rtl
+                        ? TextAlign.right
+                        : TextAlign.left,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: brandTextDirection == TextDirection.rtl
-                      ? TextAlign.right
-                      : TextAlign.left,
                 ),
               ),
-
               SizedBox(height: verticalSpacing),
+            ],
 
-              // Product name (description) - fixed height for 2 lines in vertical layout
-              // so all cards have the same height (e.g. Arabic 1-line vs 2-line descriptions).
-              // Extra buffer (4.h) ensures Arabic/second line is never clipped by font metrics.
+              // Product name: secondary (grey) when brand is shown; primary (bold) when brand is missing/placeholder.
               Builder(
                 builder: (context) {
                   final nameFontSize = _getResponsiveProductNameFontSize();
+                  final brandFontSize = _getResponsiveBrandFontSize();
                   final lineHeightMultiplier = isConstrained ? 1.1 : 1.2;
-                  final twoLineHeight = (2 * nameFontSize * lineHeightMultiplier) + 4.h;
+                  final twoLineHeightSecondary =
+                      (2 * nameFontSize * lineHeightMultiplier) + 4.h;
+                  final twoLineHeightPrimary =
+                      (2 * brandFontSize * lineHeightMultiplier) + 4.h;
+
+                  if (!hasBrand) {
+                    final primaryName = Directionality(
+                      textDirection: nameTextDirection,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Text(
+                          _getCleanProductName(product.name),
+                          style: AppFonts.getTextStyle(
+                            fontSize: brandFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            height: lineHeightMultiplier,
+                          ),
+                          maxLines: isHorizontal ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: nameTextDirection == TextDirection.rtl
+                              ? TextAlign.right
+                              : TextAlign.left,
+                        ),
+                      ),
+                    );
+                    if (isHorizontal) return primaryName;
+                    return SizedBox(
+                      height: twoLineHeightPrimary,
+                      child: Align(
+                        alignment: useRtlValue
+                            ? Alignment.topRight
+                            : Alignment.topLeft,
+                        child: primaryName,
+                      ),
+                    );
+                  }
+
+                  final maxNameLines = isHorizontal ? 1 : 2;
 
                   final nameContent = Directionality(
                     textDirection: nameTextDirection,
-                    child: Text(
-                      _getCleanProductName(product.name),
-                      style: AppFonts.getTextStyle(
-                        fontSize: nameFontSize,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.7),
-                        height: lineHeightMultiplier,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        _getCleanProductName(product.name),
+                        style: AppFonts.getTextStyle(
+                          fontSize: nameFontSize,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7),
+                          height: lineHeightMultiplier,
+                        ),
+                        maxLines: maxNameLines,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: nameTextDirection == TextDirection.rtl
+                            ? TextAlign.right
+                            : TextAlign.left,
                       ),
-                      maxLines: isHorizontal ? 1 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: nameTextDirection == TextDirection.rtl
-                          ? TextAlign.right
-                          : TextAlign.left,
                     ),
                   );
 
                   if (isHorizontal) return nameContent;
                   return SizedBox(
-                    height: twoLineHeight,
+                    height: twoLineHeightSecondary,
                     child: Align(
                       alignment: useRtlValue
                           ? Alignment.topRight
@@ -386,21 +450,21 @@ class ProductCard extends StatelessWidget {
                 },
               ),
 
-              // Add to cart button below price: left for Arabic, right for English
-              if (!isHorizontal) ...[
-                SizedBox(height: ResponsiveConstants.smSpacing),
-                Align(
-                  alignment: useRtlValue ? Alignment.centerLeft : Alignment.centerRight,
-                  child: Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: CartQuantityButton(
-                      product: product,
-                      productType: productType,
-                    ),
-                  ),
-                ),
-                SizedBox(height: isConstrained ? (ResponsiveConstants.smSpacing - 2).clamp(2.0, double.infinity) : ResponsiveConstants.smSpacing),
-              ],
+              // Add to cart button below price: commented out for now
+              // if (!isHorizontal) ...[
+              //   SizedBox(height: ResponsiveConstants.smSpacing),
+              //   Align(
+              //     alignment: useRtlValue ? Alignment.centerLeft : Alignment.centerRight,
+              //     child: Directionality(
+              //       textDirection: TextDirection.ltr,
+              //       child: CartQuantityButton(
+              //         product: product,
+              //         productType: productType,
+              //       ),
+              //     ),
+              //   ),
+              //   SizedBox(height: isConstrained ? (ResponsiveConstants.smSpacing - 2).clamp(2.0, double.infinity) : ResponsiveConstants.smSpacing),
+              // ],
             ],
           );
 
@@ -750,13 +814,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
                 topRight: Radius.circular(12),
               ),
               child: product.images.isEmpty
-                  ? Center(
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        color: Colors.grey.shade400,
-                        size: ResponsiveConstants.lgIconSize,
-                      ),
-                    )
+                  ? const NoImageDataPlaceholder(compact: true)
                   : widget.isHorizontal
                       ? _ProductImageLoader(imageUrl: product.images.first)
                       : PageView.builder(
@@ -832,7 +890,8 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
         if (product.isOnSale || (product.originalPrice != null && product.originalPrice! > product.price))
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
+            // Raise badge slightly in vertical layout so it doesn't cover the carousel dots
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding + 16,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -884,7 +943,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
         else if (widget.isNew)
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding + 16,
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -908,7 +967,7 @@ class _ProductCardImageSectionState extends State<_ProductCardImageSection> {
         if (product.tags != null && product.tags!.isNotEmpty)
           Positioned(
             left: ResponsiveConstants.smPadding,
-            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding, // Moved down from 50 for horizontal
+            bottom: widget.isHorizontal ? 25 : ResponsiveConstants.smPadding + 16,
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveConstants.smPadding,
@@ -1049,9 +1108,10 @@ class _PriceBlock extends StatelessWidget {
 
   // Responsive helper method for original price font size
   double _getResponsiveOriginalPriceFontSize() {
-    if (1.sw >= 900) return ResponsiveConstants.originalPriceFontSize; // Tablet and desktop
-    if (1.sw >= 600) return ResponsiveConstants.originalPriceFontSize - 0.5; // Large phones
-    return ResponsiveConstants.originalPriceFontSize - 2; // Small phones
+    // Slightly smaller than main price, especially on mobile
+    if (1.sw >= 900) return ResponsiveConstants.originalPriceFontSize - 1; // Tablet and desktop
+    if (1.sw >= 600) return ResponsiveConstants.originalPriceFontSize - 1.5; // Large phones
+    return ResponsiveConstants.originalPriceFontSize - 3; // Small phones
   }
 
   // Responsive helper method for spacing
@@ -1092,12 +1152,13 @@ class _PriceBlock extends StatelessWidget {
     final priceColor = theme.colorScheme.primary;
 
     if (hasDiscount) {
-      final originalParts = originalText != null ? _parsePriceText(originalText!) : null;
+      // Row: discounted price on the left, original (struck-through) price on the right
       return Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         children: [
-          // Current price: number (orange) + currency (orange, smaller)
+          // Discounted price (highlighted)
           Row(
             mainAxisSize: MainAxisSize.min,
             textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -1113,7 +1174,7 @@ class _PriceBlock extends StatelessWidget {
                 maxLines: 1,
               ),
               if (currencyText.isNotEmpty) ...[
-                SizedBox(width: 7),
+                const SizedBox(width: 4),
                 Text(
                   currencyText,
                   style: AppFonts.getTextStyle(
@@ -1127,7 +1188,7 @@ class _PriceBlock extends StatelessWidget {
               ],
             ],
           ),
-          SizedBox(width: _getResponsiveSpacing() * 2),
+          SizedBox(width: _getResponsiveSpacing() * 4),
           // Original price (strikethrough)
           Flexible(
             child: Text(
@@ -1136,6 +1197,7 @@ class _PriceBlock extends StatelessWidget {
                 fontSize: _getResponsiveOriginalPriceFontSize(),
                 color: Colors.grey.shade600,
                 decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.grey.shade600,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

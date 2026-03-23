@@ -24,22 +24,47 @@ class OrderItemCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
-    final String? imageUrl = item.product.images.isNotEmpty ? item.product.images.first : null;
+    final String? imageUrl =
+        item.product.images.isNotEmpty ? item.product.images.first : null;
+    final bool isCoupon = item.isCoupon;
 
+    if (isCoupon) {
+      return _buildCouponCard(context, colorScheme, currency, locale);
+    } else {
+      return _buildProductItemCard(
+        context,
+        colorScheme,
+        currency,
+        locale,
+        imageUrl,
+      );
+    }
+  }
+
+  /// Standard product line card (unchanged layout)
+  Widget _buildProductItemCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    CurrencyProvider currency,
+    Locale locale,
+    String? imageUrl,
+  ) {
+    final loc = AppLocalizations.of(context)!;
     return Container(
       padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+        borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.5),
+          color: colorScheme.outline.withValues(alpha: 0.25),
           width: 1,
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+            borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
             child: imageUrl != null && imageUrl.isNotEmpty
                 ? _OrderItemImageLoader(imageUrl: imageUrl)
                 : _buildImagePlaceholder(context),
@@ -90,34 +115,36 @@ class OrderItemCard extends StatelessWidget {
                     if (variantChips.isEmpty) {
                       return const SizedBox.shrink();
                     }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: ResponsiveConstants.xsSpacing,
-                          runSpacing: ResponsiveConstants.xsSpacing,
-                          children: variantChips,
-                        ),
-                        SizedBox(height: ResponsiveConstants.xsSpacing),
-                      ],
+                    return Padding(
+                      padding: EdgeInsets.only(top: ResponsiveConstants.xsSpacing),
+                      child: Wrap(
+                        spacing: ResponsiveConstants.xsSpacing,
+                        runSpacing: ResponsiveConstants.xsSpacing,
+                        children: variantChips,
+                      ),
                     );
                   },
                 ),
-                Text(
-                  '${loc.quantity}: ${item.quantity}',
-                  style: AppFonts.getTextStyle(
-                    fontSize: ResponsiveConstants.smFontSize,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
                 SizedBox(height: ResponsiveConstants.smSpacing),
-                Text(
-                  currency.formatPrice(item.price, locale: locale),
-                  style: AppFonts.getTextStyle(
-                    fontSize: ResponsiveConstants.mdFontSize,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${loc.quantity}: ${item.quantity}',
+                      style: AppFonts.getTextStyle(
+                        fontSize: ResponsiveConstants.smFontSize,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      currency.formatPrice(item.lineTotal, locale: locale),
+                      style: AppFonts.getTextStyle(
+                        fontSize: ResponsiveConstants.mdFontSize,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -127,6 +154,100 @@ class OrderItemCard extends StatelessWidget {
     );
   }
 
+  /// Visually distinct coupon/discount card.
+  Widget _buildCouponCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    CurrencyProvider currency,
+    Locale locale,
+  ) {
+    return Container(
+      margin: EdgeInsets.only(top: ResponsiveConstants.xsSpacing),
+      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+      decoration: BoxDecoration(
+        color: colorScheme.error.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(ResponsiveConstants.lgRadius),
+        border: Border.all(
+          color: colorScheme.error.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Coupon icon tile instead of product image
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: colorScheme.error.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              Icons.local_offer_outlined,
+              color: colorScheme.error,
+              size: 26,
+            ),
+          ),
+          SizedBox(width: ResponsiveConstants.mdPadding),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.product.name,
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.mdFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: ResponsiveConstants.smSpacing),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveConstants.smPadding,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.error.withValues(alpha: 0.12),
+                        borderRadius:
+                            BorderRadius.circular(ResponsiveConstants.smRadius),
+                      ),
+                      child: Text(
+                        'Coupon',
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.xsFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveConstants.xsSpacing),
+                // Negative amount directly under the title
+                Text(
+                  currency.formatPrice(item.lineTotal, locale: locale),
+                  style: AppFonts.getTextStyle(
+                    fontSize: ResponsiveConstants.mdFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildImagePlaceholder(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(

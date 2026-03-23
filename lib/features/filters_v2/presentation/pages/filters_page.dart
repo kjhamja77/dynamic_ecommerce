@@ -1351,7 +1351,14 @@ class _FiltersPageState extends State<FiltersPage> {
           .toList();
       return attr.name.trim().isNotEmpty && values.isNotEmpty;
     }).toList();
+
+    // Skip "Brand" attribute when we already show a dedicated Brand section from _options.brands
+    // to avoid showing two Brand sections (one from options, one from product attributes API).
     for (final attribute in validAttributes) {
+      final lowerName = attribute.name.trim().toLowerCase();
+      if (lowerName == 'brand' && _options.brands.isNotEmpty) {
+        continue; // Deduplicate: use only the section built from _options.brands
+      }
       final section = _buildSingleAttributeSection(context, criteria, attribute);
       if (section != null) {
         sections.add(section);

@@ -14,6 +14,7 @@ class ResponsiveConstants {
 
   // Responsive spacing
   static double get xsSpacing => 4.w;
+  static double get xxsSpacing => 2.w;
   static double get smSpacing => 8.w;
   static double get mdSpacing => 16.w;
   static double get lgSpacing => 24.w;
@@ -98,6 +99,8 @@ class ResponsiveConstants {
   static double get gridSpacing => 16.w;
   static double get gridCrossAxisSpacing => 10.w;
   static double get gridMainAxisSpacing => 16.h;
+  /// Tighter spacing for catalog grid (mobile-friendly, less gap between cards).
+  static double get catalogGridSpacing => 8.w;
 
   // Responsive tab dimensions
   static double get tabHeight => 48.h;
@@ -278,7 +281,9 @@ class ResponsiveConstants {
   // Product details specific responsive dimensions
   static double get productDetailsImageHeight => _getProductDetailsImageHeight();
   static double get productDetailsImageWidth => 1.sw;
-  static double get productDetailsAppBarHeight => 0.8.sh;
+  /// Image area height: use screen width so area is square (no extra height above/below image).
+  /// Image is shown at natural aspect ratio, centered, as from API.
+  static double get productDetailsAppBarHeight => 1.sw;
   static double get productDetailsColorThumbnailSize => _getColorThumbnailSize();
   static double get productDetailsColorThumbnailSpacing => _getColorThumbnailSpacing();
   static double get productDetailsPageIndicatorBottom => _getPageIndicatorBottom();
@@ -290,7 +295,7 @@ class ResponsiveConstants {
   // Responsive grid dimensions
   static int get gridCrossAxisCount => _getGridCrossAxisCount();
   static double get gridChildAspectRatio => _getGridChildAspectRatio();
-  /// Taller cards for catalog page so brand, name, and price are all visible (smaller = taller card).
+  /// Catalog grid: compact cards with no extra space below (image + brand, name, price only).
   static double get catalogGridChildAspectRatio => _getCatalogGridChildAspectRatio();
 
   // Helper methods for responsive calculations
@@ -309,10 +314,12 @@ class ResponsiveConstants {
   }
 
   static double _getCatalogGridChildAspectRatio() {
-    if (1.sw >= _desktopBreakpoint) return 0.50; // slightly taller – more room for info
-    if (1.sw >= _tabletBreakpoint) return 0.46;
-    if (1.sw >= _mobileBreakpoint) return 0.43;
-    return 0.51; // slightly taller on small phones
+    // Width/height: larger ratio = shorter (more compact) card.
+    // Make catalog cards a bit shorter than before, only in catalog grids.
+    if (1.sw >= _desktopBreakpoint) return 0.72;
+    if (1.sw >= _tabletBreakpoint) return 0.68;
+    if (1.sw >= _mobileBreakpoint) return 0.64;
+    return 0.60; // small mobile – still slightly taller but more compact
   }
 
   // Responsive edge insets
@@ -396,10 +403,11 @@ class ResponsiveConstants {
     return 8.w; // Mobile: less spacing
   }
 
+  /// Distance from bottom of the image area so the slider dots sit at the bottom of the image (above color section).
   static double _getPageIndicatorBottom() {
-    if (1.sw >= _desktopBreakpoint) return 140.h; // Desktop: more space
-    if (1.sw >= _tabletBreakpoint) return 120.h; // Tablet: medium space
-    return 100.h; // Mobile: less space
+    if (1.sw >= _desktopBreakpoint) return 16.h;
+    if (1.sw >= _tabletBreakpoint) return 14.h;
+    return 12.h; // At bottom of image, just above color option
   }
 
   static double _getBottomSheetMaxHeight() {

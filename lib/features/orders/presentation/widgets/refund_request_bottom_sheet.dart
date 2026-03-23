@@ -22,6 +22,7 @@ class RefundRequestBottomSheet extends StatefulWidget {
 
 class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
   final TextEditingController _reasonController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
 
   @override
@@ -49,7 +50,9 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
               ResponsiveConstants.lgPadding,
         ),
         child: SingleChildScrollView(
-          child: Column(
+          child: Form(
+            key: _formKey,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -147,8 +150,13 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
               ),
             ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
-            Text(
-              loc.reasonForReturn,
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: loc.reasonForReturn),
+                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                ],
+              ),
               style: AppFonts.getTextStyle(
                 fontSize: ResponsiveConstants.mdFontSize,
                 fontWeight: FontWeight.w600,
@@ -156,7 +164,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
               ),
             ),
             SizedBox(height: ResponsiveConstants.xsSpacing),
-            TextField(
+            TextFormField(
               controller: _reasonController,
               maxLines: 3,
               decoration: InputDecoration(
@@ -166,6 +174,12 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
                       BorderRadius.circular(ResponsiveConstants.mdRadius),
                 ),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a reason to submit the return.';
+                }
+                return null;
+              },
             ),
             SizedBox(height: ResponsiveConstants.lgSpacing),
             SizedBox(
@@ -213,6 +227,7 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
             ),
           ],
           ),
+          ),
         ),
       ),
     );
@@ -221,11 +236,12 @@ class _RefundRequestBottomSheetState extends State<RefundRequestBottomSheet> {
   Future<void> _submit(BuildContext context) async {
     final loc = AppLocalizations.of(context)!;
 
-    final String reason = _reasonController.text.trim();
-    if (reason.isEmpty) {
-      AppSnackBar.error(context, 'Please enter a reason for your return.');
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
       return;
     }
+
+    final String reason = _reasonController.text.trim();
 
     final int? orderId = int.tryParse(widget.order.id);
     if (orderId == null) {

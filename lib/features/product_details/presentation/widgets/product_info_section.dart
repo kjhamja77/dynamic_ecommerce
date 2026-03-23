@@ -60,26 +60,7 @@ class ProductInfoSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: ResponsiveConstants.mdSpacing),
-            // Variant / thumbnail selectors: label + 3 rounded squares (matches loaded layout)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _shimmerLine(context, height: 14, width: 80, radius: 6),
-                  SizedBox(height: ResponsiveConstants.mdSpacing),
-                  Row(
-                    children: [
-                      for (int i = 0; i < 3; i++) ...[
-                        if (i > 0) SizedBox(width: ResponsiveConstants.smSpacing),
-                        _shimmerLine(context, height: 56, width: 56, radius: ResponsiveConstants.smRadius),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: ResponsiveConstants.mdSpacing),
+            // No first set of skeleton containers below image; minimal product details only (like shimmer preview).
             // Header card with preview data; stock = skeleton
             Container(
               margin: EdgeInsets.symmetric(horizontal: ResponsiveConstants.smPadding),
@@ -105,6 +86,9 @@ class ProductInfoSection extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // In preview mode, show only the brand text (no brand image),
+                            // so that the brand logo appears only once the full product
+                            // details are loaded from the API.
                             Text(
                               preview.brand,
                               style: AppFonts.getTextStyle(
@@ -112,6 +96,7 @@ class ProductInfoSection extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: ResponsiveConstants.xsSpacing),
                             Text(
@@ -324,6 +309,10 @@ class ProductInfoSection extends StatelessWidget {
     final pdState = context.watch<ProductDetailsBloc>().state;
     final bool isVariantFilterLoading =
         pdState is ProductDetailsLoaded ? pdState.isVariantFilterLoading : false;
+    final bool hasRelatedContent =
+        productDetails.optionalProducts.isNotEmpty ||
+        productDetails.accessoryProducts.isNotEmpty ||
+        productDetails.alternativeProducts.isNotEmpty;
 
     return SliverToBoxAdapter(
       child: Container(
@@ -331,7 +320,8 @@ class ProductInfoSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: ResponsiveConstants.mdSpacing),
+            // Space after main image so name and color selection are clearly below the image
+            // SizedBox(height: ResponsiveConstants.xlSpacing),
 
             // Product Header Card (Brand, Name, Price, Stock)
             Container(
@@ -358,31 +348,36 @@ class ProductInfoSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              productDetails.brand,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.mdFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                            if (productDetails.brandImageUrl != null &&
+                                productDetails.brandImageUrl!.isNotEmpty)
+                              ClipOval(
+                                child: Image.network(
+                                  productDetails.brandImageUrl!,
+                                  width: 28,
+                                  height: 28,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: ResponsiveConstants.xsSpacing),
-                            Text(
-                              productDetails.name,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.lgFontSize,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                                height: 1.3,
+                            if (productDetails.brandImageUrl != null &&
+                                productDetails.brandImageUrl!.isNotEmpty)
+                              SizedBox(width: ResponsiveConstants.xsSpacing),
+                            Flexible(
+                              child: Text(
+                                productDetails.brand,
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.mdFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -390,6 +385,18 @@ class ProductInfoSection extends StatelessWidget {
                       SizedBox(width: ResponsiveConstants.smSpacing),
                       _StockBadge(productDetails: productDetails),
                     ],
+                  ),
+                  SizedBox(height: ResponsiveConstants.smSpacing),
+                  Text(
+                    productDetails.name,
+                    style: AppFonts.getTextStyle(
+                      fontSize: ResponsiveConstants.lgFontSize,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
                   SizedBox(height: ResponsiveConstants.mdSpacing),
@@ -549,7 +556,7 @@ class ProductInfoSection extends StatelessWidget {
 
             SizedBox(height: ResponsiveConstants.mdSpacing),
 
-            // Color Selection Card (visual swatches) - always show; use skeleton when no colors
+            // Select Color card (text + color options) shown AFTER attributes
             productDetails.colorOptions.isNotEmpty
                 ? Container(
                     margin: EdgeInsets.symmetric(
@@ -577,6 +584,7 @@ class ProductInfoSection extends StatelessWidget {
                     ),
                   )
                 : _shimmerColorSelectionCard(context),
+
             SizedBox(height: ResponsiveConstants.mdSpacing),
 
             // About Product Card
@@ -731,7 +739,7 @@ class ProductInfoSection extends StatelessWidget {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.lgFontSize,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -757,7 +765,8 @@ class ProductInfoSection extends StatelessWidget {
                       height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
-                        productType: rp.type,
+                        // Related products use variant IDs, so always request details as 'variant'
+                        productType: 'variant',
                         isCompact: true,
                       ),
                     );
@@ -778,7 +787,7 @@ class ProductInfoSection extends StatelessWidget {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.lgFontSize,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -804,7 +813,7 @@ class ProductInfoSection extends StatelessWidget {
                       height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
-                        productType: rp.type,
+                        productType: 'variant',
                         isCompact: true,
                       ),
                     );
@@ -825,7 +834,7 @@ class ProductInfoSection extends StatelessWidget {
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.lgFontSize,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -851,7 +860,7 @@ class ProductInfoSection extends StatelessWidget {
                       height: ResponsiveConstants.productDetailsCompactListHeight,
                       child: ProductCard(
                         product: mapped,
-                        productType: rp.type,
+                        productType: 'variant',
                         isCompact: true,
                       ),
                     );
@@ -860,8 +869,8 @@ class ProductInfoSection extends StatelessWidget {
               ),
             ],
 
-            // Extra bottom spacing
-            SizedBox(height: ResponsiveConstants.lgSpacing),
+            // Bottom spacing: minimal when no related content to avoid empty gap
+            SizedBox(height: hasRelatedContent ? ResponsiveConstants.lgSpacing : ResponsiveConstants.smSpacing),
           ],
         ),
       ),

@@ -33,8 +33,10 @@ class OrderCard extends StatelessWidget {
     // Use backend order_status value for status chip text and color.
     final String rawStatus = (order.orderStatus ?? '').trim();
     final String statusKey = rawStatus.toLowerCase();
+    debugPrint('status key my orders $statusKey');
     final Color statusColor =
         OrderConstants.statusColors[statusKey] ?? colorScheme.outline;
+    debugPrint('status color my orders $statusColor');
     final String statusText = rawStatus.isNotEmpty
         ? rawStatus
         : OrderConstants.localizedStatus(context, order.status);
@@ -131,7 +133,7 @@ class OrderCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.12),
+                            color: statusColor.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(
                               ResponsiveConstants.smRadius,
                             ),

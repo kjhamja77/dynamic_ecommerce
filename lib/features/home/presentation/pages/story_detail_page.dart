@@ -23,6 +23,9 @@ class StoryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final bool hasImage = imageUrl != null && imageUrl!.isNotEmpty;
     final bool hasBody = htmlBody.trim().isNotEmpty;
     final bool hasSubTitle = (subTitle != null && subTitle!.trim().isNotEmpty);
@@ -34,25 +37,29 @@ class StoryDetailPage extends StatelessWidget {
       print('📰 StoryDetailPage: html length = ${htmlBody.length}');
     }
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: colorScheme.surface,
             elevation: 0,
             pinned: true,
             expandedHeight: 280,
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios,
-                color: Colors.black,
+                color: colorScheme.onSurface,
                 size: ResponsiveConstants.mdIconSize,
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
             actions: [
               IconButton(
-                icon: Icon(Icons.share, color: Colors.black, size: ResponsiveConstants.mdIconSize),
+                icon: Icon(
+                  Icons.share,
+                  color: colorScheme.onSurface,
+                  size: ResponsiveConstants.mdIconSize,
+                ),
                 onPressed: () => Share.share(title),
               ),
             ],
@@ -69,7 +76,7 @@ class StoryDetailPage extends StatelessWidget {
                               imageUrl: imageUrl!,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => Container(
-                                color: Colors.grey.shade200,
+                                color: colorScheme.surfaceVariant,
                                 child: const Center(
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 ),
@@ -84,7 +91,7 @@ class StoryDetailPage extends StatelessWidget {
                             imageUrl: imageUrl!,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
-                              color: Colors.grey.shade200,
+                              color: colorScheme.surfaceVariant,
                               child: const Center(
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               ),
@@ -95,7 +102,7 @@ class StoryDetailPage extends StatelessWidget {
                             ),
                           )),
                   if (imageUrl == null || imageUrl!.isEmpty)
-                    Container(color: Colors.grey.shade100),
+                    Container(color: colorScheme.surfaceVariant),
                   // Gradient overlay
                   Container(
                     decoration: const BoxDecoration(
@@ -162,7 +169,7 @@ class StoryDetailPage extends StatelessWidget {
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.mdFontSize,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     SizedBox(height: ResponsiveConstants.smSpacing),
@@ -171,16 +178,20 @@ class StoryDetailPage extends StatelessWidget {
                     // Card-like container for body
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: colorScheme.shadow.withValues(
+                              alpha: theme.brightness == Brightness.dark ? 0.5 : 0.08,
+                            ),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           ),
                         ],
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.12),
+                        ),
                       ),
                       padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
                       child: hasBody
@@ -192,12 +203,24 @@ class StoryDetailPage extends StatelessWidget {
                                   padding: HtmlPaddings.zero,
                                   fontSize: FontSize(16),
                                   lineHeight: LineHeight(1.6),
-                                  color: Colors.grey.shade800,
+                                  color: colorScheme.onSurface,
                                 ),
                                 'p': Style(margin: Margins.symmetric(vertical: 8)),
-                                'h1': Style(fontSize: FontSize(26), fontWeight: FontWeight.w700),
-                                'h2': Style(fontSize: FontSize(22), fontWeight: FontWeight.w700),
-                                'h3': Style(fontSize: FontSize(20), fontWeight: FontWeight.w700),
+                                'h1': Style(
+                                  fontSize: FontSize(26),
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                                'h2': Style(
+                                  fontSize: FontSize(22),
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                                'h3': Style(
+                                  fontSize: FontSize(20),
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
                               },
                               shrinkWrap: true,
                             )
@@ -205,7 +228,7 @@ class StoryDetailPage extends StatelessWidget {
                               subTitle!,
                               style: AppFonts.getTextStyle(
                                 fontSize: 16,
-                                color: Colors.grey.shade800,
+                                color: colorScheme.onSurface,
                                 height: 1.6,
                               ),
                             ),

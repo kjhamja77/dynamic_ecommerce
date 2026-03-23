@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:zalando_clone_app/core/network/api_client.dart';
 import 'dart:convert';
 import '../../domain/entities/filter_category.dart';
@@ -528,6 +529,9 @@ class FilterRemoteDataSourceImpl implements FilterRemoteDataSource {
       // Debug: Log the exact body being sent to filter-search
       // Use parentChildMap if provided to extract only deepest category IDs
       print('🔵 filterProducts ENTRY: criteria.categoryIds=${criteria.categoryIds}, parentChildMap provided=${effectiveParentChildMap != null && effectiveParentChildMap.isNotEmpty}');
+      if (criteria.omitPaginationInRequest) {
+        debugPrint('🔵 filterProducts: omitPaginationInRequest=true → page/limit excluded from params');
+      }
       final jsonBody = criteria.toJson(parentChildMap: effectiveParentChildMap);
       print('🔵 filterProducts AFTER toJson: jsonBody contains category_ids=${jsonBody['category_ids']}');
       

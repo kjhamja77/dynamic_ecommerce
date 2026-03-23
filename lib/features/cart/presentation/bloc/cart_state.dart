@@ -37,7 +37,8 @@ class CartLoaded extends CartState {
   // API-based tax calculations
   double get subtotal => cartResponse?.amountUntaxed ?? 0.0;
   double get taxAmount => cartResponse?.amountTax ?? 0.0;
-  double get total => cartResponse?.amountTotal ?? 0.0;
+  // Display total without tax in cart
+  double get total => cartResponse?.amountUntaxed ?? 0.0;
   String get currency => cartResponse?.currency ?? 'IQD';
   List<TaxSummaryModel> get taxSummary => cartResponse?.taxSummary ?? [];
 }
@@ -84,7 +85,8 @@ class CartStockError extends CartState {
   bool get isEmpty => cartItems.isEmpty;
   double get subtotal => cartResponse?.amountUntaxed ?? 0.0;
   double get taxAmount => cartResponse?.amountTax ?? 0.0;
-  double get total => cartResponse?.amountTotal ?? 0.0;
+  // Display total without tax in cart
+  double get total => cartResponse?.amountUntaxed ?? 0.0;
   String get currency => cartResponse?.currency ?? 'IQD';
   List<TaxSummaryModel> get taxSummary => cartResponse?.taxSummary ?? [];
 }

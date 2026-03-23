@@ -538,6 +538,11 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     final String name = (line['product_name'] ?? line['product_template_name'] ?? '').toString();
     final double price = (line['price_unit'] as num?)?.toDouble() ?? 0.0;
     final int quantity = ((line['product_uom_qty'] as num?)?.round()) ?? 1;
+    final bool isCoupon = line['coupon'] == true;
+    final double? lineSubtotalOverride =
+        (line['price_subtotal'] as num?)?.toDouble();
+    final double? lineTotalOverride =
+        (line['price_total'] as num?)?.toDouble();
     
     // Try to get image from product_image, otherwise construct fallback URL
     String imageUrl = '';
@@ -635,6 +640,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       selectedSize: size,
       price: price,
       addedAt: orderDate,
+      isCoupon: isCoupon,
+      lineSubtotalOverride: lineSubtotalOverride,
+      lineTotalOverride: lineTotalOverride,
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -52,8 +53,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _hasShownInitialLoaded = false;
   bool _hasLoadedAddresses = false; // Flag to prevent duplicate address loading
   bool _hasLoadedShippingMethods = false; // Flag to prevent duplicate shipping loading
+  bool _hasAutoSelectedDefaultAddress = false; // Use default address only once on initial load
+  bool _hasAppliedInitialPaymentMethod = false; // Apply default payment method once on initial load
   DateTime? _shippingLoadStartTime; // Track when shipping loading started for timeout
   CheckoutLoaded? _lastCheckoutLoadedState; // Store last CheckoutLoaded state to prevent null issues
+  final TextEditingController _promoController = TextEditingController();
 
   void _updateCheckoutFromCart(BuildContext context, CartState cartState, CheckoutBloc checkoutBloc) {
     if (checkoutBloc.state is! CheckoutLoaded) return;
@@ -186,16 +190,123 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ],
               child: BlocConsumer<CheckoutBloc, CheckoutState>(
                 listener: (context, state) {
-                  // Store CheckoutLoaded state immediately when we get it
+                  // Store CheckoutLoaded state, initialize flags, and handle promo snackbars based on bloc status codes
                   if (state is CheckoutLoaded) {
-                    _lastCheckoutLoadedState = state;
-                    // Mark as loaded immediately when we first get CheckoutLoaded
                     if (!_hasShownInitialLoaded) {
                       _hasShownInitialLoaded = true;
+                    }
+
+                    // Keep snapshot for other parts of the UI
+                    _lastCheckoutLoadedState = state;
+
+                    // Ensure the initially selected (default) payment method is applied on backend.
+                    // Without this, if the user never taps a method card, the backend may have no stored payment method.
+                    if (!_hasAppliedInitialPaymentMethod) {
+                      final cartState = context.read<CartBloc>().state;
+                      final int? orderId = (cartState is CartLoaded && cartState.cartResponse != null)
+                          ? cartState.cartResponse!.orderId
+                          : null;
+                      final int? paymentId = state.selectedPaymentMethodId != null
+                          ? int.tryParse(state.selectedPaymentMethodId!)
+                          : null;
+
+                      if (orderId != null && orderId > 0 && paymentId != null && paymentId > 0) {
+                        _hasAppliedInitialPaymentMethod = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          context
+                              .read<CheckoutBloc>()
+                              .add(ApplyPaymentMethod(orderId: orderId, paymentMethodId: paymentId));
+                        });
+                      }
                     }
                   }
                   
                   // Handle state transitions that need side effects
+                  if (state is CheckoutLoaded) {
+                    final theme = Theme.of(context);
+                    final l10n = AppLocalizations.of(context)!;
+
+                    // Show failure snackbars for coupons load
+                    if (state.couponsError != null &&
+                        state.couponsError!.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.couponsError!),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: theme.colorScheme.error,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    // Handle promo (apply/remove coupon) success & failure via status codes from bloc
+                    final promoStatus = state.promoError;
+                    if (promoStatus == 'APPLY_COUPON_SUCCESS') {
+                      _promoController.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.couponAppliedSuccessfully),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: CheckoutConstants.primaryColor,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (promoStatus == 'REMOVE_COUPON_SUCCESS') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.couponRemovedSuccessfully),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: theme.colorScheme.primary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (promoStatus == 'APPLY_COUPON_FAILED') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Apply coupon failed'),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: theme.colorScheme.error,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (promoStatus == 'REMOVE_COUPON_FAILED') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Remove coupon failed'),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: theme.colorScheme.error,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveConstants.smRadius,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
                   if (state is ShippingMethodsLoading) {
                     // Track when shipping loading starts for timeout detection
                     if (_shippingLoadStartTime == null) {
@@ -384,7 +495,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
           color: colorScheme.onSurface,
           size: ResponsiveConstants.mdIconSize,
         ),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          // If a coupon is applied for this order, remove it before leaving checkout
+          try {
+            final checkoutBloc = context.read<CheckoutBloc>();
+            final state = checkoutBloc.state;
+            if (state is CheckoutLoaded &&
+                state.appliedCouponId != null &&
+                state.summary.discount > 0) {
+              final cartState = context.read<CartBloc>().state;
+              final int? orderId =
+                  (cartState is CartLoaded && cartState.cartResponse != null)
+                      ? cartState.cartResponse!.orderId
+                      : null;
+              if (orderId != null && orderId > 0) {
+                checkoutBloc.add(RemoveCoupon(orderId: orderId));
+              }
+            }
+          } catch (_) {
+            // If blocs are not available, just navigate back
+          }
+          Navigator.of(context).pop();
+        },
       ),
       title: Text(
         AppLocalizations.of(context)!.checkout,
@@ -398,6 +530,419 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  Widget _buildCouponsSection(
+    BuildContext context,
+    CheckoutLoaded checkoutState,
+    int? orderId,
+  ) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    final coupons = checkoutState.coupons;
+    debugPrint('coupon data from screen $coupons');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header: "Coupons" with icon, same style as other sections
+        _buildSectionHeader(
+          context,
+          l10n.coupons,
+          Icons.local_offer,
+        ),
+        SizedBox(height: ResponsiveConstants.mdSpacing),
+
+        // Vertical coupons list
+        if (checkoutState.isLoadingCoupons && coupons.isEmpty)
+          SizedBox(
+            height: 56.h,
+            child: Shimmer.fromColors(
+              baseColor: cs.surfaceVariant,
+              highlightColor: cs.surface,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                ),
+              ),
+            ),
+          )
+        else if (coupons.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: coupons.length,
+            itemBuilder: (context, index) {
+              final c = coupons[index];
+              final name = c.programName;
+              final code = c.code;
+              final description = c.rewardDescription;
+              final selectable = true;
+              final bool isAppliedCoupon =
+                  checkoutState.appliedCouponId != null &&
+                  checkoutState.appliedCouponId == c.cardId &&
+                  checkoutState.summary.discount > 0;
+
+              if (code.isEmpty) return const SizedBox.shrink();
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: ResponsiveConstants.smSpacing,
+                ),
+                child: InkWell(
+                  onTap: selectable
+                      ? () {
+                          _promoController.text = code;
+                          HapticService.lightImpact();
+                        }
+                      : null,
+                  borderRadius:
+                      BorderRadius.circular(ResponsiveConstants.mdRadius),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(ResponsiveConstants.mdRadius),
+                      gradient: LinearGradient(
+                        colors: [
+                          CheckoutConstants.primaryColor
+                              .withValues(alpha: 0.08),
+                          CheckoutConstants.primaryColor
+                              .withValues(alpha: 0.02),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: isAppliedCoupon
+                            ? CheckoutConstants.primaryColor
+                            : Colors.grey.shade300,
+                        width: isAppliedCoupon ? 1.6 : 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: isAppliedCoupon
+                                  ? CheckoutConstants.primaryColor
+                                  : CheckoutConstants.primaryColor
+                                      .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(
+                                    ResponsiveConstants.mdRadius),
+                                bottomLeft: Radius.circular(
+                                    ResponsiveConstants.mdRadius),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: ResponsiveConstants.smPadding,
+                            vertical: ResponsiveConstants.smPadding,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(
+                                    ResponsiveConstants.xsPadding),
+                                decoration: BoxDecoration(
+                                  color: CheckoutConstants.primaryColor
+                                      .withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.local_offer_rounded,
+                                  size: ResponsiveConstants.smIconSize,
+                                  color: CheckoutConstants.primaryColor,
+                                ),
+                              ),
+                              SizedBox(
+                                  width: ResponsiveConstants.smSpacing),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name.isEmpty ? 'Coupon' : name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppFonts.getTextStyle(
+                                        fontSize:
+                                            ResponsiveConstants.smFontSize,
+                                        fontWeight: FontWeight.w700,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (description != null &&
+                                        description!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        description!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppFonts.getTextStyle(
+                                          fontSize: ResponsiveConstants
+                                              .xsFontSize,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.onSurface
+                                              .withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade200,
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            'Code',
+                                            style: AppFonts.getTextStyle(
+                                              fontSize:
+                                                  ResponsiveConstants
+                                                      .xsFontSize,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            code,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppFonts.getTextStyle(
+                                              fontSize:
+                                                  ResponsiveConstants
+                                                      .xsFontSize,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.4,
+                                              color: CheckoutConstants
+                                                  .primaryColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(
+                                  width: ResponsiveConstants.smSpacing),
+                              InkWell(
+                                onTap: () async {
+                                  if (isAppliedCoupon && orderId != null) {
+                                    HapticService.lightImpact();
+                                    context
+                                        .read<CheckoutBloc>()
+                                        .add(RemoveCoupon(orderId: orderId));
+                                  } else {
+                                    _promoController.text = code;
+                                    await Clipboard.setData(
+                                        ClipboardData(text: code));
+                                    HapticService.lightImpact();
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content:
+                                            Text(l10n.couponCodeCopied),
+                                        duration:
+                                            const Duration(seconds: 1),
+                                        backgroundColor:
+                                            CheckoutConstants.primaryColor,
+                                        behavior:
+                                            SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                            ResponsiveConstants.smRadius,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(
+                                    ResponsiveConstants.lgRadius),
+                                child: Container(
+                                  padding: EdgeInsets.all(
+                                      ResponsiveConstants.xsPadding),
+                                  decoration: BoxDecoration(
+                                    color: isAppliedCoupon
+                                        ? cs.error
+                                            .withValues(alpha: 0.1)
+                                        : CheckoutConstants.primaryColor
+                                            .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(
+                                        ResponsiveConstants.lgRadius),
+                                  ),
+                                  child: Icon(
+                                    isAppliedCoupon
+                                        ? Icons.close_rounded
+                                        : Icons.copy_rounded,
+                                    size:
+                                        ResponsiveConstants.smIconSize,
+                                    color: isAppliedCoupon
+                                        ? cs.error
+                                        : CheckoutConstants.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          )
+        else if (!checkoutState.isLoadingCoupons && checkoutState.couponsError != null)
+          Padding(
+            padding: EdgeInsets.only(bottom: ResponsiveConstants.smSpacing),
+            child: Text(
+              checkoutState.couponsError!,
+              style: AppFonts.getTextStyle(
+                fontSize: ResponsiveConstants.smFontSize,
+                color: cs.error,
+              ),
+            ),
+          ),
+
+        SizedBox(height: ResponsiveConstants.mdSpacing),
+
+        // Text field + Apply / Remove coupon actions
+        Container(
+          padding: EdgeInsets.all(ResponsiveConstants.smPadding),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius:
+                BorderRadius.circular(ResponsiveConstants.lgRadius),
+            border: Border.all(
+              color: cs.outline.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _promoController,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: l10n.enterCouponCode,
+                    prefixIcon: Icon(
+                      Icons.local_offer_outlined,
+                      size: ResponsiveConstants.smIconSize,
+                      color: CheckoutConstants.primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: cs.surface,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveConstants.mdPadding,
+                      vertical: ResponsiveConstants.smPadding,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                          ResponsiveConstants.lgRadius),
+                      borderSide: BorderSide(
+                        color: Colors.transparent,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                          ResponsiveConstants.lgRadius),
+                      borderSide: BorderSide(
+                        color: Colors.transparent,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                          ResponsiveConstants.lgRadius),
+                      borderSide: BorderSide(
+                        color: CheckoutConstants.primaryColor,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: ResponsiveConstants.smSpacing),
+              SizedBox(
+                height: 44.h,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final text = _promoController.text.trim();
+                    if (text.isEmpty || orderId == null) return;
+                    HapticService.mediumImpact();
+                    context.read<CheckoutBloc>().add(
+                          ApplyCoupon(
+                            orderId: orderId,
+                            couponCode: text,
+                          ),
+                        );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: CheckoutConstants.primaryColor,
+                    foregroundColor: cs.onPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                          ResponsiveConstants.lgRadius),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveConstants.lgPadding,
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.apply,
+                        style: AppFonts.getTextStyle(
+                          fontSize: ResponsiveConstants.smFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Bottom "Remove coupon" button removed as requested; coupon removal is
+        // now handled only via the X icon on each applied coupon card.
+      ],
+    );
+  }
+
   Widget _buildCheckoutContent(
     BuildContext blocContext, 
     AddressState addressState, 
@@ -405,10 +950,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     CheckoutLoaded checkoutState,
     CheckoutState rawCheckoutState,
   ) {
-    final int? orderId = (cartState is CartLoaded && cartState.cartResponse != null)
-        ? cartState.cartResponse!.orderId
-        : null;
-
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveConstants.smPadding,
@@ -428,17 +969,52 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   )
                 : _buildSummaryShimmer(),
           ),
-          
           SizedBox(height: ResponsiveConstants.mdSpacing),
-          
+
           Builder(
             builder: (ctx) {
               final theme = Theme.of(ctx);
               final cs = theme.colorScheme;
               final shadowAlpha = theme.brightness == Brightness.dark ? 0.2 : 0.06;
+              final hasCoupons = checkoutState.coupons.isNotEmpty;
+              final hasCouponsError = checkoutState.couponsError != null;
+              final bool hasAppliedCoupon = (checkoutState.appliedCouponId != null) ||
+                  (checkoutState.summary.discount != 0);
+              // Keep coupons visible while loading or when a coupon is applied.
+              // Otherwise the section can briefly appear (from cached state) then
+              // disappear when LoadCheckout emits a fresh state before coupons load.
+              final bool showCouponsSection = hasCoupons ||
+                  hasCouponsError ||
+                  checkoutState.isLoadingCoupons ||
+                  hasAppliedCoupon;
+              // Determine current order id from cart state for payment and place-order actions
+              final int? orderId = (cartState is CartLoaded && cartState.cartResponse != null)
+                  ? cartState.cartResponse!.orderId
+                  : null;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Coupons card container (hidden entirely when there are no coupons,
+                  // no loading state, and no error to improve UX).
+                  if (showCouponsSection) ...[
+                    Container(
+                      padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+                        boxShadow: [
+                          BoxShadow(
+                            color: cs.shadow.withValues(alpha: shadowAlpha),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: _buildCouponsSection(blocContext, checkoutState, orderId),
+                    ),
+                    SizedBox(height: ResponsiveConstants.mdSpacing),
+                  ],
+                  // Shipping card container
                   Container(
                     padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
                     decoration: BoxDecoration(
@@ -462,6 +1038,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ),
                   ),
                   SizedBox(height: ResponsiveConstants.mdSpacing),
+                  // Address card container
                   Container(
                     padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
                     decoration: BoxDecoration(
@@ -485,6 +1062,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ),
                   ),
                   SizedBox(height: ResponsiveConstants.mdSpacing),
+                  // Payment methods card container
                   Container(
                     padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
                     decoration: BoxDecoration(
@@ -952,11 +1530,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
       }
 
-      // Note: Auto-selection of default address is handled in _onAddressBlocStateChanged
-      // to ensure it happens when addresses are first loaded
-
       final totalAddressCount = addressState.addresses.length;
       final isOnlyAddress = totalAddressCount == 1;
+
+      // Determine which address should be treated as selected for rendering:
+      // 1) Prefer the explicit selection from CheckoutLoaded if it matches
+      //    one of the current addresses.
+      // 2) Otherwise, fall back to the backend default address from this list.
+      String? effectiveSelectedId = checkoutState.selectedShippingAddressId;
+      final hasExplicitMatch = effectiveSelectedId != null &&
+          addressState.addresses.any((a) => a.id == effectiveSelectedId);
+      if (!hasExplicitMatch) {
+        final defaultFromList = addressState.addresses
+            .where((a) => a.isDefault)
+            .cast<Address?>()
+            .firstWhere((a) => a != null, orElse: () => addressState.addresses.first);
+        effectiveSelectedId = defaultFromList?.id;
+      }
+      final effectiveCheckoutState = checkoutState.copyWith(
+        selectedShippingAddressId: effectiveSelectedId,
+      );
 
       return Column(
         children: addressState.addresses.map((address) {
@@ -966,7 +1559,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: _buildAddressCard(
               address, 
               convertedAddress, 
-              checkoutState, 
+              effectiveCheckoutState, 
               blocContext,
               isOnlyAddress: isOnlyAddress,
             ),
@@ -1015,25 +1608,52 @@ class _CheckoutPageState extends State<CheckoutPage> {
         convertedAddress.provinceId != null &&
         convertedAddress.phone.trim().isNotEmpty;
     
-    // If there's only one address, always treat it as selected and don't allow unselecting
-    final shouldBeSelected = isOnlyAddress || address.id == checkoutState.selectedShippingAddressId;
+    // If checkout doesn't yet have a selectedShippingAddressId, fall back to the backend
+    // default flag so the API default address appears selected on first load.
+    final bool hasExplicitSelection = checkoutState.selectedShippingAddressId != null;
+    final bool matchesExplicitSelection =
+        hasExplicitSelection && address.id == checkoutState.selectedShippingAddressId;
+    final bool matchesBackendDefault =
+        !hasExplicitSelection && address.isDefault;
+    // Only select when:
+    // - there is an explicit selection from state, or
+    // - the backend marked this address as default.
+    // If no address is default and none is explicitly selected, no card is selected.
+    final shouldBeSelected = matchesExplicitSelection || matchesBackendDefault;
     
     return ShippingAddressCard(
       address: convertedAddress,
       isSelected: shouldBeSelected,
       isOnlyAddress: isOnlyAddress,
-      // If only one address: disable tap (always selected, can't unselect)
       // If complete: tap selects address, edit button edits
       // If incomplete: both tap and edit go to edit page
       onTap: isOnlyAddress ? null : (isComplete ? () async {
         await HapticService.buttonClick();
         // Select the address
         blocContext.read<CheckoutBloc>().add(SelectShippingAddress(addressId: address.id));
-        // If user had selected Cash (or any method) without an address, apply it now
+        // Clear cached shipping methods and immediately reload them for the
+        // newly selected address so that shipping prices reflect this address.
+        _hasLoadedShippingMethods = false;
+        _shippingLoadStartTime = null;
+        _shippingMethods = const [];
         final cartState = blocContext.read<CartBloc>().state;
-        final orderId = (cartState is CartLoaded && cartState.cartResponse != null)
+        final int? orderId = (cartState is CartLoaded && cartState.cartResponse != null)
             ? cartState.cartResponse!.orderId
             : null;
+        if (orderId != null && orderId > 0) {
+          blocContext.read<CheckoutBloc>().add(
+                LoadShippingMethods(
+                  orderId,
+                  addressId: address.id,
+                  // Do NOT auto-apply the first method when changing address.
+                  // We want to preserve the user's previously selected shipping
+                  // method (if it still exists in the new list). Auto-apply is
+                  // only used on the very first load when no selection exists.
+                  autoApplyFirstMethod: false,
+                ),
+              );
+        }
+        // If user had selected Cash (or any method) without an address, apply it now
         final paymentId = checkoutState.selectedPaymentMethodId != null
             ? int.tryParse(checkoutState.selectedPaymentMethodId!)
             : null;
@@ -1104,6 +1724,46 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.smFontSize,
                   color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // If no shipping address is selected yet, do not load shipping methods.
+    // This keeps the initial shipping amount at 0 when the user has no
+    // default address, and ties API calls to a concrete address.
+    if (checkoutState.selectedShippingAddressId == null) {
+      // Clear any previously loaded methods so that when an address is
+      // selected we will reload shipping methods for that address.
+      _hasLoadedShippingMethods = false;
+      _shippingLoadStartTime = null;
+      _shippingMethods = const [];
+
+      return Container(
+        padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.local_shipping_outlined,
+              color: Colors.orange.shade600,
+              size: ResponsiveConstants.mdIconSize,
+            ),
+            SizedBox(width: ResponsiveConstants.smSpacing),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(blocContext)!.noAddressIsSetYet,
+                style: AppFonts.getTextStyle(
+                  fontSize: ResponsiveConstants.smFontSize,
+                  color: Colors.orange.shade700,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1191,7 +1851,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     _hasLoadedShippingMethods = false;
                     _shippingLoadStartTime = null;
                     if (mounted && orderId != null) {
-                      blocContext.read<CheckoutBloc>().add(LoadShippingMethods(orderId));
+                      final checkoutBloc = blocContext.read<CheckoutBloc>();
+                      final addressState = blocContext.read<AddressBloc>().state;
+                      String? addressId;
+                      if (addressState is AddressesLoaded && addressState.addresses.isNotEmpty) {
+                        // Prefer default address from AddressBloc; otherwise first.
+                        final defaultAddresses = addressState.addresses.where((a) => a.isDefault).toList();
+                        final selected = defaultAddresses.isNotEmpty
+                            ? defaultAddresses.first
+                            : addressState.addresses.first;
+                        addressId = selected.id;
+                      }
+                      checkoutBloc.add(LoadShippingMethods(orderId, addressId: addressId));
                     }
                   },
                   child: Text(AppLocalizations.of(blocContext)!.tryAgain),
@@ -1208,7 +1879,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _shippingLoadStartTime = DateTime.now(); // Track start time for timeout
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && orderId != null) {
-            blocContext.read<CheckoutBloc>().add(LoadShippingMethods(orderId));
+            final checkoutBloc = blocContext.read<CheckoutBloc>();
+            final addressState = blocContext.read<AddressBloc>().state;
+            String? addressId;
+            if (addressState is AddressesLoaded && addressState.addresses.isNotEmpty) {
+              // Prefer default address from AddressBloc; otherwise first.
+              final defaultAddresses = addressState.addresses.where((a) => a.isDefault).toList();
+              final selected = defaultAddresses.isNotEmpty
+                  ? defaultAddresses.first
+                  : addressState.addresses.first;
+              addressId = selected.id;
+            }
+            checkoutBloc.add(LoadShippingMethods(orderId, addressId: addressId));
           }
         });
         return _buildChipsShimmer();
@@ -1291,19 +1973,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 : () {
               checkoutBloc.add(SelectShippingMethod(shippingMethodId: id));
               checkoutBloc.add(const SetUseCartTotals(useCartTotals: false));
-              // Optimistic UI: update summary table immediately
-              final newShipping = price.toDouble();
-              final newTotal = summary.subtotal + newShipping + summary.tax - summary.discount;
-              final optimisticSummary = summary.copyWith(
-                shipping: newShipping, 
-                total: newTotal,
-                totalItems: summary.totalItems, // Preserve totalItems
-              );
-              checkoutBloc.add(UpdateCheckoutFromCart(
-                items: checkoutState.items,
-                summary: optimisticSummary,
+              checkoutBloc.add(ApplyShippingMethod(
+                orderId: orderId,
+                shippingMethodId: id,
+                amount: price.toDouble(),
               ));
-              checkoutBloc.add(ApplyShippingMethod(orderId: orderId, shippingMethodId: id));
             },
             child: Builder(
               builder: (ctx) {
@@ -1376,7 +2050,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ),
                       ),
                       Text(
-                        currency.formatPrice(price.toDouble(), locale: Localizations.localeOf(blocContext)),
+                        // Always display the raw price returned by the
+                        // getShippingMethods API for this shipping company.
+                        currency.formatPrice(
+                          price.toDouble(),
+                          locale: Localizations.localeOf(blocContext),
+                        ),
                         style: AppFonts.getTextStyle(
                           fontSize: ResponsiveConstants.mdFontSize,
                           fontWeight: FontWeight.w700,
@@ -2471,31 +3150,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Update checkout bloc with new addresses
       checkoutBloc.add(UpdateShippingAddresses(addresses: shippingAddresses));
       
-      // Auto-select default address if none is selected (both for initial load and after adding new address)
-      if (state.addresses.isNotEmpty) {
-        // Check if we need to auto-select (either no selection, waiting for new address, or only one address)
+      // Initial auto-select: use backend default address ONCE when we first
+      // get a non-empty list and there is no explicit selection yet.
+      if (!_hasAutoSelectedDefaultAddress && state.addresses.isNotEmpty) {
+        final defaultAddresses = state.addresses.where((a) => a.isDefault).toList();
+        if (defaultAddresses.isNotEmpty) {
+          final addressToSelect = defaultAddresses.first;
+          debugPrint('🔄 Initial auto-select of default address: ${addressToSelect.id} (${addressToSelect.city})');
+          checkoutBloc.add(SelectShippingAddress(addressId: addressToSelect.id));
+          _hasAutoSelectedDefaultAddress = true;
+        }
+      }
+
+      // If we are specifically waiting for a new address (user added one),
+      // keep the existing behaviour: select the newest address once.
+      if (state.addresses.isNotEmpty && checkoutState.isWaitingForNewAddress) {
         final isOnlyAddress = state.addresses.length == 1;
-        final needsAutoSelect = checkoutState.selectedShippingAddressId == null || 
-                                checkoutState.isWaitingForNewAddress ||
-                                isOnlyAddress;
-        
+        final needsAutoSelect = true;
         if (needsAutoSelect) {
           Address addressToSelect;
           
-          // If waiting for new address, always select the most recently added address (last in list)
-          if (checkoutState.isWaitingForNewAddress) {
-            addressToSelect = state.addresses.last;
-            debugPrint('🔄 Selecting newly added address from AddressesLoaded: ${addressToSelect.id} (${addressToSelect.city})');
-          } else {
-            // Otherwise, find the default address, or use the first one if no default exists
-            final defaultAddresses = state.addresses.where((a) => a.isDefault).toList();
-            if (defaultAddresses.isNotEmpty) {
-              addressToSelect = defaultAddresses.first;
-            } else {
-              // If no default, select the first address
-              addressToSelect = state.addresses.first;
-            }
-          }
+          // Always select the most recently added address (last in list)
+          addressToSelect = state.addresses.last;
+          debugPrint('🔄 Selecting newly added address from AddressesLoaded: ${addressToSelect.id} (${addressToSelect.city})');
           
           // Select immediately - the CheckoutBloc state listener will handle it if UpdateShippingAddresses hasn't processed yet
           debugPrint('🔄 Auto-selecting address: ${addressToSelect.id} (${addressToSelect.city})${isOnlyAddress ? ' [Only address - always selected]' : ''}');
@@ -2514,9 +3191,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Update checkout bloc with new addresses
       checkoutBloc.add(UpdateShippingAddresses(addresses: shippingAddresses));
       
-      // Handle auto-selection after adding a new address
+      // After the very first auto-select, we only auto-select when explicitly
+      // waiting for a new address (e.g. user just added one).
       final isOnlyAddress = state.addresses!.length == 1;
-      if (checkoutState.isWaitingForNewAddress || checkoutState.selectedShippingAddressId == null || isOnlyAddress) {
+      if (checkoutState.isWaitingForNewAddress || isOnlyAddress) {
         Address addressToSelect;
         
         // If waiting for new address, always select the most recently added address (last in list)
@@ -2524,14 +3202,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           addressToSelect = state.addresses!.last;
           debugPrint('🔄 Selecting newly added address: ${addressToSelect.id} (${addressToSelect.city})');
         } else {
-          // Otherwise, try to find the default address first
-          final defaultAddresses = state.addresses!.where((a) => a.isDefault).toList();
-          if (defaultAddresses.isNotEmpty) {
-            addressToSelect = defaultAddresses.first;
-          } else {
-            // If no default, select the last address (most recently added)
-            addressToSelect = state.addresses!.last;
-          }
+          // Otherwise, select the last address (most recently added)
+          addressToSelect = state.addresses!.last;
         }
         
         // Use a small delay to ensure UpdateShippingAddresses is processed first
@@ -2573,23 +3245,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // Auto-select default address when addresses are updated and none is selected
+    // Auto-select default address only on the very first load (handled via the
+    // AddressBloc listener). After that, we respect the explicit selection and
+    // do not override it here.
     if (state is CheckoutLoaded) {
-      final isOnlyAddress = state.shippingAddresses.length == 1;
-      // Auto-select if we have addresses but no selection, OR if there's only one address
-      if (state.shippingAddresses.isNotEmpty && 
-          (state.selectedShippingAddressId == null || isOnlyAddress)) {
-        // Find the default address, or use the first one if no default exists
-        final defaultAddresses = state.shippingAddresses.where((a) => a.isDefault).toList();
-        final addressToSelect = defaultAddresses.isNotEmpty 
-            ? defaultAddresses.first 
-            : state.shippingAddresses.first;
-        
-        // Auto-select the address immediately
-        final checkoutBloc = context.read<CheckoutBloc>();
-        debugPrint('🔄 Auto-selecting address from CheckoutBloc state: ${addressToSelect.id} (${addressToSelect.city})${isOnlyAddress ? ' [Only address - always selected]' : ''}');
-        checkoutBloc.add(SelectShippingAddress(addressId: addressToSelect.id));
-      }
+      // No-op for address auto-selection; selection is controlled by
+      // _onAddressBlocStateChanged and user taps.
     }
   }
 
@@ -2649,9 +3310,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (state is AlQasehPaymentFailure) {
       _dismissProcessingDialog(context);
+
+      final locale = Localizations.localeOf(context);
+      String message;
+      if (locale.languageCode == 'ar') {
+        // Fully Arabic snackbar text for Al Qaseh payment failures
+        message = 'تعذّر إنشاء عملية الدفع عبر أل قاصه. يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى.';
+      } else {
+        message = 'Failed to create Al Qaseh payment. Please try again or choose a different payment method.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(state.message),
+          content: Text(message),
           backgroundColor: Colors.red,
         ),
       );

@@ -10,6 +10,7 @@ import 'order_details_page.dart';
 import '../../domain/entities/order.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/app_localization_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
@@ -26,6 +27,7 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
   List<Order> _cachedOrders = [];
   final ScrollController _statusFilterScrollController = ScrollController();
   Locale? _lastLocale;
+  bool _isRefreshingForLocale = false;
 
   @override
   void initState() {
@@ -45,7 +47,14 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
     super.didChangeDependencies();
     final locale = Localizations.localeOf(context);
     if (_lastLocale != locale) {
+      final hadLocaleBefore = _lastLocale != null;
       _lastLocale = locale;
+      // On runtime locale switch, avoid showing stale-language cached orders.
+      if (hadLocaleBefore) {
+        _cachedOrders = <Order>[];
+        _isRefreshingForLocale = true;
+        context.read<OrdersBloc>().add(const LoadOrders());
+      }
       setState(() {});
     }
   }
@@ -70,6 +79,9 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
           // Cache orders when loaded
           if (state is OrdersLoaded) {
             _cachedOrders = state.orders;
+            _isRefreshingForLocale = false;
+          } else if (state is OrdersError) {
+            _isRefreshingForLocale = false;
           }
         },
         child: BlocBuilder<OrdersBloc, OrdersState>(
@@ -122,6 +134,13 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildBody(OrdersState state) {
+    final localizationService = AppLocalizationService();
+
+    // During language change/refresh, always show shimmer to avoid stale text flash.
+    if (localizationService.isChangingLanguage || _isRefreshingForLocale) {
+      return const OrdersShimmer();
+    }
+
     // Show shimmer loading on initial load
     if (state is OrdersLoading && _cachedOrders.isEmpty) {
       return const OrdersShimmer();

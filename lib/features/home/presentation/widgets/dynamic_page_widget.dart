@@ -17,6 +17,7 @@ import '../../../../core/widgets/app_pull_to_refresh.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/app_localization_service.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 /// Safely cast a value to String, handling bool and null cases
 String _safeStringCast(dynamic value) {
@@ -50,6 +51,31 @@ class DynamicPageWidget extends StatefulWidget {
 
 class _DynamicPageWidgetState extends State<DynamicPageWidget> {
   // Component loading is triggered by DynamicHomeTabWidget to avoid duplicate loads
+
+  int _resolveHomeUserId(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      return int.tryParse(authState.user.id) ?? 1;
+    }
+    return 1;
+  }
+
+  Future<void> _refreshTabsAndPageComponents(BuildContext context) async {
+    final userId = _resolveHomeUserId(context);
+    debugPrint(
+      '🔄 DynamicPageWidget:onRefresh → dispatch LoadPages(userId=$userId, forceRefresh=true) then LoadPageComponents(pageId=${widget.pageId}, forceRefresh=true)',
+    );
+    final homeBloc = context.read<HomeBloc>();
+    homeBloc.add(LoadPages(userId, forceRefresh: true));
+    homeBloc.add(
+      LoadPageComponents(
+        componentId: widget.pageId,
+        page: 1,
+        pageSize: 10,
+        forceRefresh: true,
+      ),
+    );
+  }
 
   /// Constructs full image URL from relative path (same logic as DynamicComponentRenderer)
   String _resolveImageUrl(String? raw) {
@@ -254,14 +280,18 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
                       final int id = (m?['id'] as int?) ?? ch.componentId;
                       final String name = _safeStringCast(m?['name']);
                       final String? img = _safeStringCast(m?['image']).isNotEmpty ? _safeStringCast(m?['image']) : null;
-                      print('📁 Creating CategoryData: name=$name, categoryId=$id (from category.id)');
+                      final dynamic rawCount = m?['product_count'];
+                      final String productCountStr = rawCount != null
+                          ? (rawCount is num ? rawCount.toInt().toString() : rawCount.toString())
+                          : '0';
+                      print('📁 Creating CategoryData: name=$name, categoryId=$id (from category.id), product_count=$productCountStr');
                       return CategoryData(
                         id: id.toString(), // Category ID - NOT attribute value
                         name: name,
                         imageUrl: (img != null && img.isNotEmpty)
                             ? img
                             : 'https://picsum.photos/seed/cat$id/300/300',
-                        productCount: '',
+                        productCount: productCountStr,
                         color: Colors.blue.shade100,
                       );
                     })
@@ -327,9 +357,7 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
                         id: id.toString(),
                         title: title,
                         description: desc,
-                        imageUrl: imageUrl.isNotEmpty
-                            ? imageUrl
-                            : 'https://picsum.photos/seed/offer$id/400/200',
+                        imageUrl: imageUrl,
                         discount: discount,
                         timeLeft: '',
                         backgroundColor: Colors.orange.shade50,
@@ -381,16 +409,7 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
 
           return AppPullToRefresh(
             onRefresh: () async {
-              context.read<HomeBloc>().add(
-                    LoadPageComponents(
-                      componentId: widget.pageId,
-                      page: 1,
-                      pageSize: 10,
-                      // Explicitly bypass the cache when the user
-                      // pulls to refresh a specific page.
-                      forceRefresh: true,
-                    ),
-                  );
+              await _refreshTabsAndPageComponents(context);
             },
             child: ListView(
               controller: widget.scrollController,
@@ -406,14 +425,7 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
 
         return AppPullToRefresh(
           onRefresh: () async {
-            context.read<HomeBloc>().add(
-                  LoadPageComponents(
-                    componentId: widget.pageId,
-                    page: 1,
-                    pageSize: 10,
-                    forceRefresh: true,
-                  ),
-                );
+            await _refreshTabsAndPageComponents(context);
           },
           child: SingleChildScrollView(
             controller: widget.scrollController,
@@ -422,13 +434,7 @@ class _DynamicPageWidgetState extends State<DynamicPageWidget> {
               height: MediaQuery.of(context).size.height * 0.8,
               child: PageComponentsEmptyState(
                 onRefresh: () {
-                  context.read<HomeBloc>().add(
-                        LoadPageComponents(
-                          componentId: widget.pageId,
-                          page: 1,
-                          pageSize: 10,
-                        ),
-                      );
+                  _refreshTabsAndPageComponents(context);
                 },
               ),
             ),
@@ -723,7 +729,13 @@ class PageTabsWidget extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () async {
           await HapticService.buttonClick();
-          context.read<HomeBloc>().add(const LoadPages(1, forceRefresh: true));
+          final authState = context.read<AuthBloc>().state;
+          final userId = authState is Authenticated
+              ? (int.tryParse(authState.user.id) ?? 1)
+              : 1;
+          context.read<HomeBloc>().add(
+                LoadPages(userId, forceRefresh: true),
+              );
         },
                   child: Text(AppLocalizations.of(context)!.retry),
                 ),

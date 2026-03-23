@@ -10,6 +10,7 @@ import '../../../filters/domain/entities/filter_criteria.dart';
 import '../../../filters/data/datasources/filter_remote_data_source.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/image_cache_utils.dart';
+import '../../../../core/services/language_service.dart';
 import '../catalog_products_isolate.dart';
 
 // Repository that uses real APIs for product and category data
@@ -24,6 +25,12 @@ class CatalogRepositoryImpl implements CatalogRepository {
     required this.productRepository,
     required this.filterRemoteDataSource,
   });
+
+  @override
+  void clearCache() {
+    _cache.clear();
+    print('🧹 CatalogRepository: Cleared in-memory catalog cache');
+  }
 
   /// Constructs full image URL from relative path
   /// Uses ImageCacheUtils.normalizeImageUrl to fix double slashes
@@ -60,6 +67,16 @@ class CatalogRepositoryImpl implements CatalogRepository {
     List<String> genders = const [],
     Map<String, List<String>> extraAttributes = const {},
   }) async {
+    // Include current API language in the cache key so that when the user
+    // switches language (and we update Accept-Language via LanguageService),
+    // we do NOT reuse product lists fetched in the previous language.
+    //
+    // This keeps concerns separated:
+    // - ApiClient is responsible for headers / language on the wire
+    // - CatalogRepository is responsible for in-memory product caching
+    //   and must treat each language as an independent cache namespace.
+    final lang = await LanguageService().getApiLanguageCode() ?? 'default';
+
     // Check if any advanced filters are applied
     // If categoryIds are provided from filter page, always use filter-search API
     // Also check if any filter attributes are selected (colors, sizes, etc.)
@@ -70,7 +87,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
         materials.isNotEmpty || seasons.isNotEmpty || genders.isNotEmpty ||
         extraAttributes.isNotEmpty;
     
-    print('🔍 CatalogRepository.fetchProducts: hasAdvancedFilters=$hasAdvancedFilters');
+    print('🔍 CatalogRepository.fetchProducts: hasAdvancedFilters=$hasAdvancedFilters (lang=$lang)');
     print('   categoryIds: $categoryIds');
     print('   colors: $colors, sizes: $sizes, materials: $materials');
     
@@ -106,7 +123,11 @@ class CatalogRepositoryImpl implements CatalogRepository {
       );
     }
 
-    final cacheKey = '${page}_${pageSize}_${category ?? ''}_${brand ?? ''}_${sortBy ?? ''}_${query ?? ''}_${featured}_${minPrice ?? ''}_${maxPrice ?? ''}_${minRating ?? ''}_${onSale}_${inStock}_${sizes.join(',')}_${colors.join(',')}_${materials.join(',')}_${seasons.join(',')}_${genders.join(',')}';
+    // IMPORTANT: Namespace cache by current API language so that
+    // opening the same catalog page after a language change always
+    // triggers a fresh API call instead of reusing the old-language
+    // product list from memory.
+    final cacheKey = '${lang}_${page}_${pageSize}_${category ?? ''}_${brand ?? ''}_${sortBy ?? ''}_${query ?? ''}_${featured}_${minPrice ?? ''}_${maxPrice ?? ''}_${minRating ?? ''}_${onSale}_${inStock}_${sizes.join(',')}_${colors.join(',')}_${materials.join(',')}_${seasons.join(',')}_${genders.join(',')}';
     print('🔍 CatalogRepository: Cache key: $cacheKey');
     if (_cache.containsKey(cacheKey)) {
       print('📦 CatalogRepository: Using cached results');
@@ -583,10 +604,14 @@ class CatalogRepositoryImpl implements CatalogRepository {
         return ratingOk && saleOk && sizesOk;
       }).toList();
 
+      final effectivePageSize = criteria.omitPaginationInRequest
+          ? (filtered.isEmpty ? totalCount : filtered.length)
+          : criteria.limit;
+
       return PaginatedProducts(
         items: filtered,
         page: currentPage,
-        pageSize: criteria.limit,
+        pageSize: effectivePageSize,
         hasMore: hasNext,
         totalCount: totalCount,
       );
@@ -880,6 +905,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
     final tags = <String>[];
     final isOnSale = item['is_on_sale'] as bool? ?? false;
     final saleBadge = item['sale_badge'] as String?;
+    // New flag comes directly from API; no date-based fallback.
     final isNew = item['is_new'] as bool? ?? false;
     
     // Extract tags from API response
@@ -887,16 +913,19 @@ class CatalogRepositoryImpl implements CatalogRepository {
       tags.addAll((item['tags'] as List).map((tag) => tag['name'] as String));
     }
     
-    // Calculate if product is new based on creation date (within last 30 days)
-    final createdAt = DateTime.parse(item['create_date'] as String);
-    final isNewByDate = DateTime.now().difference(createdAt).inDays <= 30;
-    final finalIsNew = isNew || isNewByDate;
+    // createdAt is best-effort; not all responses include it.
+    final createdAtStr = item['create_date'] as String?;
+    final createdAt = createdAtStr != null && createdAtStr.isNotEmpty
+        ? DateTime.parse(createdAtStr)
+        : DateTime.now();
     
-    // Calculate discount percentage if on sale
+    // Calculate discount based on before-discount price from API
     final price = (item['price'] as num).toDouble();
-    final originalPrice = item['original_price'] as num?;
-    final hasDiscount = originalPrice != null && originalPrice > price;
-    final finalOriginalPrice = hasDiscount ? originalPrice.toDouble() : null;
+    final num? rawOriginalPrice =
+        (item['original_price'] as num?) ?? (item['price_before_discount'] as num?);
+    final hasDiscount = rawOriginalPrice != null && rawOriginalPrice > price;
+    final double? finalOriginalPrice =
+        hasDiscount ? rawOriginalPrice!.toDouble() : null;
     
     // Build display name with current attribute values when applicable
     String finalName;
@@ -941,7 +970,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
       createdAt: createdAt,
       favourite: false, // Mock favorite status
       tags: tags,
-      isNew: finalIsNew,
+      // New badge is driven solely by is_new from API (no fallback)
+      isNew: isNew,
       isOnSale: isOnSale || hasDiscount,
       saleBadge: saleBadge,
     );
@@ -963,7 +993,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
       }
     }
 
-    // Calculate if product is new based on creation date (within last 30 days)
+    // Calculate if product is new based on creation date (within last 10 days)
     // Since ProductEntity doesn't have createdAt, we'll use a mock calculation
     final isNewByDate = false; // Will be determined by API data
     

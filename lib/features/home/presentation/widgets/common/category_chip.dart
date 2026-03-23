@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/constants/responsive_constants.dart';
+import 'package:zalando_clone_app/features/home/presentation/theme/home_decorations.dart';
 
 class CategoryChip extends StatelessWidget {
   final String label;
@@ -16,6 +17,9 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -24,19 +28,21 @@ class CategoryChip extends StatelessWidget {
           vertical: ResponsiveConstants.smPadding,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.shade600 : Colors.white,
+          color: isSelected
+              ? Colors.blue.shade600
+              : (isDark ? colorScheme.surfaceContainerHighest : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? Colors.blue.shade600 : Colors.grey.shade300,
             width: 1.5,
           ),
-          boxShadow: [
+          boxShadow: homeCardBoxShadow(context, [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
-          ],
+          ]),
         ),
         child: Text(
           label,

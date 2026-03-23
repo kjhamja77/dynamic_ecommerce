@@ -9,6 +9,7 @@ import 'package:zalando_clone_app/core/navigation/navigation_service.dart';
 import '../../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../../core/constants/app_constants.dart';
+import '../common/no_image_data_placeholder.dart';
 
 String _tr(BuildContext context, {required String en, required String ar}) {
   return Directionality.of(context) == TextDirection.rtl ? ar : en;
@@ -178,18 +179,16 @@ class FeaturedBrandsSection extends StatelessWidget {
 
 class _BrandCard extends StatelessWidget {
   Widget _buildBrandImage(String imageUrl) {
+    if (imageUrl.trim().isEmpty) {
+      return const NoImageDataPlaceholder(compact: true);
+    }
     // Align image resolution/URL handling with AllBrandsPage
     if (imageUrl.startsWith('assets/')) {
       return Image.asset(
         imageUrl,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(
-            Icons.business,
-            color: Colors.grey.shade400,
-            size: ResponsiveConstants.lgIconSize,
-          ),
-        ),
+        errorBuilder: (context, error, stackTrace) =>
+            const NoImageDataPlaceholder(compact: true),
       );
     }
     // Use the same resolution/absolute URL handling as AllBrandsPage
@@ -206,13 +205,8 @@ class _BrandCard extends StatelessWidget {
           showMessage: false,
         ),
       ),
-      errorWidget: (context, url, error) => Center(
-        child: Icon(
-          Icons.business,
-          color: Colors.grey.shade400,
-          size: ResponsiveConstants.lgIconSize,
-        ),
-      ),
+      errorWidget: (context, url, error) =>
+          const NoImageDataPlaceholder(compact: true),
     );
   }
   final BrandData brand;

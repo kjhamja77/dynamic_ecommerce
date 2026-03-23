@@ -40,6 +40,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool _showScrollToTop = false;
   late String _lastLocaleCode;
 
+  int _resolveHomeUserId() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      final resolved = int.tryParse(authState.user.id) ?? 1;
+      debugPrint(
+        '🏠 HomePage:_resolveHomeUserId → Authenticated user.id=${authState.user.id} resolved=$resolved isGuest=${authState.user.isGuest}',
+      );
+      return resolved;
+    }
+    debugPrint(
+      '🏠 HomePage:_resolveHomeUserId → Non-authenticated state=${authState.runtimeType}, fallback userId=1',
+    );
+    return 1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -103,8 +118,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         if (!mounted) return;
         try {
           final homeBloc = context.read<HomeBloc>();
+          final userId = _resolveHomeUserId();
+          debugPrint(
+            '🏠 HomePage: Locale changed ($currentLocaleCode) → dispatch LoadPages(userId=$userId, forceRefresh=true) + LoadFeaturedProducts',
+          );
           homeBloc
-            ..add(const LoadPages(1))
+            ..add(LoadPages(userId, forceRefresh: true))
             ..add(LoadFeaturedProducts());
         } catch (e) {
           developer.log(
@@ -417,6 +436,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       return DynamicHomeTabWidget(
         outerTabController: _outerTabController,
         outerTabIndex: index,
+        userId: _resolveHomeUserId(),
         scrollController: _scrollController,
       );
     }

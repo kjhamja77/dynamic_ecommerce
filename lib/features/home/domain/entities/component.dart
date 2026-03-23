@@ -45,16 +45,19 @@ class ComponentChild extends Equatable {
   final String name;
   final String valueType;
   final Map<String, dynamic> content;
+  /// Optional product count when this child represents a category_content item.
+  final int? productCount;
 
   const ComponentChild({
     required this.componentId,
     required this.name,
     required this.valueType,
     required this.content,
+    this.productCount,
   });
 
   @override
-  List<Object?> get props => [componentId, name, valueType, content];
+  List<Object?> get props => [componentId, name, valueType, content, productCount];
 }
 
 class PageComponents extends Equatable {

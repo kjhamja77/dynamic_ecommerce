@@ -10,9 +10,9 @@ class OrderConstants {
   static const Color primaryColorDark = Color(0xFFD4521A); // Darker variant
   
   // Semantic colors tuned to blend with the orange theme
-  static const Color successColor = Color(0xFF15803D); // Dark green for completed/delivered
-  static const Color errorColor = Color(0xFFDC2626); // Red for errors/cancelled
-  static const Color warningColor = Color(0xFFFACC15); // Warm yellow for confirmed / pending approval
+  static const Color successColor = Color(0xFF1D994C); // Dark green for completed/delivered
+  static const Color errorColor = Color(0xFFD52E2E); // Red for errors/cancelled
+  static const Color warningColor = Color(0xFFF1CC32); // Warm yellow for confirmed / pending approval
   static const Color infoColor = Color(0xFF2563EB); // Blue for info / shipped
   static const Color neutralColor = Color(0xFF9CA3AF); // Softer grey for pending/neutral
 
