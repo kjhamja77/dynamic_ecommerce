@@ -270,6 +270,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get quantity => 'الكمية';
 
   @override
+  String get increaseQuantity => 'زيادة الكمية';
+
+  @override
+  String get decreaseQuantity => 'تقليل الكمية';
+
+  @override
   String get size => 'المقاس';
 
   @override
@@ -298,6 +304,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get error => 'خطأ';
+
+  @override
+  String get invalidLoginCredentials =>
+      'البريد الإلكتروني أو رقم الجوال أو كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.';
 
   @override
   String get cancel => 'إلغاء';
@@ -1426,6 +1436,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get errorSavingAddress => 'خطأ في حفظ العنوان';
+
+  @override
+  String get addressAddedSuccessfully => 'تمت إضافة العنوان بنجاح';
+
+  @override
+  String get addressAdded => 'تمت إضافة العنوان';
 
   @override
   String get addressUpdatedSuccessfully => 'تم تحديث العنوان بنجاح';

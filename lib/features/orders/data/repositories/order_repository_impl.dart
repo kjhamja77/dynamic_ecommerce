@@ -1,5 +1,4 @@
 import 'package:dartz/dartz.dart' as dartz;
-import 'package:flutter/foundation.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
 import '../../domain/entities/order.dart';
@@ -22,18 +21,33 @@ class OrderRepositoryImpl implements OrderRepository {
   });
 
   @override
-  Future<dartz.Either<Failure, List<Order>>> getOrders() async {
+  Future<dartz.Either<Failure, List<Order>>> getOrders({
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       // Always try to fetch from API first if connected
       if (remoteDataSource != null && await networkInfo.isConnected) {
         try {
-          // Fetch first page of orders for initial "My Orders" screen
+          // Fetch requested page of orders for "My Orders" pagination
           final remoteOrders = await remoteDataSource!.getOrderHistory(
-            page: 1,
-            limit: 20,
+            page: page,
+            limit: limit,
           );
           // Save and return API orders (even if empty)
-          await localDataSource.saveOrders(remoteOrders);
+          if (page == 1) {
+            await localDataSource.saveOrders(remoteOrders);
+          } else {
+            // Keep cache as merged list while paginating.
+            final existing = await localDataSource.getOrders();
+            final merged = <OrderModel>[
+              ...existing.whereType<OrderModel>(),
+              ...remoteOrders.where(
+                (r) => !existing.any((e) => e.id == r.id),
+              ),
+            ];
+            await localDataSource.saveOrders(merged);
+          }
           return dartz.Right(remoteOrders);
         } catch (e) {
           // Only fall back to cache if API fails, never to demo data

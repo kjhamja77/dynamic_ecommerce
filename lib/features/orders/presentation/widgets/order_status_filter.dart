@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/responsive_constants.dart';
-import '../../domain/entities/order.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../core/constants/order_constants.dart';
 
+/// Status chips use backend [order_status] strings exactly as returned (any language).
 class OrderStatusFilter extends StatelessWidget {
   final String? selectedStatus;
-  final Function(String?) onStatusChanged;
+  final void Function(String?) onStatusChanged;
   final ScrollController? scrollController;
-  final List<OrderStatus> availableStatuses;
+  /// Distinct non-empty `order_status` values from loaded orders (first-seen order).
+  final List<String> apiOrderStatuses;
   final bool showRefundChip;
 
   const OrderStatusFilter({
@@ -18,15 +18,14 @@ class OrderStatusFilter extends StatelessWidget {
     required this.selectedStatus,
     required this.onStatusChanged,
     this.scrollController,
-    this.availableStatuses = const <OrderStatus>[],
+    this.apiOrderStatuses = const <String>[],
     this.showRefundChip = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,34 +50,32 @@ class OrderStatusFilter extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                _buildFilterChip(
-                  context: context,
-                  label: loc.all,
-                  isSelected: selectedStatus == null,
-                  onTap: () async {
-                    await HapticService.buttonClick();
-                    onStatusChanged(null);
-                  },
-                ),
-                ..._buildStatusList().map((status) {
-                  final statusLabel = OrderConstants.localizedStatus(context, status);
-                  final statusKey = status.name;
-                  final isSelected = selectedStatus == statusKey;
-                  return _buildFilterChip(
-                    context: context,
-                    label: statusLabel,
-                    isSelected: isSelected,
-                    onTap: () async {
-                      await HapticService.buttonClick();
-                      onStatusChanged(statusKey);
-                    },
-                  );
-                }),
-                if (showRefundChip)
                   _buildFilterChip(
                     context: context,
-                    label: loc.returns, // Reuse existing localization for refunds
-                    isSelected: selectedStatus == 'refund',
+                    label: loc.all,
+                    isSelected: selectedStatus == null,
+                    onTap: () async {
+                      await HapticService.buttonClick();
+                      onStatusChanged(null);
+                    },
+                  ),
+                  ...apiOrderStatuses.map((apiLabel) {
+                    final isSelected = selectedStatus == apiLabel;
+                    return _buildFilterChip(
+                      context: context,
+                      label: apiLabel,
+                      isSelected: isSelected,
+                      onTap: () async {
+                        await HapticService.buttonClick();
+                        onStatusChanged(apiLabel);
+                      },
+                    );
+                  }),
+                  if (showRefundChip)
+                    _buildFilterChip(
+                      context: context,
+                      label: loc.returns,
+                      isSelected: selectedStatus == 'refund',
                       onTap: () async {
                         await HapticService.buttonClick();
                         onStatusChanged('refund');
@@ -93,28 +90,13 @@ class OrderStatusFilter extends StatelessWidget {
     );
   }
 
-  /// Returns the list of statuses to show in the filter bar.
-  /// If [availableStatuses] is provided and non-empty, it is used to
-  /// restrict the chips to statuses that actually exist in the order
-  /// history (as reported by the backend). Otherwise, falls back to
-  /// all [OrderStatus] values.
-  List<OrderStatus> _buildStatusList() {
-    if (availableStatuses.isNotEmpty) {
-      // Preserve the canonical enum order but filter by availability.
-      final availableSet = availableStatuses.toSet();
-      return OrderStatus.values.where(availableSet.contains).toList();
-    }
-    return OrderStatus.values;
-  }
-
   Widget _buildFilterChip({
     required BuildContext context,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: EdgeInsets.only(right: ResponsiveConstants.smSpacing),
@@ -139,6 +121,8 @@ class OrderStatusFilter extends StatelessWidget {
           ),
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppFonts.getTextStyle(
               fontSize: ResponsiveConstants.smFontSize,
               fontWeight: FontWeight.w500,

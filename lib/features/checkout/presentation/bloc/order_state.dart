@@ -78,4 +78,13 @@ class AlQasehPaymentFailure extends OrderState {
   List<Object?> get props => [message];
 }
 
+class AlQasehPaymentDeclined extends OrderState {
+  final String message;
+
+  const AlQasehPaymentDeclined(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 

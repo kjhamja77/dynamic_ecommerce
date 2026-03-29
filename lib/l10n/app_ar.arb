@@ -429,6 +429,16 @@
   "@quantity": {
     "description": "Quantity label"
   },
+
+  "increaseQuantity": "زيادة الكمية",
+  "@increaseQuantity": {
+    "description": "Tooltip for cart line quantity increase button"
+  },
+
+  "decreaseQuantity": "تقليل الكمية",
+  "@decreaseQuantity": {
+    "description": "Tooltip for cart line quantity decrease button"
+  },
   
   "size": "المقاس",
   "@size": {
@@ -478,6 +488,11 @@
   "error": "خطأ",
   "@error": {
     "description": "Error message"
+  },
+
+  "invalidLoginCredentials": "البريد الإلكتروني أو رقم الجوال أو كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.",
+  "@invalidLoginCredentials": {
+    "description": "Login failed: wrong email/phone or password"
   },
   
   "retry": "إعادة المحاولة",
@@ -2332,6 +2347,16 @@
   "errorSavingAddress": "خطأ في حفظ العنوان",
   "@errorSavingAddress": {
     "description": "Error message when saving address fails"
+  },
+  
+  "addressAddedSuccessfully": "تمت إضافة العنوان بنجاح",
+  "@addressAddedSuccessfully": {
+    "description": "Success message when address is added"
+  },
+  
+  "addressAdded": "تمت إضافة العنوان",
+  "@addressAdded": {
+    "description": "Success message when address is added (short version)"
   },
   
   "addressUpdatedSuccessfully": "تم تحديث العنوان بنجاح",

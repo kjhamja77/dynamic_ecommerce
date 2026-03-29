@@ -10,7 +10,6 @@ import '../../domain/entities/cart_item.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../checkout/presentation/constants/checkout_constants.dart';
 
 class CartPage extends StatefulWidget {
   final Function(int)? onTabChanged;
@@ -122,10 +121,9 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
   Widget _buildBody() {
     return BlocListener<CartBloc, CartState>(
       listener: (context, state) {
-        // Do not show snackbar for CartStockError here. The UI that triggered add-to-cart
-        // (e.g. product card CartQuantityButton) shows the localized out-of-stock message.
-        // Showing here too caused a duplicate: first (incorrect) snackbar from this listener,
-        // then the correct one from the product card.
+        if (state is CartStockError) {
+          _showStockErrorSnackbar(state.message);
+        }
       },
       child: BlocBuilder<CartBloc, CartState>(
         builder: (context, state) {
@@ -308,6 +306,53 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  void _showStockErrorSnackbar(String message) {
+    if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+    final localizedMessage = _localizeStockErrorMessage(message);
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            localizedMessage,
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.smFontSize,
+              color: colorScheme.onError,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          backgroundColor: colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2200),
+        ),
+      );
+  }
+
+  String _localizeStockErrorMessage(String message) {
+    final normalized = message.trim();
+    if (normalized.isEmpty) return message;
+
+    final localeCode = Localizations.localeOf(context).languageCode.toLowerCase();
+    if (localeCode != 'ar') return message;
+
+    final lower = normalized.toLowerCase();
+    if (lower.contains('out of stock') ||
+        lower.contains('cannot be added to your cart')) {
+      return 'هذا المنتج غير متوفر حاليا ولا يمكن زيادة الكمية في السلة.';
+    }
+    if (lower.contains('only') &&
+        lower.contains('item') &&
+        lower.contains('available')) {
+      return 'الكمية المطلوبة غير متوفرة بالكامل. يرجى تقليل الكمية.';
+    }
+    if (lower.contains('quantity exceeds') || lower.contains('exceed')) {
+      return 'الكمية المطلوبة أكبر من المخزون المتاح. يرجى تقليل الكمية.';
+    }
+    return message;
   }
 
   void _showClearCartDialog(BuildContext context) {

@@ -219,6 +219,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
           final double? amount =
               (firstMethod as dynamic).price is num ? ((firstMethod as dynamic).price as num).toDouble() : null;
           if (methodId != null && methodId > 0) {
+            debugPrint('🚚 Auto-apply shipping (initial/address-sync): order_id=${event.orderId}, method_id=$methodId, amount=$amount, address_id=${event.addressId}');
             add(ApplyShippingMethod(orderId: event.orderId, shippingMethodId: methodId, amount: amount));
           }
         }

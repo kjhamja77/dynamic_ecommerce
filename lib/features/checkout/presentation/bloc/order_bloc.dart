@@ -66,7 +66,7 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
 
     result.fold(
       (failure) {
-        debugPrint('❌ Failed to create Al Qaseh payment: ${failure.message}');
+        debugPrint('❌ Failed to create Al Qaseh payment: ${failure.code} ${failure.message}');
         emit(AlQasehPaymentFailure(failure.message));
       },
       (paymentData) {
@@ -138,7 +138,7 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
     } else {
       // Payment failed or cancelled - don't place order, don't clear cart
       debugPrint('❌ Al Qaseh payment failed or cancelled');
-      emit(OrderFailure('Payment was cancelled or failed'));
+      emit(const AlQasehPaymentDeclined('Payment was cancelled or failed'));
     }
   }
 }

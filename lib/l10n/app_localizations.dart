@@ -614,6 +614,18 @@ abstract class AppLocalizations {
   /// **'الكمية'**
   String get quantity;
 
+  /// Tooltip for cart line quantity increase button
+  ///
+  /// In ar, this message translates to:
+  /// **'زيادة الكمية'**
+  String get increaseQuantity;
+
+  /// Tooltip for cart line quantity decrease button
+  ///
+  /// In ar, this message translates to:
+  /// **'تقليل الكمية'**
+  String get decreaseQuantity;
+
   /// Size attribute label
   ///
   /// In ar, this message translates to:
@@ -673,6 +685,12 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'خطأ'**
   String get error;
+
+  /// Login failed: wrong email/phone or password
+  ///
+  /// In ar, this message translates to:
+  /// **'البريد الإلكتروني أو رقم الجوال أو كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.'**
+  String get invalidLoginCredentials;
 
   /// Cancel button text
   ///
@@ -2725,6 +2743,18 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'خطأ في حفظ العنوان'**
   String get errorSavingAddress;
+
+  /// Success message when address is added
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت إضافة العنوان بنجاح'**
+  String get addressAddedSuccessfully;
+
+  /// Success message when address is added (short version)
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت إضافة العنوان'**
+  String get addressAdded;
 
   /// Success message when address is updated
   ///

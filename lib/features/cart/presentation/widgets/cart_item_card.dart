@@ -9,9 +9,7 @@ import '../../domain/entities/cart_item.dart';
 import '../bloc/cart_bloc.dart';
 import '../../../../core/theme/app_fonts.dart';
 import '../../../../../core/services/haptic_service.dart';
-import '../../../../core/services/app_localization_service.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../checkout/presentation/constants/checkout_constants.dart';
 
 class CartItemCard extends StatelessWidget {
   final CartItem cartItem;
@@ -25,63 +23,29 @@ class CartItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizationService = AppLocalizationService();
-    final isRTL = localizationService.isRTL;
-    
     return Container(
       decoration: _buildCardDecoration(context),
-      child: Stack(
-        children: [
-          // Main content with margin for buttons (responsive to language direction)
-          Padding(
-            padding: EdgeInsets.all(
-              10
-              // left: isRTL ? ResponsiveConstants.mdPadding + 80 : ResponsiveConstants.mdPadding,
-              // top: ResponsiveConstants.mdPadding,
-              // bottom: ResponsiveConstants.mdPadding + 56, // reserve space for quantity control
-              // right: isRTL ? ResponsiveConstants.mdPadding : ResponsiveConstants.mdPadding + 80,
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 340;
-                // Slightly larger image for better visual emphasis
-                final imageSize =
-                    constraints.maxWidth * (isNarrow ? 0.26 : 0.22);
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildProductImage(
-                      context,
-                      imageSize.clamp(110.0, 110.0),
-                    ),
-                    SizedBox(width: ResponsiveConstants.mdSpacing),
-                    _buildProductDetails(context),
-                  ],
-                );
-              },
-            ),
-          ),
-          // Delete button - top right for LTR, top left for RTL
-          // Positioned(
-          //   top: ResponsiveConstants.smPadding,
-          //   right: isRTL ? null : ResponsiveConstants.xsPadding,
-          //   left: isRTL ? ResponsiveConstants.xsPadding : null,
-          //   child: _buildRemoveButton(context),
-          // ),
-          // Quantity selector - bottom right for LTR, bottom left for RTL
-          Positioned(
-            bottom: ResponsiveConstants.smPadding,
-            right: isRTL ? null : ResponsiveConstants.smPadding,
-            left: isRTL ? ResponsiveConstants.smPadding : null,
-            child: SafeArea(
-              top: false,
-              left: false,
-              right: false,
-              bottom: true,
-              child: _QuantitySelector(cartItem: cartItem),
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(
+          ResponsiveConstants.mdPadding,
+          ResponsiveConstants.smPadding + 2,
+          ResponsiveConstants.mdPadding,
+          ResponsiveConstants.smPadding + 2,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 340;
+            final tileExtent = isNarrow ? 88.0 : 96.0;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildProductImage(context, tileExtent: tileExtent),
+                SizedBox(width: ResponsiveConstants.mdSpacing),
+                Expanded(child: _buildProductDetails(context)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -93,36 +57,49 @@ class CartItemCard extends StatelessWidget {
     
     return BoxDecoration(
       color: colorScheme.surface,
-      borderRadius: BorderRadius.circular(ResponsiveConstants.mdRadius),
+      borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(
+          color: colorScheme.shadow.withValues(
             alpha: isDark ? 0.4 : 0.1,
           ),
-          blurRadius: CheckoutConstants.cardShadowBlur,
-          offset: Offset(0, CheckoutConstants.cardShadowOffset),
+          blurRadius: isDark ? 20 : 14,
+          offset: const Offset(0, 6),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: isDark ? 0.18 : 0.04,
+          ),
+          blurRadius: isDark ? 6 : 3,
+          offset: const Offset(0, 2),
         ),
       ],
     );
   }
 
-  Widget _buildProductImage(BuildContext context, double? size) {
+  Widget _buildProductImage(BuildContext context, {required double tileExtent}) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return GestureDetector(
       onTap: () async {
         await HapticService.buttonClick();
         _navigateToProductDetails(context);
       },
       child: Container(
-        width: size,
-        height: size,
+        width: tileExtent,
+        height: tileExtent,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
-          color: colorScheme.surface,
+          color: Colors.white,
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+          borderRadius: BorderRadius.circular(
+            ResponsiveConstants.smRadius - 0.5,
+          ),
           child: Hero(
             tag: 'product_image_${cartItem.product.id}',
             child: cartItem.product.images.isNotEmpty
@@ -180,40 +157,58 @@ class CartItemCard extends StatelessWidget {
   }
 
   Widget _buildProductDetails(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(child: _buildProductHeader(context)),
-              _buildRemoveButton(context),
-            ],
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildProductHeader(context)),
+            _buildRemoveButton(context),
+          ],
+        ),
+        if (_hasVariantChips()) ...[
           SizedBox(height: ResponsiveConstants.smSpacing),
           _buildProductAttributes(context),
-          SizedBox(height: ResponsiveConstants.smSpacing),
-          _buildPriceSection(),
         ],
-      ),
+        SizedBox(height: ResponsiveConstants.mdSpacing),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: _buildPriceSection(context)),
+            _QuantitySelector(cartItem: cartItem),
+          ],
+        ),
+      ],
     );
+  }
+
+  bool _hasVariantChips() {
+    return cartItem.selectedSize.isNotEmpty ||
+        cartItem.selectedColor.isNotEmpty;
   }
 
   Widget _buildProductHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+    final secondary = _secondaryProductLine();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          cartItem.product.brand,
-          style: AppFonts.getTextStyle(
-            fontSize: ResponsiveConstants.xsFontSize,
-            color: colorScheme.onSurface.withValues(alpha: 0.7),
-            fontWeight: FontWeight.w500,
+        if (cartItem.product.brand.isNotEmpty) ...[
+          Text(
+            cartItem.product.brand,
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.xsFontSize,
+              color: colorScheme.onSurface.withValues(alpha: 0.65),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+            softWrap: true,
           ),
-        ),
+          SizedBox(height: ResponsiveConstants.xsSpacing),
+        ],
         GestureDetector(
           onTap: () async {
             await HapticService.buttonClick();
@@ -222,17 +217,37 @@ class CartItemCard extends StatelessWidget {
           child: Text(
             cartItem.product.name,
             style: AppFonts.getTextStyle(
-              fontSize: ResponsiveConstants.smFontSize,
-              fontWeight: FontWeight.w600,
+              fontSize: ResponsiveConstants.smFontSize + 1,
+              fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
+              height: 1.25,
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
             softWrap: true,
           ),
         ),
+        if (secondary != null) ...[
+          SizedBox(height: ResponsiveConstants.xsSpacing),
+          Text(
+            secondary,
+            style: AppFonts.getTextStyle(
+              fontSize: ResponsiveConstants.xsFontSize,
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w500,
+            ),
+            softWrap: true,
+          ),
+        ],
       ],
     );
+  }
+
+  /// Subtitle line: category when distinct from the title (no dedicated SKU on [Product]).
+  String? _secondaryProductLine() {
+    final category = cartItem.product.category.trim();
+    if (category.isEmpty) return null;
+    final name = cartItem.product.name.trim();
+    if (category.toLowerCase() == name.toLowerCase()) return null;
+    return category;
   }
 
   Widget _buildProductAttributes(BuildContext context) {
@@ -258,17 +273,7 @@ class CartItemCard extends StatelessWidget {
         ),
       );
     }
-    
-    // Add brand chip if available and not already in product name
-    if (cartItem.product.brand.isNotEmpty) {
-      variantChips.add(
-        _buildVariantChip(
-          context,
-          '${loc.brand}: ${cartItem.product.brand}',
-        ),
-      );
-    }
-    
+
     if (variantChips.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -285,71 +290,79 @@ class CartItemCard extends StatelessWidget {
     
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveConstants.xsPadding + 2,
-        vertical: ResponsiveConstants.xsPadding - 1,
+        horizontal: ResponsiveConstants.smPadding + 2,
+        vertical: ResponsiveConstants.xsPadding,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(ResponsiveConstants.xsRadius),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.2),
-          width: 0.5,
+          color: colorScheme.outline.withValues(alpha: 0.35),
+          width: 1,
         ),
       ),
       child: Text(
         label,
         style: AppFonts.getTextStyle(
-          fontSize: ResponsiveConstants.xsFontSize - 1,
-          color: colorScheme.onSurface.withValues(alpha: 0.7),
-          fontWeight: FontWeight.w500,
+          fontSize: ResponsiveConstants.xsFontSize,
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
-  Widget _buildPriceSection() {
+  Widget _buildPriceSection(BuildContext context) {
     return BlocBuilder<CartBloc, CartState>(
       builder: (context, state) {
         final currencyProvider = context.watch<CurrencyProvider>();
         final isUpdating = state is CartUpdating && state.updatingProductId == cartItem.product.id;
         final colorScheme = Theme.of(context).colorScheme;
-        
+
         if (isUpdating) {
-          return Container(
-            height: 20,
-            width: 100,
-            decoration: BoxDecoration(
-              color: colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(6),
+          return Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Container(
+              height: 22,
+              width: 112,
+              decoration: BoxDecoration(
+                color: colorScheme.outline.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
           );
         }
         return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
               child: Text(
-                currencyProvider.formatPrice(cartItem.price, locale: Localizations.localeOf(context)),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                currencyProvider.formatPrice(
+                  cartItem.price,
+                  locale: Localizations.localeOf(context),
+                ),
+                softWrap: true,
                 textAlign: TextAlign.start,
                 style: AppFonts.getTextStyle(
                   fontSize: ResponsiveConstants.mdFontSize,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   color: colorScheme.primary,
                 ),
               ),
             ),
-            if (cartItem.product.originalPrice != null && 
+            if (cartItem.product.originalPrice != null &&
                 cartItem.product.originalPrice! > cartItem.price) ...[
               SizedBox(width: ResponsiveConstants.smSpacing),
               Flexible(
                 child: Text(
-                  currencyProvider.formatPrice(cartItem.product.originalPrice!, locale: Localizations.localeOf(context)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  currencyProvider.formatPrice(
+                    cartItem.product.originalPrice!,
+                    locale: Localizations.localeOf(context),
+                  ),
+                  softWrap: true,
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.smFontSize,
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: colorScheme.onSurface.withValues(alpha: 0.45),
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -361,20 +374,21 @@ class CartItemCard extends StatelessWidget {
     );
   }
 
-  String _formatCurrency(double amount, BuildContext context) {
-    // Use the cached currency from provider for consistent formatting
-    final currencyProvider = context.watch<CurrencyProvider>();
-    return currencyProvider.formatPrice(amount, locale: Localizations.localeOf(context));
-  }
   Widget _buildRemoveButton(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+    final loc = AppLocalizations.of(context)!;
+
     return IconButton(
+      tooltip: loc.removeFromCart,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       onPressed: () async {
         await HapticService.buttonClick();
         onRemove?.call();
         final cartBloc = context.read<CartBloc>();
-        // Remove the full quantity of this item from the cart
         Future.delayed(const Duration(milliseconds: 500), () {
           cartBloc.add(
             RemoveItemFromCartByQuantity(
@@ -415,40 +429,49 @@ class _QuantitySelector extends StatelessWidget {
 
   const _QuantitySelector({required this.cartItem});
 
+  static const double _minSideTap = 40;
+
   @override
   Widget build(BuildContext context) {
     final cartBloc = context.read<CartBloc>();
     final canIncrement = cartBloc.canIncrement(cartItem.product.id, cartItem.quantity);
-    
+    final loc = AppLocalizations.of(context)!;
+
     final colorScheme = Theme.of(context).colorScheme;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.2),
-        ),
+
+    return Material(
+      color: colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
+        side: BorderSide(
+          color: colorScheme.outline.withValues(alpha: 0.22),
+        ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _QuantityButton(
+            tooltip: loc.decreaseQuantity,
             icon: Icons.remove,
             onTap: () async {
               await HapticService.buttonClick();
               _updateQuantity(context, cartItem.quantity - 1);
             },
             isEnabled: cartItem.quantity > 1,
+            minSide: _minSideTap,
           ),
           _buildQuantityDisplay(context),
           _QuantityButton(
+            tooltip: loc.increaseQuantity,
             icon: Icons.add,
             onTap: () async {
               await HapticService.buttonClick();
               _updateQuantity(context, cartItem.quantity + 1);
             },
             isEnabled: canIncrement,
+            minSide: _minSideTap,
           ),
         ],
       ),
@@ -457,26 +480,26 @@ class _QuantitySelector extends StatelessWidget {
 
   Widget _buildQuantityDisplay(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Container(
-      constraints: BoxConstraints(
-        minWidth: 40,
-        maxWidth: 60, // Allow for larger quantities
+      constraints: const BoxConstraints(
+        minWidth: 34,
+        maxWidth: 44,
       ),
       padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveConstants.smPadding,
-        vertical: ResponsiveConstants.xsPadding,
+        horizontal: ResponsiveConstants.xsPadding + 1,
+        vertical: ResponsiveConstants.xsPadding - 1,
       ),
       child: Text(
         '${cartItem.quantity}',
         textAlign: TextAlign.center,
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.smFontSize,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: colorScheme.onSurface,
         ),
-        overflow: TextOverflow.visible, // Prevent text wrapping
-        maxLines: 1, // Force single line
+        overflow: TextOverflow.visible,
+        maxLines: 1,
       ),
     );
   }
@@ -518,27 +541,39 @@ class _QuantityButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool isEnabled;
+  final String tooltip;
+  final double minSide;
 
   const _QuantityButton({
     required this.icon,
     required this.onTap,
     required this.isEnabled,
+    required this.tooltip,
+    required this.minSide,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
-    return GestureDetector(
-      onTap: isEnabled ? onTap : null,
-      child: Container(
-        padding: EdgeInsets.all(ResponsiveConstants.xsPadding),
-        child: Icon(
-          icon,
-          size: ResponsiveConstants.smIconSize,
-          color: isEnabled 
-              ? colorScheme.primary 
-              : colorScheme.onSurface.withValues(alpha: 0.4),
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          canRequestFocus: isEnabled,
+          child: SizedBox(
+            width: minSide,
+            height: minSide,
+            child: Icon(
+              icon,
+              size: ResponsiveConstants.smIconSize + 1,
+              color: isEnabled
+                  ? colorScheme.primary
+                  : colorScheme.onSurface.withValues(alpha: 0.38),
+            ),
+          ),
         ),
       ),
     );

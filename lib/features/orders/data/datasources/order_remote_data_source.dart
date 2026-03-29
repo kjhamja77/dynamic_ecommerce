@@ -1,5 +1,7 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/endpoints.dart';
@@ -170,11 +172,30 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         return const <OrderModel>[];
       }
 
+      _debugLogOrderApiPayload(
+        'orderHistory (page=$page limit=$limit) full response',
+        data,
+      );
+
       final DateTime now = DateTime.now();
-      return ordersList
-          .whereType<Map<String, dynamic>>()
+      final rawMaps =
+          ordersList.whereType<Map<String, dynamic>>().toList(growable: false);
+      final mapped = rawMaps
           .map((rawOrder) => _mapOrderFromApi(rawOrder, now))
           .toList();
+
+      for (var i = 0; i < mapped.length; i++) {
+        final raw = rawMaps[i];
+        final m = mapped[i];
+        debugPrint(
+          '[OrderAPI] orderHistory[$i] parsed → id=${m.id} orderNumber=${m.orderNumber} '
+          'orderStatus="${m.orderStatus}" state=${m.state} stateDisplay=${m.stateDisplay} '
+          'enumStatus=${m.status.name} deliveryStatus=${m.deliveryStatus}',
+        );
+        _debugLogOrderApiPayload('orderHistory[$i] raw order map', raw);
+      }
+
+      return mapped;
 
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Network error while fetching order history');
@@ -192,7 +213,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         params: {'order_id': orderId},
       );
 
-      print('orderDetails response: status=${response.statusCode}, data=${response.data}');
+      debugPrint(
+        '[OrderAPI] orderDetails HTTP status=${response.statusCode} orderId=$orderId',
+      );
+      _debugLogOrderApiPayload('orderDetails full response.data', response.data);
 
       if (response.statusCode != 200) {
         throw ServerFailure('Failed to fetch order details (${response.statusCode})');
@@ -204,14 +228,20 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         if (result is Map<String, dynamic>) {
           final data = result['data'];
           if (data is Map<String, dynamic>) {
-            return _mapOrderFromApi(data, DateTime.now());
+            _debugLogOrderApiPayload('orderDetails result.data (order payload)', data);
+            final order = _mapOrderFromApi(data, DateTime.now());
+            _debugPrintMappedOrder('orderDetails', order);
+            return order;
           }
         }
 
         // Some endpoints may respond without RPC envelope
         final data = root['data'];
         if (data is Map<String, dynamic>) {
-          return _mapOrderFromApi(data, DateTime.now());
+          _debugLogOrderApiPayload('orderDetails root.data (order payload)', data);
+          final order = _mapOrderFromApi(data, DateTime.now());
+          _debugPrintMappedOrder('orderDetails', order);
+          return order;
         }
       }
 
@@ -443,9 +473,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
 
     final String orderNumber = (json['name'] ?? '').toString();
     final String state = (json['state'] ?? '').toString().toLowerCase();
-    // Business-level order status coming directly from the API, e.g. "Confirmed"
-    final String rawOrderStatus = (json['order_status'] ?? '').toString();
-    final String orderStatusKey = rawOrderStatus.toLowerCase();
     final String stateDisplay = (json['state_display'] ?? '').toString();
     final String invoiceStatus = (json['invoice_status'] ?? '').toString().toLowerCase();
     final String alqasehStatus = (json['alqaseh_status'] ?? '').toString().toLowerCase();
@@ -466,6 +493,22 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         paymentStateDisplay = (firstInvoice['payment_state_display'] ?? '').toString();
       }
     }
+
+    // Business-level status from API (snake_case or camelCase). If empty, use other API fields only (no invented text).
+    String rawOrderStatus = (json['order_status'] ?? json['orderStatus'] ?? '').toString().trim();
+    if (rawOrderStatus.isEmpty && paymentStateDisplay.trim().isNotEmpty) {
+      rawOrderStatus = paymentStateDisplay.trim();
+    }
+    if (rawOrderStatus.isEmpty && paymentState.isNotEmpty) {
+      rawOrderStatus = paymentState;
+    }
+    if (rawOrderStatus.isEmpty &&
+        (alqasehStatus == 'succeeded' ||
+            alqasehStatus == 'success' ||
+            alqasehStatus == 'successed')) {
+      rawOrderStatus = 'paid';
+    }
+    final String orderStatusKey = rawOrderStatus.toLowerCase();
     
     final Map<String, dynamic> shippingPartner = (json['partner_shipping'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final List<dynamic> orderLines = (json['order_lines'] as List<dynamic>?) ?? const <dynamic>[];
@@ -649,6 +692,12 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   OrderStatus _mapOrderStatus(String rawStatus) {
     final state = rawStatus.toLowerCase().trim();
     switch (state) {
+      // Payment received (API may send as order_status or via payment fields)
+      case 'paid':
+      case 'fully paid':
+      case 'fully_paid':
+        return OrderStatus.confirmed;
+
       // Pending / draft
       case 'draft':
       case 'sent':
@@ -715,6 +764,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         return OrderStatus.returned;
 
       default:
+        // Unknown API status: do not assume pending; treat as in-progress sale order.
+        if (state == 'sale' || state.contains('sale')) {
+          return OrderStatus.processing;
+        }
         return OrderStatus.pending;
     }
   }
@@ -899,3 +952,43 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   }
 }
 
+void _debugLogOrderApiPayload(String label, Object? payload) {
+  const prefix = '[OrderAPI]';
+  final header = '$prefix $label';
+  if (payload == null) {
+    debugPrint('$header: null');
+    return;
+  }
+  try {
+    final encodable = _toJsonEncodable(payload);
+    final encoded = const JsonEncoder.withIndent('  ').convert(encodable);
+    debugPrint('$header:\n$encoded');
+  } catch (e) {
+    debugPrint('$header (could not JSON-encode: $e)');
+    debugPrint(payload.toString());
+  }
+}
+
+Object? _toJsonEncodable(Object? value) {
+  if (value == null) return null;
+  if (value is num || value is String || value is bool) return value;
+  if (value is Map) {
+    return value.map(
+      (dynamic k, dynamic v) => MapEntry(k.toString(), _toJsonEncodable(v)),
+    );
+  }
+  if (value is List) {
+    return value.map(_toJsonEncodable).toList();
+  }
+  return value.toString();
+}
+
+void _debugPrintMappedOrder(String source, OrderModel order) {
+  debugPrint(
+    '[OrderAPI] $source mapped OrderModel → id=${order.id} '
+    'orderNumber=${order.orderNumber} orderStatus="${order.orderStatus}" '
+    'state=${order.state} stateDisplay=${order.stateDisplay} '
+    'enumStatus=${order.status.name} paymentStatus=${order.paymentStatus.name} '
+    'deliveryStatus=${order.deliveryStatus} invoiceStatus=${order.invoiceStatus}',
+  );
+}

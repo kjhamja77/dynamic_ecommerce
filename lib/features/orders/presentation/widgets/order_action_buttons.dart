@@ -28,6 +28,7 @@ class OrderActionButtons extends StatelessWidget {
         statusKey == 'processing' || statusKey == 'in progress' || statusKey == 'in_progress';
     final bool canBeCancelledByStatus = statusKey == 'pending' ||
         statusKey == 'confirmed' ||
+        statusKey == 'paid' ||
         statusKey == 'processing' ||
         statusKey == 'in progress' ||
         statusKey == 'in_progress';

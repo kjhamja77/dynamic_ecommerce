@@ -429,6 +429,16 @@
   "@quantity": {
     "description": "Quantity label"
   },
+
+  "increaseQuantity": "Increase quantity",
+  "@increaseQuantity": {
+    "description": "Tooltip for cart line quantity increase button"
+  },
+
+  "decreaseQuantity": "Decrease quantity",
+  "@decreaseQuantity": {
+    "description": "Tooltip for cart line quantity decrease button"
+  },
   
   "size": "Size",
   "@size": {
@@ -478,6 +488,11 @@
   "error": "Error",
   "@error": {
     "description": "Error message"
+  },
+
+  "invalidLoginCredentials": "Invalid email, phone number, or password. Please try again.",
+  "@invalidLoginCredentials": {
+    "description": "Login failed: wrong email/phone or password"
   },
   
   "retry": "Retry",
@@ -2347,6 +2362,16 @@
   "errorSavingAddress": "Error saving address",
   "@errorSavingAddress": {
     "description": "Error message when saving address fails"
+  },
+  
+  "addressAddedSuccessfully": "Address added successfully",
+  "@addressAddedSuccessfully": {
+    "description": "Success message when address is added"
+  },
+  
+  "addressAdded": "Address added",
+  "@addressAdded": {
+    "description": "Success message when address is added (short version)"
   },
   
   "addressUpdatedSuccessfully": "Address updated successfully",

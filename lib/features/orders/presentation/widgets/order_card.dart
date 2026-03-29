@@ -30,16 +30,16 @@ class OrderCard extends StatelessWidget {
     final currency = context.watch<CurrencyProvider>();
     final locale = Localizations.localeOf(context);
 
-    // Use backend order_status value for status chip text and color.
-    final String rawStatus = (order.orderStatus ?? '').trim();
-    final String statusKey = rawStatus.toLowerCase();
-    debugPrint('status key my orders $statusKey');
+    // Order history: backend `order_status` / `state_display` verbatim (any locale), then enum.
+    final String statusText =
+        OrderConstants.displayApiOrderStatusForUi(context, order);
     final Color statusColor =
-        OrderConstants.statusColors[statusKey] ?? colorScheme.outline;
-    debugPrint('status color my orders $statusColor');
-    final String statusText = rawStatus.isNotEmpty
-        ? rawStatus
-        : OrderConstants.localizedStatus(context, order.status);
+        OrderConstants.getOrderStatusColor(
+          order.orderStatus,
+          fallbackColor: colorScheme.outline,
+          brightness: theme.brightness,
+        );
+    final bool hasStatus = statusText.isNotEmpty;
 
     final String? imageUrl = order.items.isNotEmpty &&
             order.items.first.product.images.isNotEmpty
@@ -127,39 +127,41 @@ class OrderCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveConstants.smPadding,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveConstants.smRadius,
+                        if (hasStatus) ...[
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: ResponsiveConstants.smPadding,
+                              vertical: 4,
                             ),
-                            border: Border.all(
-                              color: statusColor.withValues(alpha: 0.6),
-                              width: 1,
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(
+                                ResponsiveConstants.smRadius,
+                              ),
+                              border: Border.all(
+                                color: statusColor.withValues(alpha: 0.6),
+                                width: 1,
+                              ),
                             ),
-                          ),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: 140,
-                            ),
-                            child: Text(
-                              statusText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.xsFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: statusColor,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: 140,
+                              ),
+                              child: Text(
+                                statusText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.xsFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: statusColor,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: ResponsiveConstants.xsSpacing),
+                          SizedBox(height: ResponsiveConstants.xsSpacing),
+                        ],
                         Text(
                           currency.formatPrice(order.totalAmount, locale: locale),
                           style: AppFonts.getTextStyle(

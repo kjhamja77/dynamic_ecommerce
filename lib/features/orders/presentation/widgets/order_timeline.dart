@@ -106,11 +106,11 @@ class OrderTimeline extends StatelessWidget {
               isCompleted: true,
             ),
 
-          // Delivered
+          // Delivered — same wording as API order status when available (any locale).
           if (order.deliveredDate != null)
             _buildTimelineItem(
               context,
-              OrderConstants.localizedStatus(context, OrderStatus.delivered),
+              OrderConstants.displayApiOrderStatusForUi(context, order),
               OrderDateUtils.formatTimelineDate(context, order.deliveredDate!),
               Icons.done_all_outlined,
               Colors.green,

@@ -17,6 +17,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../../../profile/domain/usecases/get_user_profile.dart';
 import '../../../auth/presentation/widgets/phone_input_field.dart';
 import '../../../../core/utils/country_code_detector.dart';
+import '../widgets/address_shimmer.dart';
 
 class EditAddressPage extends StatefulWidget {
   final Address? address; // For editing existing address
@@ -59,6 +60,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
   bool _isStatesLoading = false;
   bool _isProvincesLoading = false;
   bool _isSaving = false;
+  bool _isProfilePrefillLoading = false;
 
   int? _selectedProvinceId;
   String _selectedProvinceName = '';
@@ -76,6 +78,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
     _loadProvinces();
     // For new addresses, prefill phone field from user profile if available
     if (widget.address == null) {
+      _isProfilePrefillLoading = true;
       _prefillPhoneFromProfile();
     }
   }
@@ -159,6 +162,10 @@ class _EditAddressPageState extends State<EditAddressPage> {
       result.fold(
         (failure) {
           debugPrint('EditAddressPage: Failed to load user profile for phone prefill: $failure');
+          if (!mounted) return;
+          setState(() {
+            _isProfilePrefillLoading = false;
+          });
         },
         (profile) {
           if (!mounted) return;
@@ -174,11 +181,16 @@ class _EditAddressPageState extends State<EditAddressPage> {
               _phone.text = normalized.national;
             }
             _initialPhoneCountryCode ??= normalized.dialCode;
+            _isProfilePrefillLoading = false;
           });
         },
       );
     } catch (e) {
       debugPrint('EditAddressPage: Exception while prefilling phone from profile: $e');
+      if (!mounted) return;
+      setState(() {
+        _isProfilePrefillLoading = false;
+      });
     }
   }
 
@@ -447,11 +459,13 @@ class _EditAddressPageState extends State<EditAddressPage> {
                 color: colorScheme.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
-                  children: [
+              child: (_isProfilePrefillLoading && widget.address == null)
+                  ? const AddressShimmer()
+                  : Form(
+                      key: _formKey,
+                      child: ListView(
+                        padding: EdgeInsets.all(ResponsiveConstants.lgPadding),
+                        children: [
                 UnifiedSectionHeader(title: AppLocalizations.of(context)!.locationDetails, icon: Icons.location_on_outlined),
                 SizedBox(height: ResponsiveConstants.mdSpacing),
 

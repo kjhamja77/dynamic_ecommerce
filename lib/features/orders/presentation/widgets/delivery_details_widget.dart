@@ -84,7 +84,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
                     ),
                     SizedBox(height: ResponsiveConstants.xsSpacing),
                     Text(
-                      _formatStatus(context, status.status),
+                      status.status.trim(),
                       textAlign: isRTL ? TextAlign.right : TextAlign.left,
                       style: AppFonts.getTextStyle(
                         fontSize: ResponsiveConstants.lgFontSize,
@@ -271,7 +271,7 @@ class DeliveryDetailsWidget extends StatelessWidget {
               crossAxisAlignment: isRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 Text(
-                  _formatStatus(context, statusHistory.title),
+                  statusHistory.title,
                   textAlign: isRTL ? TextAlign.right : TextAlign.left,
                   style: AppFonts.getTextStyle(
                     fontSize: ResponsiveConstants.mdFontSize,
@@ -375,8 +375,5 @@ class DeliveryDetailsWidget extends StatelessWidget {
     return OrderConstants.getDeliveryStatusIcon(status);
   }
 
-  String _formatStatus(BuildContext context, String status) {
-    return OrderConstants.localizedDeliveryStatusString(context, status);
-  }
 }
 

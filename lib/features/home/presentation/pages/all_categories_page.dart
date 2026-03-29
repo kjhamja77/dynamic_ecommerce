@@ -275,13 +275,15 @@ class _CategoryTile extends StatelessWidget {
                       color: colorScheme.onSurface,
                     ),
                   ),
-                  Text(
-                    _tr(context, en: '${category.productCount} products', ar: '${category.productCount} منتج'),
-                    style: AppFonts.getTextStyle(
-                      fontSize: ResponsiveConstants.smFontSize,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  // Keep the product count logic available, but hide it from
+                  // the All Categories card UI as requested.
+                  // Text(
+                  //   _tr(context, en: '${category.productCount} products', ar: '${category.productCount} منتج'),
+                  //   style: AppFonts.getTextStyle(
+                  //     fontSize: ResponsiveConstants.smFontSize,
+                  //     color: colorScheme.onSurfaceVariant,
+                  //   ),
+                  // ),
                 ],
               ),
             ),

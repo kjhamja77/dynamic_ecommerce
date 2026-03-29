@@ -11,6 +11,10 @@ class LoadOrders extends OrdersEvent {
   const LoadOrders();
 }
 
+class LoadMoreOrders extends OrdersEvent {
+  const LoadMoreOrders();
+}
+
 class LoadOrderById extends OrdersEvent {
   final String orderId;
 

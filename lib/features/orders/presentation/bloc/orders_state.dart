@@ -13,11 +13,33 @@ class OrdersLoading extends OrdersState {}
 
 class OrdersLoaded extends OrdersState {
   final List<Order> orders;
+  final int currentPage;
+  final bool hasMore;
+  final bool isLoadingMore;
 
-  const OrdersLoaded(this.orders);
+  const OrdersLoaded(
+    this.orders, {
+    this.currentPage = 1,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+  });
+
+  OrdersLoaded copyWith({
+    List<Order>? orders,
+    int? currentPage,
+    bool? hasMore,
+    bool? isLoadingMore,
+  }) {
+    return OrdersLoaded(
+      orders ?? this.orders,
+      currentPage: currentPage ?? this.currentPage,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    );
+  }
 
   @override
-  List<Object> get props => [orders];
+  List<Object> get props => [orders, currentPage, hasMore, isLoadingMore];
 }
 
 class OrdersError extends OrdersState {

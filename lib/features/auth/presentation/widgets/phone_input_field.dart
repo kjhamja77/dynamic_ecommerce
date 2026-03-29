@@ -65,13 +65,16 @@ class PhoneInputFieldState extends State<PhoneInputField> {
       });
     });
     
-    // Initialize country from provided initialCountryCode if available
-    if (widget.initialCountryCode != null &&
-        widget.initialCountryCode!.trim().isNotEmpty) {
-      // Use a post-frame callback to ensure widget is mounted
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setCountryCode(widget.initialCountryCode!);
-      });
+    _applyInitialCountryCode();
+  }
+
+  @override
+  void didUpdateWidget(covariant PhoneInputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldCode = oldWidget.initialCountryCode?.trim() ?? '';
+    final newCode = widget.initialCountryCode?.trim() ?? '';
+    if (newCode.isNotEmpty && newCode != oldCode) {
+      _applyInitialCountryCode();
     }
   }
 
@@ -330,6 +333,16 @@ class PhoneInputFieldState extends State<PhoneInputField> {
     } catch (e) {
       // Handle invalid / unexpected value silently
     }
+  }
+
+  void _applyInitialCountryCode() {
+    final code = widget.initialCountryCode?.trim();
+    if (code == null || code.isEmpty) return;
+    // Post-frame avoids setState during build and keeps behavior stable.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setCountryCode(code);
+    });
   }
   
   // Method to detect and set country code from phone number

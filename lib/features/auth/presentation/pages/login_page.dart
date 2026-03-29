@@ -55,6 +55,19 @@ class _LoginPageState extends State<LoginPage> {
   final _phoneFieldKey = GlobalKey<PhoneInputFieldState>();
   BiometricSettings? _lastBiometricSettings;
   
+  /// Maps backend English login errors to Arabic when locale is Arabic.
+  String _localizeLoginErrorMessage(BuildContext context, String message) {
+    final lang = Localizations.localeOf(context).languageCode;
+    if (lang != 'ar') return message;
+    final lower = message.toLowerCase();
+    if (lower.contains('invalid_credentials') ||
+        lower.contains('invalid email/mobile') ||
+        (lower.contains('invalid email') && lower.contains('password'))) {
+      return AppLocalizations.of(context)!.invalidLoginCredentials;
+    }
+    return message;
+  }
+
   Future<String?> _getGoogleIdToken() async {
     try {
       final googleSignIn = GoogleSignIn(
@@ -118,9 +131,10 @@ class _LoginPageState extends State<LoginPage> {
         child: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
+            final displayMessage = _localizeLoginErrorMessage(context, state.message);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(state.message),
+                content: Text(displayMessage),
                 backgroundColor: Colors.red,
               ),
             );

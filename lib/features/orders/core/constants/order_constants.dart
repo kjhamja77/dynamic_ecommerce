@@ -15,11 +15,15 @@ class OrderConstants {
   static const Color warningColor = Color(0xFFF1CC32); // Warm yellow for confirmed / pending approval
   static const Color infoColor = Color(0xFF2563EB); // Blue for info / shipped
   static const Color neutralColor = Color(0xFF9CA3AF); // Softer grey for pending/neutral
+  // Unified status chip color tuned per theme for readability.
+  static const Color unifiedStatusChipColorLight = Color(0xFF1F2937);
+  static const Color unifiedStatusChipColorDark = Color(0xFFE5E7EB);
 
   // Status colors - semantic and visually distinct
   static const Map<String, Color> statusColors = {
     // Core order lifecycle (order_status from API)
     'pending': neutralColor,          // Awaiting confirmation (grey)
+    'paid': successColor,             // Payment received (API / invoice)
     'confirmed': warningColor,        // Confirmed (yellow)
     'processing': primaryColor,       // In preparation / being packed
     'shipped': infoColor,             // In transit
@@ -38,6 +42,108 @@ class OrderConstants {
     'refund - cancelled': errorColor,
     'refund - canceled': errorColor,
   };
+
+  /// Normalizes backend order status (English/Arabic) to canonical keys used
+  /// by [statusColors] and business checks.
+  static String normalizeOrderStatusKey(String? rawStatus, {OrderStatus? fallbackStatus}) {
+    final raw = (rawStatus ?? '').trim();
+    if (raw.isEmpty) {
+      return fallbackStatus?.name ?? 'pending';
+    }
+
+    final s = raw.toLowerCase().trim();
+
+    // Exact English keys already supported
+    if (statusColors.containsKey(s)) return s;
+
+    // English variants (check deliver* before complete* so e.g. "delivery completed"
+    // maps to delivered, not completed)
+    if (s.contains('in progress') || s.contains('in_progress')) return 'processing';
+    if (s.contains('cancelled') || s.contains('canceled') || s.contains('cancel')) return 'cancelled';
+    if (s.contains('deliver')) return 'delivered';
+    if (s.contains('complete')) return 'completed';
+    if (s.contains('ship')) return 'shipped';
+    if (s.contains('confirm')) return 'confirmed';
+    if (s.contains('process')) return 'processing';
+    // Payment: match before generic "pend" (avoids mis-classifying "paid")
+    if (s == 'paid' || s == 'fully paid' || s == 'fully_paid') return 'paid';
+    if (s.contains('pend')) return 'pending';
+    if (s.contains('return')) return 'returned';
+
+    // Arabic variants
+    if (s.contains('مؤكد') || s.contains('تم التأكيد')) return 'confirmed';
+    if (s.contains('قيد المعالجة') || s.contains('جاري المعالجة')) return 'processing';
+    if (s.contains('تم الشحن') || s.contains('مشحون')) return 'shipped';
+    if (s.contains('تم التسليم') || s.contains('مكتمل') || s.contains('اكتمل')) return 'delivered';
+    if (s.contains('ملغي') || s.contains('أُلغي') || s.contains('تم الإلغاء')) return 'cancelled';
+    if (s.contains('قيد الانتظار') || s.contains('بانتظار')) return 'pending';
+    if (s.contains('مرتجع') || s.contains('إرجاع')) return 'returned';
+
+    // Non-empty API value we do not map: keep canonical lowercase string (no enum fallback).
+    return s;
+  }
+
+  /// Order list / details: show backend text as returned (any language).
+  ///
+  /// Priority: [Order.orderStatus] (`order_status`), then [Order.stateDisplay]
+  /// (`state_display`, often localized by Odoo), then app [localizedStatus] for
+  /// the mapped enum when the API omits both.
+  static String displayApiOrderStatusForUi(BuildContext context, Order order) {
+    final api = (order.orderStatus ?? '').trim();
+    if (api.isNotEmpty) return api;
+    final stateDisp = (order.stateDisplay ?? '').trim();
+    if (stateDisp.isNotEmpty) return stateDisp;
+    return localizedStatus(context, order.status);
+  }
+
+  static Color getOrderStatusColor(
+    String? rawStatus, {
+    OrderStatus? fallbackStatus,
+    Color fallbackColor = neutralColor,
+    Brightness? brightness,
+  }) {
+    if (brightness == Brightness.dark) return unifiedStatusChipColorDark;
+    return unifiedStatusChipColorLight;
+  }
+
+  /// Localize backend [order_status] strings for the current app language.
+  /// Falls back to raw status text for unknown/custom statuses.
+  static String localizedOrderStatusString(
+    BuildContext context,
+    String? rawStatus, {
+    OrderStatus? fallbackStatus,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    final normalized = normalizeOrderStatusKey(
+      rawStatus,
+      fallbackStatus: fallbackStatus,
+    );
+
+    switch (normalized) {
+      case 'pending':
+        return loc.pending;
+      case 'paid':
+        return loc.paid;
+      case 'confirmed':
+        return loc.confirmed;
+      case 'processing':
+        return loc.processing;
+      case 'shipped':
+        return loc.shipped;
+      case 'delivered':
+      case 'completed':
+        return loc.delivered;
+      case 'cancelled':
+      case 'canceled':
+        return loc.cancelled;
+      case 'returned':
+        return loc.returned;
+      default:
+        final raw = (rawStatus ?? '').trim();
+        if (raw.isNotEmpty) return raw;
+        return localizedStatus(context, fallbackStatus ?? OrderStatus.pending);
+    }
+  }
 
   // Payment status colors - using app theme
   static const Map<String, Color> paymentStatusColors = {
@@ -75,10 +181,12 @@ class OrderConstants {
   // Status icons
   static const Map<String, IconData> statusIcons = {
     'pending': Icons.schedule_outlined,
+    'paid': Icons.payments_outlined,
     'confirmed': Icons.check_circle_outlined,
     'processing': Icons.build_outlined,
     'shipped': Icons.local_shipping_outlined,
     'delivered': Icons.done_all_outlined,
+    'completed': Icons.done_all_outlined,
     'cancelled': Icons.cancel_outlined,
     'returned': Icons.undo_outlined,
   };

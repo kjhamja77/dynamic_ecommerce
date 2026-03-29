@@ -58,7 +58,10 @@ class OrderStatusHeader extends StatelessWidget {
     final deliveryStatus = order.deliveryStatus!;
     final color = OrderConstants.getDeliveryStatusColor(deliveryStatus);
     final icon = OrderConstants.getDeliveryStatusIcon(deliveryStatus);
-    final translatedStatus = OrderConstants.localizedDeliveryStatusString(context, deliveryStatus);
+    final raw = deliveryStatus.trim();
+    final translatedStatus = raw.isNotEmpty
+        ? raw
+        : OrderConstants.localizedDeliveryStatusString(context, deliveryStatus);
 
     return Row(
       children: [
@@ -105,10 +108,16 @@ class OrderStatusHeader extends StatelessWidget {
   Widget _buildStatusRow(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final statusKey = order.status.name;
-    final color = OrderConstants.statusColors[statusKey] ?? colorScheme.outline;
-    final icon = OrderConstants.statusIcons[statusKey] ?? Icons.info_outline;
-    final text = OrderConstants.localizedStatus(context, order.status);
+    final normalizedKey = OrderConstants.normalizeOrderStatusKey(
+      (order.orderStatus ?? '').trim().isNotEmpty ? order.orderStatus : null,
+      fallbackStatus: order.status,
+    );
+    final color =
+        OrderConstants.statusColors[normalizedKey] ?? colorScheme.outline;
+    final icon = OrderConstants.statusIcons[normalizedKey] ??
+        OrderConstants.statusIcons[order.status.name] ??
+        Icons.info_outline;
+    final text = OrderConstants.displayApiOrderStatusForUi(context, order);
 
     return Row(
       children: [

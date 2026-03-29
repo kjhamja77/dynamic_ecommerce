@@ -58,6 +58,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   DateTime? _shippingLoadStartTime; // Track when shipping loading started for timeout
   CheckoutLoaded? _lastCheckoutLoadedState; // Store last CheckoutLoaded state to prevent null issues
   final TextEditingController _promoController = TextEditingController();
+  String? _alQasehReturnOrderReference;
 
   void _updateCheckoutFromCart(BuildContext context, CartState cartState, CheckoutBloc checkoutBloc) {
     if (checkoutBloc.state is! CheckoutLoaded) return;
@@ -583,6 +584,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   checkoutState.appliedCouponId != null &&
                   checkoutState.appliedCouponId == c.cardId &&
                   checkoutState.summary.discount > 0;
+              final isDark = theme.brightness == Brightness.dark;
+              final codeLabel =
+                  Localizations.localeOf(context).languageCode == 'ar'
+                      ? 'رمز'
+                      : 'Code';
 
               if (code.isEmpty) return const SizedBox.shrink();
 
@@ -616,16 +622,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       border: Border.all(
                         color: isAppliedCoupon
                             ? CheckoutConstants.primaryColor
-                            : Colors.grey.shade300,
+                            : (isDark
+                                ? cs.outline.withValues(alpha: 0.35)
+                                : Colors.grey.shade300),
                         width: isAppliedCoupon ? 1.6 : 1,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      boxShadow: isDark
+                          ? const []
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                     child: Stack(
                       children: [
@@ -720,7 +730,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                                 BorderRadius.circular(999),
                                           ),
                                           child: Text(
-                                            'Code',
+                                            codeLabel,
                                             style: AppFonts.getTextStyle(
                                               fontSize:
                                                   ResponsiveConstants
@@ -1852,16 +1862,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     _shippingLoadStartTime = null;
                     if (mounted && orderId != null) {
                       final checkoutBloc = blocContext.read<CheckoutBloc>();
-                      final addressState = blocContext.read<AddressBloc>().state;
-                      String? addressId;
-                      if (addressState is AddressesLoaded && addressState.addresses.isNotEmpty) {
-                        // Prefer default address from AddressBloc; otherwise first.
-                        final defaultAddresses = addressState.addresses.where((a) => a.isDefault).toList();
-                        final selected = defaultAddresses.isNotEmpty
-                            ? defaultAddresses.first
-                            : addressState.addresses.first;
-                        addressId = selected.id;
+                      // Resolve address from checkout state first (source of truth).
+                      String? addressId = checkoutState.selectedShippingAddressId;
+                      if (addressId == null) {
+                        final checkoutAddresses = checkoutState.shippingAddresses;
+                        if (checkoutAddresses.isNotEmpty) {
+                          final defaults = checkoutAddresses.where((a) => a.isDefault).toList();
+                          addressId = defaults.isNotEmpty
+                              ? defaults.first.id
+                              : checkoutAddresses.first.id;
+                        } else {
+                          final addressState = blocContext.read<AddressBloc>().state;
+                          if (addressState is AddressesLoaded && addressState.addresses.isNotEmpty) {
+                            final defaultAddresses =
+                                addressState.addresses.where((a) => a.isDefault).toList();
+                            final selected = defaultAddresses.isNotEmpty
+                                ? defaultAddresses.first
+                                : addressState.addresses.first;
+                            addressId = selected.id;
+                          }
+                        }
                       }
+                      debugPrint('🚚 Retry load shipping methods with address_id=$addressId (order_id=$orderId)');
                       checkoutBloc.add(LoadShippingMethods(orderId, addressId: addressId));
                     }
                   },
@@ -1880,16 +1902,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && orderId != null) {
             final checkoutBloc = blocContext.read<CheckoutBloc>();
-            final addressState = blocContext.read<AddressBloc>().state;
+            // Initial load must use backend default address from AddressBloc.
             String? addressId;
+            final addressState = blocContext.read<AddressBloc>().state;
             if (addressState is AddressesLoaded && addressState.addresses.isNotEmpty) {
-              // Prefer default address from AddressBloc; otherwise first.
               final defaultAddresses = addressState.addresses.where((a) => a.isDefault).toList();
               final selected = defaultAddresses.isNotEmpty
                   ? defaultAddresses.first
                   : addressState.addresses.first;
               addressId = selected.id;
+              // Keep checkout selected card aligned with the initial request address.
+              if (checkoutState.selectedShippingAddressId != addressId) {
+                checkoutBloc.add(SelectShippingAddress(addressId: addressId));
+              }
             }
+            // Do not fallback to CheckoutLoaded defaults for initial shipping load.
+            // Wait until AddressBloc is loaded, so we always use the same default
+            // address shown as selected in the UI.
+            if (addressId == null) {
+              debugPrint('🚚 Initial shipping load skipped: AddressBloc default not ready yet');
+              _hasLoadedShippingMethods = false;
+              _shippingLoadStartTime = null;
+              return;
+            }
+            debugPrint('🚚 Initial load shipping methods with address_id=$addressId (order_id=$orderId)');
             checkoutBloc.add(LoadShippingMethods(orderId, addressId: addressId));
           }
         });
@@ -1971,6 +2007,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             onTap: isTapDisabled
                 ? null
                 : () {
+              debugPrint('🚚 User selected shipping method: order_id=$orderId, method_id=$id, amount=${price.toDouble()}, selected_address_id=${checkoutState.selectedShippingAddressId}');
               checkoutBloc.add(SelectShippingMethod(shippingMethodId: id));
               checkoutBloc.add(const SetUseCartTotals(useCartTotals: false));
               checkoutBloc.add(ApplyShippingMethod(
@@ -2796,18 +2833,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _dismissProcessingDialog(BuildContext context) {
-    // Always try to dismiss the dialog if it's showing, regardless of state flag
+    final checkoutBloc = context.read<CheckoutBloc>();
+    bool isProcessingDialogVisible = false;
+
+    if (checkoutBloc.state is CheckoutLoaded) {
+      final state = checkoutBloc.state as CheckoutLoaded;
+      isProcessingDialogVisible = state.isProcessingDialogVisible;
+    }
+
+    // Prevent accidental route pop (e.g. checkout page itself) when no processing dialog is open.
+    if (!isProcessingDialogVisible) {
+      return;
+    }
+
     if (Navigator.of(context, rootNavigator: true).canPop()) {
       Navigator.of(context, rootNavigator: true).pop();
     }
-    // Update the state flag
-    final checkoutBloc = context.read<CheckoutBloc>();
-    if (checkoutBloc.state is CheckoutLoaded) {
-      final state = checkoutBloc.state as CheckoutLoaded;
-      if (state.isProcessingDialogVisible) {
-        checkoutBloc.add(const SetProcessingDialogVisible(isVisible: false));
-      }
-    }
+    checkoutBloc.add(const SetProcessingDialogVisible(isVisible: false));
   }
 
   void _showSuccessDialog(String orderReference, {int? orderId}) {
@@ -3044,6 +3086,131 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  void _showPaymentFailedDialog(String? message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (dialogContext) {
+        final loc = AppLocalizations.of(dialogContext)!;
+        final screenWidth = MediaQuery.of(dialogContext).size.width;
+        final isSmallScreen = screenWidth < 600;
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 16 : 24,
+            vertical: 24,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: isSmallScreen ? screenWidth * 0.9 : 500,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(isSmallScreen ? 24.0 : 32.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: isSmallScreen ? 120 : 140,
+                      height: isSmallScreen ? 120 : 140,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.red.withValues(alpha: 0.08),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: isSmallScreen ? 80 : 100,
+                          height: isSmallScreen ? 80 : 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.35),
+                              width: 3,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            color: Colors.red.shade600,
+                            size: isSmallScreen ? 46 : 58,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: isSmallScreen ? 24 : 32),
+                    Text(
+                      loc.paymentError,
+                      textAlign: TextAlign.center,
+                      style: AppFonts.getTextStyle(
+                        fontSize: isSmallScreen
+                            ? ResponsiveConstants.lgFontSize
+                            : ResponsiveConstants.xlFontSize,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      (message != null && message.trim().isNotEmpty)
+                          ? message
+                          : loc.paymentCancelledOrFailed,
+                      textAlign: TextAlign.center,
+                      style: AppFonts.getTextStyle(
+                        fontSize: ResponsiveConstants.mdFontSize,
+                        color: Colors.grey.shade700,
+                        height: 1.4,
+                      ),
+                    ),
+                    SizedBox(height: isSmallScreen ? 28 : 36),
+                    SizedBox(
+                      width: double.infinity,
+                      height: isSmallScreen ? 52 : 56,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: Text(
+                          loc.close,
+                          style: AppFonts.getTextStyle(
+                            fontSize: isSmallScreen
+                                ? ResponsiveConstants.mdFontSize
+                                : ResponsiveConstants.lgFontSize - 1,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handlePaymentMethodSelection(
     BuildContext blocContext, 
     PaymentMethod method, 
@@ -3149,6 +3316,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
       
       // Update checkout bloc with new addresses
       checkoutBloc.add(UpdateShippingAddresses(addresses: shippingAddresses));
+
+      // Keep checkout selected address in sync with the actual loaded address list.
+      // If current selected id is missing or null, select backend default (or first).
+      // Do not trigger shipping load here to avoid duplicate initial calls.
+      final String? currentSelectedId = checkoutState.selectedShippingAddressId;
+      final bool hasValidSelectedId = currentSelectedId != null &&
+          state.addresses.any((a) => a.id == currentSelectedId);
+      if (!hasValidSelectedId && state.addresses.isNotEmpty) {
+        final defaultAddresses = state.addresses.where((a) => a.isDefault).toList();
+        final addressToSelect = defaultAddresses.isNotEmpty
+            ? defaultAddresses.first
+            : state.addresses.first;
+        debugPrint('🔄 Syncing selected address with loaded list: ${addressToSelect.id} (${addressToSelect.city})');
+        checkoutBloc.add(SelectShippingAddress(addressId: addressToSelect.id));
+      }
       
       // Initial auto-select: use backend default address ONCE when we first
       // get a non-empty list and there is no explicit selection yet.
@@ -3329,6 +3511,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
+    if (state is AlQasehPaymentDeclined) {
+      _dismissProcessingDialog(context);
+      _showPaymentFailedDialog(state.message);
+      return;
+    }
+
     if (state is AlQasehPaymentSuccess) {
       // Payment successful - now clear UI and show success
       _dismissProcessingDialog(context);
@@ -3340,7 +3528,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _shippingMethods = const [];
       
       // Show success dialog first, then navigate away
-      _showSuccessDialog(state.orderReference);
+      _showSuccessDialog(_preferredAlQasehOrderReference(state.orderReference));
+      _alQasehReturnOrderReference = null;
       return;
     }
 
@@ -3365,6 +3554,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           paymentUrl: paymentUrl,
           orderReference: '', // Not needed anymore, but keeping for compatibility
           onPaymentComplete: (success, orderRef) {
+            if (success && orderRef != null && orderRef.trim().isNotEmpty) {
+              _alQasehReturnOrderReference = orderRef.trim();
+            }
             // Notify OrderBloc about payment completion
             // This will handle order placement and cart clearing
             orderBloc.add(AlQasehPaymentCompleted(
@@ -3378,5 +3570,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
       ),
     );
+  }
+
+  String _preferredAlQasehOrderReference(String fallbackReference) {
+    final fromReturnUrl = _alQasehReturnOrderReference?.trim() ?? '';
+    if (fromReturnUrl.isNotEmpty) return fromReturnUrl;
+    return fallbackReference;
   }
 }

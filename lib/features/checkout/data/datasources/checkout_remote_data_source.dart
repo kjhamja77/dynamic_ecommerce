@@ -202,6 +202,9 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
     double? amount,
   }) async {
     try {
+      if (kDebugMode) {
+        debugPrint('📤 applyShippingMethod request body: {order_id: $orderId, shipping_method_id: $shippingMethodId, amount: $amount}');
+      }
       final response = await apiClient.requestRpc(
         '/ecom/apply/ShippingMethods',
         method: 'POST',

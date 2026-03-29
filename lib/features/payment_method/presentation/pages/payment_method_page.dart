@@ -57,18 +57,18 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
           Navigator.of(context).pop();
         },
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.add,
-              color: colorScheme.onSurface,
-            ),
-            onPressed: () async {
-          await HapticService.buttonClick();
-          _navigateToAddPaymentMethod(context);
-        },
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: Icon(
+        //       Icons.add,
+        //       color: colorScheme.onSurface,
+        //     ),
+        //     onPressed: () async {
+        //   await HapticService.buttonClick();
+        //   _navigateToAddPaymentMethod(context);
+        // },
+        //   ),
+        // ],
       ),
       body: BlocListener<PaymentMethodBloc, PaymentMethodState>(
       listener: (context, state) {

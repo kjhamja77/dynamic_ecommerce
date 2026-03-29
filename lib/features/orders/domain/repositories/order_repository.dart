@@ -6,7 +6,10 @@ import '../../data/datasources/order_remote_data_source.dart';
 import '../usecases/create_refund_request.dart';
 
 abstract class OrderRepository {
-  Future<dartz.Either<Failure, List<Order>>> getOrders();
+  Future<dartz.Either<Failure, List<Order>>> getOrders({
+    int page,
+    int limit,
+  });
   Future<dartz.Either<Failure, Order>> getOrderById(String orderId);
   Future<dartz.Either<Failure, Order>> createOrder(Order order);
   Future<dartz.Either<Failure, Order>> updateOrderStatus(String orderId, String status);

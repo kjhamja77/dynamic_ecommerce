@@ -240,11 +240,22 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final currencyProvider = context.read<CurrencyProvider?>();
     final locale = Localizations.localeOf(context);
 
-    // Use backend order_status value for status chip and related logic.
-    final String rawStatus = (order.orderStatus ?? '').trim();
-    final String statusKey = rawStatus.toLowerCase();
+    // Same as order history: backend `order_status` / `state_display` (any locale), then enum.
+    final String rawOrderStatus = (order.orderStatus ?? '').trim();
+    final bool hasOrderStatusField = rawOrderStatus.isNotEmpty;
+    final String statusKey = OrderConstants.normalizeOrderStatusKey(
+      hasOrderStatusField ? order.orderStatus : null,
+      fallbackStatus: hasOrderStatusField ? null : order.status,
+    );
     final Color statusColor =
-        OrderConstants.statusColors[statusKey] ?? OrderConstants.primaryColor;
+        OrderConstants.getOrderStatusColor(
+          order.orderStatus,
+          fallbackStatus: hasOrderStatusField ? null : order.status,
+          fallbackColor: OrderConstants.primaryColor,
+          brightness: theme.brightness,
+        );
+    final String statusText =
+        OrderConstants.displayApiOrderStatusForUi(context, order);
 
     return Container(
       width: double.infinity,
@@ -326,9 +337,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            rawStatus.isNotEmpty
-                                ? rawStatus
-                                : OrderConstants.localizedStatus(context, order.status),
+                            statusText,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppFonts.getTextStyle(

@@ -53,7 +53,8 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildPrivacySection(),
-            _buildSecuritySection(),
+            // Security section is intentionally hidden until related APIs are ready.
+            // _buildSecuritySection(),
             SizedBox(height: ResponsiveConstants.xlSpacing),
           ],
         ),
@@ -97,24 +98,26 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       icon: Icons.lock_outline,
       iconColor: Colors.black,
       children: [
-        _buildActionTile(
-          title: AppLocalizations.of(context)!.changePassword,
-          subtitle: AppLocalizations.of(context)!.updateYourAccountPassword,
-          icon: Icons.key,
-          onTap: () async {
-            await HapticService.buttonClick();
-            _showChangePasswordDialog();
-          },
-        ),
-        _buildActionTile(
-          title: AppLocalizations.of(context)!.deleteAccount,
-          subtitle: AppLocalizations.of(context)!.permanentlyDeleteYourAccount,
-          icon: Icons.delete_forever,
-          onTap: () async {
-            await HapticService.buttonClick();
-            _showDeleteAccountDialog();
-          },
-        ),
+        // Change password is intentionally hidden for now.
+        // _buildActionTile(
+        //   title: AppLocalizations.of(context)!.changePassword,
+        //   subtitle: AppLocalizations.of(context)!.updateYourAccountPassword,
+        //   icon: Icons.key,
+        //   onTap: () async {
+        //     await HapticService.buttonClick();
+        //     _showChangePasswordDialog();
+        //   },
+        // ),
+        // Delete account API is not available yet.
+        // _buildActionTile(
+        //   title: AppLocalizations.of(context)!.deleteAccount,
+        //   subtitle: AppLocalizations.of(context)!.permanentlyDeleteYourAccount,
+        //   icon: Icons.delete_forever,
+        //   onTap: () async {
+        //     await HapticService.buttonClick();
+        //     _showDeleteAccountDialog();
+        //   },
+        // ),
       ],
     );
   }
@@ -308,92 +311,98 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   }
 
   void _showChangePasswordDialog() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surface,
-        title: Text(
-          AppLocalizations.of(context)!.changePassword,
-          style: AppFonts.getTextStyle(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        content: Text(
-          AppLocalizations.of(context)!.thisFeatureWillBeImplementedSoon,
-          style: AppFonts.getTextStyle(
-            color: colorScheme.onSurface.withOpacity(0.7),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
-        },
-            child: Text(AppLocalizations.of(context)!.ok),
-          ),
-        ],
-      ),
-    );
+    // Change password feature is intentionally disabled for now.
+    // The dialog is kept here (commented) so it can be re-enabled quickly later.
+    //
+    // final theme = Theme.of(context);
+    // final colorScheme = theme.colorScheme;
+    //
+    // showDialog(
+    //   context: context,
+    //   builder: (context) => AlertDialog(
+    //     backgroundColor: colorScheme.surface,
+    //     title: Text(
+    //       AppLocalizations.of(context)!.changePassword,
+    //       style: AppFonts.getTextStyle(
+    //         fontWeight: FontWeight.w600,
+    //         color: colorScheme.onSurface,
+    //       ),
+    //     ),
+    //     content: Text(
+    //       AppLocalizations.of(context)!.thisFeatureWillBeImplementedSoon,
+    //       style: AppFonts.getTextStyle(
+    //         color: colorScheme.onSurface.withOpacity(0.7),
+    //       ),
+    //     ),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () async {
+    //           await HapticService.buttonClick();
+    //           Navigator.of(context).pop();
+    //         },
+    //         child: Text(AppLocalizations.of(context)!.ok),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 
   void _showDeleteAccountDialog() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surface,
-        title: Text(
-          AppLocalizations.of(context)!.deleteAccount,
-          style: AppFonts.getTextStyle(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        content: Text(
-          AppLocalizations.of(context)!.thisActionCannotBeUndone,
-          style: AppFonts.getTextStyle(
-            color: colorScheme.onSurface.withOpacity(0.7),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
-        },
-            child: Text(
-              AppLocalizations.of(context)!.cancel,
-              style: AppFonts.getTextStyle(
-                color: colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-          await HapticService.buttonClick();
-          Navigator.of(context).pop();
-              context.read<ProfileBloc>().add(DeleteAccount());
-        },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.delete,
-              style: AppFonts.getTextStyle(
-                color: colorScheme.onError,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Delete account feature is intentionally disabled for now.
+    // Kept commented (similar to change password) until delete API is ready.
+    //
+    // final theme = Theme.of(context);
+    // final colorScheme = theme.colorScheme;
+    //
+    // showDialog(
+    //   context: context,
+    //   builder: (context) => AlertDialog(
+    //     backgroundColor: colorScheme.surface,
+    //     title: Text(
+    //       AppLocalizations.of(context)!.deleteAccount,
+    //       style: AppFonts.getTextStyle(
+    //         fontWeight: FontWeight.w600,
+    //         color: colorScheme.onSurface,
+    //       ),
+    //     ),
+    //     content: Text(
+    //       AppLocalizations.of(context)!.thisActionCannotBeUndone,
+    //       style: AppFonts.getTextStyle(
+    //         color: colorScheme.onSurface.withOpacity(0.7),
+    //       ),
+    //     ),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () async {
+    //           await HapticService.buttonClick();
+    //           Navigator.of(context).pop();
+    //         },
+    //         child: Text(
+    //           AppLocalizations.of(context)!.cancel,
+    //           style: AppFonts.getTextStyle(
+    //             color: colorScheme.onSurface.withOpacity(0.7),
+    //           ),
+    //         ),
+    //       ),
+    //       ElevatedButton(
+    //         onPressed: () async {
+    //           await HapticService.buttonClick();
+    //           Navigator.of(context).pop();
+    //           context.read<ProfileBloc>().add(DeleteAccount());
+    //         },
+    //         style: ElevatedButton.styleFrom(
+    //           backgroundColor: colorScheme.error,
+    //           foregroundColor: colorScheme.onError,
+    //         ),
+    //         child: Text(
+    //           AppLocalizations.of(context)!.delete,
+    //           style: AppFonts.getTextStyle(
+    //             color: colorScheme.onError,
+    //           ),
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 }

@@ -271,6 +271,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quantity => 'Quantity';
 
   @override
+  String get increaseQuantity => 'Increase quantity';
+
+  @override
+  String get decreaseQuantity => 'Decrease quantity';
+
+  @override
   String get size => 'Size';
 
   @override
@@ -299,6 +305,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get error => 'Error';
+
+  @override
+  String get invalidLoginCredentials =>
+      'Invalid email, phone number, or password. Please try again.';
 
   @override
   String get cancel => 'Cancel';
@@ -1413,6 +1423,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorSavingAddress => 'Error saving address';
+
+  @override
+  String get addressAddedSuccessfully => 'Address added successfully';
+
+  @override
+  String get addressAdded => 'Address added';
 
   @override
   String get addressUpdatedSuccessfully => 'Address updated successfully';

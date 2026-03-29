@@ -31,10 +31,14 @@ class _AddressesPageState extends State<AddressesPage> {
     final l10n = AppLocalizations.of(context)!;
     final msg = message.toLowerCase();
     
-    if (msg.contains('address updated successfully')) {
-      return l10n.addressUpdatedSuccessfully;
-    } else if (msg.contains('default address updated successfully')) {
+    if (msg.contains('default address updated successfully')) {
       return l10n.defaultAddressUpdatedSuccessfully;
+    } else if (msg.contains('address added successfully')) {
+      return l10n.addressAddedSuccessfully;
+    } else if (msg.contains('address added')) {
+      return l10n.addressAdded;
+    } else if (msg.contains('address updated successfully')) {
+      return l10n.addressUpdatedSuccessfully;
     } else if (msg.contains('address updated')) {
       return l10n.addressUpdated;
     } else if (msg.contains('address deleted successfully')) {
@@ -44,6 +48,22 @@ class _AddressesPageState extends State<AddressesPage> {
     }
     
     // Return original message if no translation found
+    return message;
+  }
+
+  String _translateErrorMessage(BuildContext context, String message) {
+    final l10n = AppLocalizations.of(context)!;
+    final msg = message.toLowerCase();
+    if (msg.contains('address') ||
+        msg.contains('country') ||
+        msg.contains('state') ||
+        msg.contains('province') ||
+        msg.contains('network') ||
+        msg.contains('failed') ||
+        msg.contains('error') ||
+        msg.contains('exception')) {
+      return l10n.errorSavingAddress;
+    }
     return message;
   }
 
@@ -138,7 +158,7 @@ class _AddressesPageState extends State<AddressesPage> {
               AppSnackBar.success(context, translatedMessage);
             }
           } else if (state is AddressError) {
-            AppSnackBar.error(context, state.message);
+            AppSnackBar.error(context, _translateErrorMessage(context, state.message));
           }
         },
         builder: (context, state) {

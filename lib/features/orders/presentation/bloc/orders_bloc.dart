@@ -1,7 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'dart:developer' as developer;
-import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/usecases/get_orders.dart';
 import '../../domain/usecases/get_order_by_id.dart';
@@ -15,6 +15,7 @@ part 'orders_event.dart';
 part 'orders_state.dart';
 
 class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
+  static const int _pageSize = 20;
   final GetOrders getOrders;
   final GetOrderById getOrderById;
   final CreateOrder createOrder;
@@ -28,7 +29,9 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     required this.cancelOrder,
     required this.getDeliveryStatus,
   }) : super(OrdersInitial()) {
+    _orders = <Order>[];
     on<LoadOrders>(_onLoadOrders);
+    on<LoadMoreOrders>(_onLoadMoreOrders);
     on<LoadOrderById>(_onLoadOrderById);
     on<CreateOrderEvent>(_onCreateOrder);
     on<CancelOrderEvent>(_onCancelOrder);
@@ -36,6 +39,11 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     on<LoadOrdersByStatus>(_onLoadOrdersByStatus);
     on<LoadDeliveryStatus>(_onLoadDeliveryStatus);
   }
+
+  List<Order> _orders = <Order>[];
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   Future<void> _onLoadOrders(
     LoadOrders event,
@@ -45,7 +53,13 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     emit(OrdersLoading());
     
     try {
-      final result = await getOrders(NoParams());
+      _currentPage = 1;
+      _hasMore = true;
+      _isLoadingMore = false;
+      _orders = <Order>[];
+      final result = await getOrders(
+        const GetOrdersParams(page: 1, limit: _pageSize),
+      );
       
       result.fold(
         (failure) {
@@ -53,14 +67,73 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
           emit(OrdersError(failure.message));
         },
         (orders) {
-          developer.log('✅ Orders loaded successfully: ${orders.length} orders');
-          emit(OrdersLoaded(orders));
+          _orders = orders;
+          _hasMore = orders.length >= _pageSize;
+          developer.log(
+            '✅ Orders loaded successfully: ${orders.length} orders (hasMore: $_hasMore)',
+          );
+          emit(
+            OrdersLoaded(
+              _orders,
+              currentPage: _currentPage,
+              hasMore: _hasMore,
+              isLoadingMore: false,
+            ),
+          );
         },
       );
     } catch (e) {
       developer.log('💥 Exception while loading orders: $e');
       emit(OrdersError('Failed to load orders: ${e.toString()}'));
     }
+  }
+
+  Future<void> _onLoadMoreOrders(
+    LoadMoreOrders event,
+    Emitter<OrdersState> emit,
+  ) async {
+    if (_isLoadingMore || !_hasMore || state is! OrdersLoaded) {
+      return;
+    }
+
+    _isLoadingMore = true;
+    emit((state as OrdersLoaded).copyWith(isLoadingMore: true));
+
+    final nextPage = _currentPage + 1;
+    final result = await getOrders(
+      GetOrdersParams(page: nextPage, limit: _pageSize),
+    );
+
+    result.fold(
+      (failure) {
+        developer.log('❌ Failed to load more orders: ${failure.message}');
+        _isLoadingMore = false;
+        if (state is OrdersLoaded) {
+          emit((state as OrdersLoaded).copyWith(isLoadingMore: false));
+        }
+      },
+      (orders) {
+        _currentPage = nextPage;
+        _hasMore = orders.length >= _pageSize;
+        _isLoadingMore = false;
+
+        final existingIds = _orders.map((o) => o.id).toSet();
+        final dedupedIncoming = orders.where((o) => !existingIds.contains(o.id));
+        _orders = <Order>[..._orders, ...dedupedIncoming];
+
+        developer.log(
+          '✅ Loaded more orders: +${orders.length}, total=${_orders.length}, hasMore=$_hasMore',
+        );
+        emit(
+          OrdersLoaded(
+            _orders,
+            currentPage: _currentPage,
+            hasMore: _hasMore,
+            isLoadingMore: false,
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _onLoadOrderById(
@@ -115,11 +188,11 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       
       result.fold(
         (failure) {
-          developer.log('❌ Failed to create order: ${failure.message}');
+          debugPrint('❌ Failed to create order: ${failure.message}');
           emit(OrdersError(failure.message));
         },
         (order) {
-          developer.log('✅ Order created successfully: ${order.orderNumber}');
+          debugPrint('✅ Order created successfully: ${order.orderNumber}');
           // Reload orders to show the new order
           add(LoadOrders());
         },
@@ -172,7 +245,9 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     emit(OrdersLoading());
     
     try {
-      final result = await getOrders(NoParams());
+      final result = await getOrders(
+        const GetOrdersParams(page: 1, limit: _pageSize),
+      );
       
       result.fold(
         (failure) {
@@ -185,7 +260,14 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
           ).toList();
           
           developer.log('✅ Orders filtered by status successfully: ${filteredOrders.length} orders');
-          emit(OrdersLoaded(filteredOrders));
+          emit(
+            OrdersLoaded(
+              filteredOrders,
+              currentPage: 1,
+              hasMore: false,
+              isLoadingMore: false,
+            ),
+          );
         },
       );
     } catch (e) {

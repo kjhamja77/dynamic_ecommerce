@@ -151,21 +151,26 @@ class SpecialOffersSection extends StatelessWidget {
     print('  - Product IDs: ${filters.productIds}');
     print('  - Keyword: ${filters.keyword}');
     
-    // Create FilterCriteria with all filters combined.
-    // CRITICAL: Always send brand IDs and product IDs as lists, and
-    // send offer_keyword as plain text so the filter-search API
-    // can return the products attached to this offer.
-    final filterCriteria = FilterCriteria(
-      categoryIds: filters.categoryIds ?? const [],
-      brandIds: filters.brandIds ?? const [],
-      productIds: filters.productIds ?? const [],
-      searchQuery: filters.keyword?.isNotEmpty == true ? filters.keyword : null,
-      omitPaginationInRequest: true,
-    );
+    // Strict offer payload rule:
+    // - If offer_product_ids exists, send ONLY product_ids.
+    // - Otherwise send only non-empty available fields from the offer.
+    final hasExplicitProductIds = filters.productIds.isNotEmpty;
+    final filterCriteria = hasExplicitProductIds
+        ? FilterCriteria(
+            productIds: filters.productIds,
+            omitPaginationInRequest: true,
+          )
+        : FilterCriteria(
+            categoryIds: filters.categoryIds,
+            brandIds: filters.brandIds,
+            searchQuery: filters.keyword?.isNotEmpty == true ? filters.keyword : null,
+            omitPaginationInRequest: true,
+          );
     
     print('✅ Created FilterCriteria for offer:');
     print('  - Category IDs: ${filterCriteria.categoryIds}');
     print('  - Brand IDs: ${filterCriteria.brandIds}');
+    print('  - Product IDs: ${filterCriteria.productIds}');
     print('  - Search Query: ${filterCriteria.searchQuery}');
     
     // Navigate to catalog with combined filters
@@ -437,15 +442,15 @@ class SpecialOfferData {
 }
 
 class OfferFilterData {
-  final List<int>? categoryIds;
-  final List<int>? brandIds;
-  final List<int>? productIds;
+  final List<int> categoryIds;
+  final List<int> brandIds;
+  final List<int> productIds;
   final String? keyword;
 
   const OfferFilterData({
-    this.categoryIds,
-    this.brandIds,
-    this.productIds,
+    this.categoryIds = const [],
+    this.brandIds = const [],
+    this.productIds = const [],
     this.keyword,
   });
 
@@ -467,12 +472,12 @@ class OfferFilterData {
 }
 
 /// Odoo/API may send a single id as [int] or many as [List]; normalize to [List<int>].
-List<int>? _parseIdList(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value > 0 ? [value] : null;
+List<int> _parseIdList(dynamic value) {
+  if (value == null) return const [];
+  if (value is int) return value > 0 ? [value] : const [];
   if (value is num) {
     final i = value.toInt();
-    return i > 0 ? [i] : null;
+    return i > 0 ? [i] : const [];
   }
   if (value is List) {
     final out = <int>[];
@@ -484,11 +489,11 @@ List<int>? _parseIdList(dynamic value) {
         if (p > 0) out.add(p);
       }
     }
-    return out.isEmpty ? null : out;
+    return out;
   }
   final parsed = int.tryParse(value.toString());
   if (parsed != null && parsed > 0) return [parsed];
-  return null;
+  return const [];
 }
 
 String? _parseOfferKeyword(dynamic value) {

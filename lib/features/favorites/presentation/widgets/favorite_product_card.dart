@@ -40,7 +40,7 @@ class FavoriteProductCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: () async {
           await HapticService.buttonClick();
           Navigator.of(context).pushNamed(
@@ -64,15 +64,23 @@ class FavoriteProductCard extends StatelessWidget {
             final isDark = theme.brightness == Brightness.dark;
 
             return Container(
+              constraints: const BoxConstraints(minHeight: 0),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(
+                    color: colorScheme.shadow.withValues(
                       alpha: isDark ? 0.4 : 0.1,
                     ),
-                    blurRadius: 10,
+                    blurRadius: isDark ? 20 : 14,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: isDark ? 0.18 : 0.04,
+                    ),
+                    blurRadius: isDark ? 6 : 3,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -81,192 +89,221 @@ class FavoriteProductCard extends StatelessWidget {
                 builder: (context) {
                   final isRTL = Directionality.of(context) == TextDirection.rtl;
                   
-                  return Stack(
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Main content: text + bigger image
-                      Row(
-                        textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Stack(
                         children: [
-                          // Text + chips + add-to-cart at bottom (with padding)
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-                              child: Column(
-                                crossAxisAlignment: isRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                children: [
-                              // Brand + name + price (slightly smaller fonts)
-                              Builder(
-                                builder: (context) {
-                                  final cs = Theme.of(context).colorScheme;
-                                  final innerIsRTL = Directionality.of(context) == TextDirection.rtl;
-
-                                  return Column(
-                                    crossAxisAlignment: innerIsRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                    children: [
-                                      if (product.brand.isNotEmpty)
-                                        Text(
-                                          product.brand,
-                                          style: AppFonts.getTextStyle(
-                                            fontSize: ResponsiveConstants.smFontSize - 1,
-                                            fontWeight: FontWeight.w500,
-                                            color: cs.onSurface.withValues(alpha: 0.7),
-                                          ),
-                                        ),
-                                      if (product.brand.isNotEmpty) SizedBox(height: ResponsiveConstants.xsSpacing),
-                                      Text(
-                                        product.name.isNotEmpty ? product.name : 'Product',
-                                        style: AppFonts.getTextStyle(
-                                          fontSize: ResponsiveConstants.mdFontSize - 1,
-                                          fontWeight: FontWeight.w600,
-                                          color: cs.onSurface,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      SizedBox(height: ResponsiveConstants.xsSpacing),
-                                      Consumer<CurrencyProvider>(
-                                        builder: (context, currencyProvider, child) {
-                                          return Text(
-                                            currencyProvider.formatPrice(
-                                              product.price,
-                                              locale: Localizations.localeOf(context),
-                                            ),
-                                            style: AppFonts.getTextStyle(
-                                              fontSize: ResponsiveConstants.mdFontSize - 1,
-                                              fontWeight: FontWeight.w700,
-                                              color: cs.primary,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-
-                              SizedBox(height: ResponsiveConstants.smSpacing),
-
-                              // Variant detail chips
-                              Builder(
-                                builder: (context) {
-                                  final loc = AppLocalizations.of(context);
-                                  if (loc == null) return const SizedBox.shrink();
-                                  final variantChips = _buildVariantChips(context, loc);
-
-                                  if (variantChips.isEmpty) {
-                                    return const SizedBox.shrink();
-                                  }
-
-                                  return Wrap(
-                                    spacing: ResponsiveConstants.xsSpacing,
-                                    runSpacing: ResponsiveConstants.xsSpacing,
-                                    children: variantChips,
-                                  );
-                                },
-                              ),
-
-                              SizedBox(height: ResponsiveConstants.smSpacing),
-
-                              // Add to cart button aligned based on locale
-                              Align(
-                                alignment: isRTL ? AlignmentDirectional.bottomEnd : AlignmentDirectional.bottomStart,
-                                child: AddToCartButton(
-                                  product: _convertToProduct(),
-                                  size: 30,
-                                  isCompact: true,
-                                  onAddToCart: onAddToCart,
-                                  onTabChanged: onTabChanged,
+                          ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16),
+                            ),
+                            child: SizedBox(
+                              height: 145,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.white
+                                  // gradient: LinearGradient(
+                                  //   begin: Alignment.topCenter,
+                                  //   end: Alignment.bottomCenter,
+                                  //   colors: [
+                                  //     colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
+                                  //     colorScheme.surface.withValues(alpha: 0.95),
+                                  //   ],
+                                  // ),
                                 ),
-                              ),
-                                ],
+                                child: product.imageUrl != null
+                                      ? Hero(
+                                          tag: 'product_image_${product.id}',
+                                          child: CachedNetworkImage(
+                                            imageUrl: product.imageUrl!,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            fit: BoxFit.contain,
+                                            placeholder: (context, url) => Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            errorWidget: (context, url, error) => Icon(
+                                              Icons.image_not_supported,
+                                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.image_not_supported,
+                                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                                        ),
                               ),
                             ),
                           ),
-                          // Bigger product image flush to card edge (no padding, starts from edges) with favorite button
-                          Stack(
-                            children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.only(
-                                topLeft: isRTL ? Radius.circular(12) : Radius.zero,
-                                topRight: isRTL ? Radius.zero : Radius.circular(12),
-                                bottomLeft: isRTL ? Radius.circular(12) : Radius.zero,
-                                bottomRight: isRTL ? Radius.zero : Radius.circular(12),
+                          Positioned(
+                            top: ResponsiveConstants.smPadding,
+                            left: isRTL ? ResponsiveConstants.smPadding : null,
+                            right: isRTL ? null : ResponsiveConstants.smPadding,
+                            child: FavoriteButton(
+                              productId: product.id,
+                              productName: product.name,
+                              brand: product.brand,
+                              price: product.price,
+                              imageUrl: product.imageUrl,
+                              category: product.category,
+                              isFavorite: isFavorite,
+                              size: 30,
+                              isCompact: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          ResponsiveConstants.mdPadding,
+                          ResponsiveConstants.smPadding,
+                          ResponsiveConstants.mdPadding,
+                          ResponsiveConstants.smPadding,
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                              isRTL ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                          children: [
+                            if (product.brand.isNotEmpty)
+                              Text(
+                                product.brand,
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.smFontSize,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                              child: SizedBox(
-                                width: 150,
-                                height: 160,
-                                child: product.imageUrl != null
-                                    ? Hero(
-                                        tag: 'product_image_${product.id}',
-                                        child: Builder(
-                                          builder: (context) {
-                                            final cs = Theme.of(context).colorScheme;
+                            if (product.brand.isNotEmpty)
+                              SizedBox(height: ResponsiveConstants.xsSpacing),
+                            Text(
+                              product.name.isNotEmpty ? product.name : 'Product',
+                              style: AppFonts.getTextStyle(
+                                fontSize: ResponsiveConstants.mdFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                            ),
+                            SizedBox(height: ResponsiveConstants.xsSpacing),
+                            Builder(
+                              builder: (context) {
+                                final loc = AppLocalizations.of(context);
+                                if (loc == null) return const SizedBox.shrink();
+                                final variantChips = _buildVariantChips(context, loc);
 
-                                            return CachedNetworkImage(
-                                              imageUrl: product.imageUrl!,
-                                              fit: BoxFit.contain,
-                                              placeholder: (context, url) => Container(
-                                                color: cs.surface,
-                                                child: Center(
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                                      cs.primary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              errorWidget: (context, url, error) => Container(
-                                                color: cs.surface,
-                                                child: Icon(
-                                                  Icons.image_not_supported,
-                                                  color: cs.onSurface.withValues(alpha: 0.4),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      )
-                                    : Hero(
-                                        tag: 'product_image_${product.id}',
-                                        child: Builder(
-                                          builder: (context) {
-                                            final cs = Theme.of(context).colorScheme;
+                                return LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final shouldStackVertically =
+                                        constraints.maxWidth < 320;
+                                    final addToCart = AddToCartButton(
+                                      product: _convertToProduct(),
+                                      size: 30,
+                                      isCompact: true,
+                                      onAddToCart: onAddToCart,
+                                      onTabChanged: onTabChanged,
+                                    );
 
-                                            return Container(
-                                              color: cs.surface,
-                                              child: Icon(
-                                                Icons.image_not_supported,
-                                                color: cs.onSurface.withValues(alpha: 0.4),
-                                              ),
-                                            );
-                                          },
+                                    final chipsWrap = variantChips.isEmpty
+                                        ? const SizedBox.shrink()
+                                        : Wrap(
+                                            textDirection: isRTL
+                                                ? TextDirection.rtl
+                                                : TextDirection.ltr,
+                                            alignment: isRTL
+                                                ? WrapAlignment.start
+                                                : WrapAlignment.start,
+                                            runAlignment: isRTL
+                                                ? WrapAlignment.start
+                                                : WrapAlignment.start,
+                                            spacing: ResponsiveConstants.xsSpacing,
+                                            runSpacing: ResponsiveConstants.xsSpacing,
+                                            children: variantChips,
+                                          );
+
+                                    if (shouldStackVertically) {
+                                      return Column(
+                                        crossAxisAlignment: isRTL
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
+                                        children: [
+                                          chipsWrap,
+                                          if (variantChips.isNotEmpty)
+                                            SizedBox(height: ResponsiveConstants.xsSpacing),
+                                          addToCart,
+                                        ],
+                                      );
+                                    }
+
+                                    if (isRTL) {
+                                      return Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Align(
+                                              alignment: Alignment.topRight,
+                                              child: chipsWrap,
+                                            ),
+                                          ),
+                                          SizedBox(width: ResponsiveConstants.xsSpacing),
+                                          addToCart,
+                                        ],
+                                      );
+                                    }
+
+                                    return Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Align(
+                                            alignment: AlignmentDirectional.topStart,
+                                            child: chipsWrap,
+                                          ),
                                         ),
-                                      ),
+                                        SizedBox(width: ResponsiveConstants.xsSpacing),
+                                        addToCart,
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                            SizedBox(height: ResponsiveConstants.xsSpacing),
+                            Align(
+                              alignment: isRTL
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Consumer<CurrencyProvider>(
+                                builder: (context, currencyProvider, child) {
+                                  return Text(
+                                    currencyProvider.formatPrice(
+                                      product.price,
+                                      locale: Localizations.localeOf(context),
+                                    ),
+                                    textAlign:
+                                        isRTL ? TextAlign.right : TextAlign.left,
+                                    style: AppFonts.getTextStyle(
+                                      fontSize: ResponsiveConstants.lgFontSize,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.primary,
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            // Favorite button positioned on the image (top-right for both LTR and RTL)
-                            Positioned(
-                              top: ResponsiveConstants.xsPadding,
-                              left: isRTL ? ResponsiveConstants.xsPadding : null,
-                              right: isRTL ? null : ResponsiveConstants.xsPadding,
-                              child: FavoriteButton(
-                                productId: product.id,
-                                productName: product.name,
-                                brand: product.brand,
-                                price: product.price,
-                                imageUrl: product.imageUrl,
-                                category: product.category,
-                                isFavorite: isFavorite,
-                                size: 28,
-                                isCompact: true,
-                              ),
-                            ),
+                            SizedBox(height: ResponsiveConstants.smSpacing),
+
                           ],
                         ),
-                      ],
-                    ),
+                      ),
                     ],
                   );
                 },
@@ -415,14 +452,14 @@ class FavoriteProductCard extends StatelessWidget {
     
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveConstants.smPadding,
-        vertical: ResponsiveConstants.xsPadding / 2,
+        horizontal: ResponsiveConstants.smPadding + 2,
+        vertical: ResponsiveConstants.xsPadding,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.5),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.2),
+          color: colorScheme.outline.withValues(alpha: 0.35),
           width: 1,
         ),
       ),
@@ -430,8 +467,8 @@ class FavoriteProductCard extends StatelessWidget {
         label,
         style: AppFonts.getTextStyle(
           fontSize: ResponsiveConstants.xsFontSize,
-          color: colorScheme.onSurface.withValues(alpha: 0.7),
-          fontWeight: FontWeight.w500,
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

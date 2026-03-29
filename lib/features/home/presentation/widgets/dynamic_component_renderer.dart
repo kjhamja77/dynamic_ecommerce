@@ -963,32 +963,36 @@ class DynamicComponentRenderer extends StatelessWidget {
     
     final offerName = content['name'] as String? ?? 'Special Offer';
     
+    List<int> parseIdList(dynamic raw) {
+      if (raw == null) return const [];
+      if (raw is int) return raw > 0 ? [raw] : const [];
+      if (raw is num) {
+        final value = raw.toInt();
+        return value > 0 ? [value] : const [];
+      }
+      if (raw is List) {
+        return raw
+            .map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0)
+            .where((e) => e > 0)
+            .toList();
+      }
+      final parsed = int.tryParse(raw.toString());
+      if (parsed != null && parsed > 0) return [parsed];
+      return const [];
+    }
+
     // Extract filter criteria from offer filters map
-    final List<dynamic> categoryIdsRaw = filters['offer_category_id'] as List<dynamic>? ?? [];
-    final List<dynamic> brandIdsRaw = filters['offer_brand_id'] as List<dynamic>? ?? [];
+    final dynamic categoryIdsRaw = filters['offer_category_id'];
+    final dynamic brandIdsRaw = filters['offer_brand_id'];
     // New API key is `offer_product_ids` (list). Keep old key fallback.
     final dynamic productIdRaw =
         filters['offer_product_ids'] ?? filters['offer_product_id'];
-    final String? keyword = filters['offer_keyword'] as String?;
+    final String? keyword = filters['offer_keyword']?.toString();
     
     // Convert to proper types
-    final List<int> categoryIds = categoryIdsRaw.map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0).where((e) => e > 0).toList();
-    final List<int> brandIds = brandIdsRaw.map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0).where((e) => e > 0).toList();
-    
-    // Handle product ID (can be null, int, or list)
-    List<int> productIds = [];
-    if (productIdRaw != null) {
-      if (productIdRaw is int) {
-        productIds = [productIdRaw];
-      } else if (productIdRaw is List) {
-        productIds = productIdRaw.map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0).where((e) => e > 0).toList();
-      } else {
-        final parsed = int.tryParse(productIdRaw.toString());
-        if (parsed != null && parsed > 0) {
-          productIds = [parsed];
-        }
-      }
-    }
+    final List<int> categoryIds = parseIdList(categoryIdsRaw);
+    final List<int> brandIds = parseIdList(brandIdsRaw);
+    final List<int> productIds = parseIdList(productIdRaw);
     
     // Debug: show exactly what we extracted from the offer component
     debugPrint('🎯 [Offer → Catalog] Offer tapped: $offerName');
@@ -999,16 +1003,20 @@ class DynamicComponentRenderer extends StatelessWidget {
     debugPrint('   🔹 Parsed keyword (offer_keyword): $keyword');
     
     // Build FilterCriteria specifically for filter-search:
-    // - Always send brand IDs and product IDs as lists
-    // - Use offer_keyword as search_term
-    // - Also forward category IDs from offer_category_id
-    final filterCriteria = FilterCriteria(
-      categoryIds: categoryIds,
-      brandIds: brandIds,
-      productIds: productIds,
-      searchQuery: keyword?.isNotEmpty == true ? keyword : null,
-      omitPaginationInRequest: true,
-    );
+    // - If product_ids exist, send ONLY product_ids.
+    // - Otherwise send only available non-empty offer fields.
+    final hasExplicitProductIds = productIds.isNotEmpty;
+    final filterCriteria = hasExplicitProductIds
+        ? FilterCriteria(
+            productIds: productIds,
+            omitPaginationInRequest: true,
+          )
+        : FilterCriteria(
+            categoryIds: categoryIds,
+            brandIds: brandIds,
+            searchQuery: keyword?.isNotEmpty == true ? keyword : null,
+            omitPaginationInRequest: true,
+          );
     
     // Debug: log the exact pieces that will go into filter-search body
     debugPrint('📦 [Offer → Catalog] FilterCriteria built for filter-search:');

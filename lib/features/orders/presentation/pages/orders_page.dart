@@ -26,12 +26,14 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
   String? selectedStatusFilter;
   List<Order> _cachedOrders = [];
   final ScrollController _statusFilterScrollController = ScrollController();
+  final ScrollController _ordersScrollController = ScrollController();
   Locale? _lastLocale;
   bool _isRefreshingForLocale = false;
 
   @override
   void initState() {
     super.initState();
+    _ordersScrollController.addListener(_onOrdersScroll);
     // Trigger initial orders load once when the screen is first created.
     final bloc = context.read<OrdersBloc>();
     if (bloc.state is OrdersInitial) {
@@ -61,8 +63,23 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
 
   @override
   void dispose() {
+    _ordersScrollController.removeListener(_onOrdersScroll);
+    _ordersScrollController.dispose();
     _statusFilterScrollController.dispose();
     super.dispose();
+  }
+
+  void _onOrdersScroll() {
+    if (!_ordersScrollController.hasClients) return;
+    final state = context.read<OrdersBloc>().state;
+    if (state is! OrdersLoaded) return;
+    if (!state.hasMore || state.isLoadingMore) return;
+
+    final position = _ordersScrollController.position;
+    final triggerOffset = position.maxScrollExtent - 240;
+    if (position.pixels >= triggerOffset) {
+      context.read<OrdersBloc>().add(const LoadMoreOrders());
+    }
   }
 
   @override
@@ -80,6 +97,10 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
           if (state is OrdersLoaded) {
             _cachedOrders = state.orders;
             _isRefreshingForLocale = false;
+            final validated = _validatedSelectedFilter(state.orders);
+            if (validated != selectedStatusFilter) {
+              setState(() => selectedStatusFilter = validated);
+            }
           } else if (state is OrdersError) {
             _isRefreshingForLocale = false;
           }
@@ -247,18 +268,29 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
     );
   }
 
+  /// Distinct non-empty API `order_status` values, first-seen order in [orders].
+  List<String> _uniqueApiOrderStatuses(List<Order> orders) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final o in orders) {
+      final s = (o.orderStatus ?? '').trim();
+      if (s.isEmpty) continue;
+      if (seen.add(s)) out.add(s);
+    }
+    return out;
+  }
+
+  /// Keeps [selectedStatusFilter] valid when order data changes (e.g. pagination, locale reload).
+  String? _validatedSelectedFilter(List<Order> orders) {
+    final sel = selectedStatusFilter;
+    if (sel == null || sel == 'refund') return sel;
+    return _uniqueApiOrderStatuses(orders).contains(sel) ? sel : null;
+  }
+
   Widget _buildOrdersContent(List<Order> orders) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    // Derive the set of statuses that actually exist in the current
-    // order history. This effectively mirrors the backend's status list
-    // while still using our domain enum values.
-    final Set<OrderStatus> existingStatuses =
-        orders.map((order) => order.status).toSet()
-          ..remove(OrderStatus.returned);
-    final List<OrderStatus> availableStatuses = OrderStatus.values
-        .where(existingStatuses.contains)
-        .toList();
+    final apiOrderStatuses = _uniqueApiOrderStatuses(orders);
     // Detect if there are any refund-type orders based on backend order_status.
     final bool hasRefundOrders = orders.any(
       (order) => (order.orderStatus ?? '').toLowerCase().contains('refund'),
@@ -276,7 +308,7 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
           child: OrderStatusFilter(
             selectedStatus: selectedStatusFilter,
             scrollController: _statusFilterScrollController,
-            availableStatuses: availableStatuses,
+            apiOrderStatuses: apiOrderStatuses,
             showRefundChip: hasRefundOrders,
             onStatusChanged: (status) {
               // Only update local state, no BLoC event needed
@@ -310,14 +342,11 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
       // Refund filter: show only refund-type orders.
       baseOrders = orders.where(isRefundOrder).toList();
     } else if (selectedStatusFilter != null) {
-      baseOrders = orders.where((order) {
-        final matchesStatus = order.status.name == selectedStatusFilter!;
-        if (selectedStatusFilter == OrderStatus.pending.name) {
-          // Pending filter: exclude refund orders.
-          return matchesStatus && !isRefundOrder(order);
-        }
-        return matchesStatus;
-      }).toList();
+      // Match backend `order_status` string exactly (same as chip label).
+      final key = selectedStatusFilter!;
+      baseOrders = orders
+          .where((order) => (order.orderStatus ?? '').trim() == key)
+          .toList();
     } else {
       baseOrders = orders;
     }
@@ -339,11 +368,28 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
         key: ValueKey(
           'orders_list_${selectedStatusFilter ?? 'all'}',
         ),
+        controller: _ordersScrollController,
         padding: EdgeInsets.all(ResponsiveConstants.mdPadding),
-        itemCount: baseOrders.length,
+        itemCount: baseOrders.length + (_shouldShowPaginationLoader() ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index >= baseOrders.length) {
+            return Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: ResponsiveConstants.mdSpacing,
+              ),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            );
+          }
           final order = baseOrders[index];
-          debugPrint('order status from the order card ${order.status}');
           return Padding(
             key: ValueKey(
               'order_${order.id}_${order.orderNumber}',
@@ -369,6 +415,12 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
         },
       ),
     );
+  }
+
+  bool _shouldShowPaginationLoader() {
+    final state = context.read<OrdersBloc>().state;
+    if (state is! OrdersLoaded) return false;
+    return state.isLoadingMore;
   }
 
   Widget _buildEmptyState() {

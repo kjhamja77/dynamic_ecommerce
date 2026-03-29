@@ -28,6 +28,7 @@ class _AlQasehPaymentPageState extends State<AlQasehPaymentPage> {
   String? _errorMessage;
   bool _isOnReturnUrl = false;
   bool _hasDetectedSuccess = false;
+  String? _returnOrderId;
 
   String _getLocalizedString(String key, String fallback, [Map<String, String>? params]) {
     if (!mounted) return fallback;
@@ -174,6 +175,11 @@ class _AlQasehPaymentPageState extends State<AlQasehPaymentPage> {
     if (url.contains('/payment/alqaseh/return')) {
       debugPrint('✅ Found Al Qaseh return URL');
       _isOnReturnUrl = true;
+      final returnOrderId = uri.queryParameters['order_id']?.trim();
+      if (returnOrderId != null && returnOrderId.isNotEmpty) {
+        _returnOrderId = returnOrderId;
+        debugPrint('   Extracted order_id from return URL: "$_returnOrderId"');
+      }
       
       // Parse query parameters - check both 'status' and 'payment_status'
       final status = uri.queryParameters['status'] ?? 
@@ -374,7 +380,10 @@ class _AlQasehPaymentPageState extends State<AlQasehPaymentPage> {
     debugPrint('✅✅✅ Handling payment success - calling onPaymentComplete ✅✅✅');
     
     if (widget.onPaymentComplete != null) {
-      widget.onPaymentComplete!(true, widget.orderReference);
+      final resolvedOrderReference = (_returnOrderId != null && _returnOrderId!.isNotEmpty)
+          ? _returnOrderId
+          : widget.orderReference;
+      widget.onPaymentComplete!(true, resolvedOrderReference);
     }
     
     if (mounted) {

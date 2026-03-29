@@ -454,8 +454,8 @@ class CompactOrderSummarySection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 64.w,
-                  height: 64.w,
+                  width: 58.w,
+                  height: 58.w,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(ResponsiveConstants.smRadius),
                     border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
@@ -493,55 +493,101 @@ class CompactOrderSummarySection extends StatelessWidget {
                           ),
                   ),
                 ),
-                SizedBox(width: ResponsiveConstants.mdSpacing),
+                SizedBox(width: ResponsiveConstants.smSpacing),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        item.cartItem.product.name,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: true,
-                        style: AppFonts.getTextStyle(
-                          fontSize: ResponsiveConstants.mdFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      SizedBox(height: ResponsiveConstants.xsSpacing),
-                      Builder(
-                        builder: (context) {
-                          final loc = AppLocalizations.of(context)!;
-                          final variantChips = <Widget>[];
-                          if (item.cartItem.selectedSize.isNotEmpty) {
-                            variantChips.add(
-                              _buildCompactVariantChip(context, '${loc.size}: ${item.cartItem.selectedSize}'),
-                            );
-                          }
-                          if (item.cartItem.selectedColor.isNotEmpty) {
-                            variantChips.add(
-                              _buildCompactVariantChip(context, '${loc.color}: ${item.cartItem.selectedColor}'),
-                            );
-                          }
-                          if (item.cartItem.product.brand.isNotEmpty) {
-                            variantChips.add(
-                              _buildCompactVariantChip(context, '${loc.brand}: ${item.cartItem.product.brand}'),
-                            );
-                          }
-                          if (variantChips.isEmpty) return const SizedBox.shrink();
-                          return Wrap(
-                            spacing: ResponsiveConstants.xsSpacing,
-                            runSpacing: ResponsiveConstants.xsSpacing,
-                            children: variantChips,
-                          );
-                        },
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.cartItem.product.name,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
+                                  style: AppFonts.getTextStyle(
+                                    fontSize: ResponsiveConstants.mdFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                SizedBox(height: ResponsiveConstants.xsSpacing),
+                                Builder(
+                                  builder: (context) {
+                                    final loc = AppLocalizations.of(context)!;
+                                    final variantChips = <Widget>[];
+                                    if (item.cartItem.selectedSize.isNotEmpty) {
+                                      variantChips.add(
+                                        _buildCompactVariantChip(context, '${loc.size}: ${item.cartItem.selectedSize}'),
+                                      );
+                                    }
+                                    if (item.cartItem.selectedColor.isNotEmpty) {
+                                      variantChips.add(
+                                        _buildCompactVariantChip(context, '${loc.color}: ${item.cartItem.selectedColor}'),
+                                      );
+                                    }
+                                    if (item.cartItem.product.brand.isNotEmpty) {
+                                      variantChips.add(
+                                        _buildCompactVariantChip(context, '${loc.brand}: ${item.cartItem.product.brand}'),
+                                      );
+                                    }
+                                    if (variantChips.isEmpty) return const SizedBox.shrink();
+                                    return Wrap(
+                                      spacing: ResponsiveConstants.xsSpacing,
+                                      runSpacing: ResponsiveConstants.xsSpacing,
+                                      children: variantChips,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                currencyProvider.formatPrice(totalPrice, locale: Localizations.localeOf(context)),
+                                style: AppFonts.getTextStyle(
+                                  fontSize: ResponsiveConstants.lgFontSize,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                                textAlign: TextAlign.end,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              if (item.cartItem.product.originalPrice != null &&
+                                  item.cartItem.product.originalPrice! > item.cartItem.product.price) ...[
+                                SizedBox(height: ResponsiveConstants.xsSpacing),
+                                Text(
+                                  currencyProvider.formatPrice(
+                                    item.cartItem.product.originalPrice! * quantity,
+                                    locale: Localizations.localeOf(context),
+                                  ),
+                                  style: AppFonts.getTextStyle(
+                                    fontSize: ResponsiveConstants.xsFontSize,
+                                    color: colorScheme.onSurfaceVariant,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                  textAlign: TextAlign.end,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ),
                       SizedBox(height: ResponsiveConstants.xsSpacing),
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: ResponsiveConstants.smPadding,
@@ -562,68 +608,72 @@ class CompactOrderSummarySection extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                   color: CheckoutConstants.primaryColor,
                                 ),
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                           SizedBox(width: ResponsiveConstants.smSpacing),
-                          Flexible(
-                            child: Text(
-                              '${currencyProvider.formatPrice(unitPrice, locale: Localizations.localeOf(context))} × $quantity',
-                              style: AppFonts.getTextStyle(
-                                fontSize: ResponsiveConstants.xsFontSize,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            '${currencyProvider.formatPrice(unitPrice, locale: Localizations.localeOf(context))} × $quantity = ${currencyProvider.formatPrice(totalPrice, locale: Localizations.localeOf(context))}',
+                            style: AppFonts.getTextStyle(
+                              fontSize: ResponsiveConstants.xsFontSize,
+                              color: colorScheme.onSurfaceVariant,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                SizedBox(width: ResponsiveConstants.smSpacing),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: 0,
-                    maxWidth: constraints.maxWidth * 0.25,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        currencyProvider.formatPrice(totalPrice, locale: Localizations.localeOf(context)),
-                        style: AppFonts.getTextStyle(
-                          fontSize: ResponsiveConstants.lgFontSize,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                        textAlign: TextAlign.end,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                      if (item.cartItem.product.originalPrice != null &&
-                          item.cartItem.product.originalPrice! > item.cartItem.product.price) ...[
-                        SizedBox(height: ResponsiveConstants.xsSpacing),
-                        Text(
-                          currencyProvider.formatPrice(
-                            item.cartItem.product.originalPrice! * quantity,
-                            locale: Localizations.localeOf(context),
-                          ),
-                          style: AppFonts.getTextStyle(
-                            fontSize: ResponsiveConstants.xsFontSize,
-                            color: colorScheme.onSurfaceVariant,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                          textAlign: TextAlign.end,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                // SizedBox(width: ResponsiveConstants.smSpacing),
+                // ConstrainedBox(
+                //   constraints: BoxConstraints(
+                //     minWidth: 0,
+                //     maxWidth: constraints.maxWidth * 0.32,
+                //     minHeight: 50,
+                //     maxHeight: 100
+                //   ),
+                //   child: Column(
+                //     crossAxisAlignment: CrossAxisAlignment.end,
+                //     mainAxisSize: MainAxisSize.min,
+                //     children: [
+                //       Text(
+                //         currencyProvider.formatPrice(totalPrice, locale: Localizations.localeOf(context)),
+                //         style: AppFonts.getTextStyle(
+                //           fontSize: ResponsiveConstants.lgFontSize,
+                //           fontWeight: FontWeight.w700,
+                //           color: colorScheme.onSurface,
+                //         ),
+                //         textAlign: TextAlign.end,
+                //         overflow: TextOverflow.ellipsis,
+                //         maxLines: 1,
+                //       ),
+                //       if (item.cartItem.product.originalPrice != null &&
+                //           item.cartItem.product.originalPrice! > item.cartItem.product.price) ...[
+                //         SizedBox(height: ResponsiveConstants.xsSpacing),
+                //         Text(
+                //           currencyProvider.formatPrice(
+                //             item.cartItem.product.originalPrice! * quantity,
+                //             locale: Localizations.localeOf(context),
+                //           ),
+                //           style: AppFonts.getTextStyle(
+                //             fontSize: ResponsiveConstants.xsFontSize,
+                //             color: colorScheme.onSurfaceVariant,
+                //             decoration: TextDecoration.lineThrough,
+                //           ),
+                //           textAlign: TextAlign.end,
+                //           overflow: TextOverflow.ellipsis,
+                //           maxLines: 1,
+                //         ),
+                //       ],
+                //     ],
+                //   ),
+                // ),
               ],
             );
           },
