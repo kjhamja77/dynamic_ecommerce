@@ -230,7 +230,6 @@ class OrderActionButtons extends StatelessWidget {
               await HapticService.buttonClick();
               Navigator.of(dialogContext).pop();
               blocContext.read<OrdersBloc>().add(CancelOrderEvent(order.id));
-              Navigator.of(blocContext).pop();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,

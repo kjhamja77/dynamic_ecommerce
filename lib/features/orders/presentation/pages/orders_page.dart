@@ -13,6 +13,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/app_localization_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/theme/app_fonts.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../../core/services/haptic_service.dart';
 
 class OrdersPage extends StatefulWidget {
@@ -401,7 +402,7 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
               order: order,
               onTap: () async {
                 await HapticService.buttonClick();
-                Navigator.of(context).push(
+                final cancelMessage = await Navigator.of(context).push<String?>(
                   MaterialPageRoute(
                     builder: (context) => BlocProvider(
                       create: (context) => di.sl<OrdersBloc>(),
@@ -409,6 +410,11 @@ class _OrdersPageState extends State<OrdersPage> with AutomaticKeepAliveClientMi
                     ),
                   ),
                 );
+                if (!context.mounted) return;
+                if (cancelMessage != null && cancelMessage.isNotEmpty) {
+                  AppSnackBar.success(context, cancelMessage);
+                  context.read<OrdersBloc>().add(const LoadOrders());
+                }
               },
             ),
           );

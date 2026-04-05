@@ -363,6 +363,8 @@ class DynamicComponentRenderer extends StatelessWidget {
 
     final String type = (content?['type'] as String?) ?? 'variant';
     final String? image = content?['image'] as String?;
+    final List<dynamic> imagesRaw =
+        (content?['images'] as List<dynamic>?) ?? const <dynamic>[];
     final num price = (content?['price'] as num?) ?? 0;
     final int productId = (content?['id'] as int?) ?? child.componentId;
     
@@ -375,12 +377,27 @@ class DynamicComponentRenderer extends StatelessWidget {
       brandName = brandObj;
     }
     
-    // Construct full image URL
-    final String? fullImageUrl = image != null && image.isNotEmpty
-        ? (image.startsWith('http') 
-            ? image 
-            : '${AppConstants.baseUrl}${image.startsWith('/') ? image.substring(1) : image}')
-        : null;
+    // Build ordered image list from API:
+    // 1) "image" field first, 2) then each "images[].url" (de-duplicated).
+    final List<String> orderedImages = <String>[];
+    final Set<String> seen = <String>{};
+
+    void addImagePath(String? rawPath) {
+      final path = (rawPath ?? '').trim();
+      if (path.isEmpty) return;
+      final resolved = _constructImageUrl(path);
+      if (resolved.isEmpty) return;
+      if (seen.add(resolved)) {
+        orderedImages.add(resolved);
+      }
+    }
+
+    addImagePath(image);
+    for (final item in imagesRaw) {
+      if (item is Map<String, dynamic>) {
+        addImagePath(item['url']?.toString());
+      }
+    }
     
     // Create Product entity for ProductCard
     final Product product = Product(
@@ -389,7 +406,7 @@ class DynamicComponentRenderer extends StatelessWidget {
       description: rawDescription,
       price: price.toDouble(),
       originalPrice: null,
-      images: fullImageUrl != null ? [fullImageUrl] : [],
+      images: orderedImages,
       category: 'Featured',
       brand: brandName,
       type: type,

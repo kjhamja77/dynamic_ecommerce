@@ -116,3 +116,34 @@ class DeliveryStatusError extends OrdersState {
   @override
   List<Object> get props => [message];
 }
+
+/// Shown briefly before [Navigator.pop]; carries API success text (any language).
+/// [nonce] must change on every emit so [Bloc] does not drop duplicate [props].
+class OrderCancelSuccess extends OrdersState {
+  final String message;
+  final Order order;
+  final int nonce;
+
+  const OrderCancelSuccess(this.message, this.order, {required this.nonce});
+
+  @override
+  List<Object> get props => [message, order, nonce];
+}
+
+/// Cancel failed; UI stays on order details. [message] is from the API when available.
+class OrderCancelFailure extends OrdersState {
+  final String message;
+  final Order order;
+  final DeliveryStatusDto? deliveryStatus;
+  final int nonce;
+
+  const OrderCancelFailure(
+    this.message,
+    this.order, {
+    this.deliveryStatus,
+    required this.nonce,
+  });
+
+  @override
+  List<Object> get props => [message, order, deliveryStatus ?? '', nonce];
+}

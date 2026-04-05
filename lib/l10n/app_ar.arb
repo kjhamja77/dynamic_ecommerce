@@ -1305,6 +1305,11 @@
   "@confirmCancelOrder": {
     "description": "Confirm cancel order button label"
   },
+
+  "orderCancelSuccessFallback": "تم إلغاء الطلب.",
+  "@orderCancelSuccessFallback": {
+    "description": "Snackbar when cancel succeeds but API returned no message"
+  },
   
   "estimatedDelivery": "التسليم المتوقع",
   "@estimatedDelivery": {

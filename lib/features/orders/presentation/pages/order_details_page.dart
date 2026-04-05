@@ -23,6 +23,7 @@ import '../widgets/order_help_button.dart';
 import '../widgets/refund_request_bottom_sheet.dart';
 import '../widgets/order_details_shimmer.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/widgets/app_snackbar.dart';
 
 class OrderDetailsPage extends StatefulWidget {
   final Order order;
@@ -67,12 +68,31 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
     return DefaultTabController(
       length: tabCount,
-      child: BlocBuilder<OrdersBloc, OrdersState>(
-        builder: (context, state) {
+      child: BlocListener<OrdersBloc, OrdersState>(
+        listenWhen: (previous, current) =>
+            current is OrderCancelSuccess || current is OrderCancelFailure,
+        listener: (context, state) {
+          final loc = AppLocalizations.of(context)!;
+          if (state is OrderCancelSuccess) {
+            final apiText = state.message.trim();
+            final text =
+                apiText.isNotEmpty ? apiText : loc.orderCancelSuccessFallback;
+            // Pop with message so the orders list can show snackbar on its scaffold.
+            if (context.mounted) {
+              Navigator.of(context).pop(text);
+            }
+          } else if (state is OrderCancelFailure) {
+            AppSnackBar.error(context, state.message);
+          }
+        },
+        child: BlocBuilder<OrdersBloc, OrdersState>(
+          builder: (context, state) {
           // FULL shimmer until we have real order details (no initial widget.order data)
           final hasLoadedOrder = state is OrderDetailsLoaded ||
               state is OrderDetailsError ||
-              state is DeliveryStatusLoading;
+              state is DeliveryStatusLoading ||
+              state is OrderCancelFailure ||
+              state is OrderCancelSuccess;
 
           if (!hasLoadedOrder) {
             final colorScheme = Theme.of(context).colorScheme;
@@ -110,6 +130,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ),
           );
         },
+        ),
       ),
     );
   }

@@ -1568,6 +1568,12 @@ abstract class AppLocalizations {
   /// **'نعم، إلغاء الطلب'**
   String get confirmCancelOrder;
 
+  /// Snackbar when cancel succeeds but API returned no message
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إلغاء الطلب.'**
+  String get orderCancelSuccessFallback;
+
   /// Order status label
   ///
   /// In ar, this message translates to:

@@ -44,6 +44,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   int _currentPage = 1;
   bool _hasMore = true;
   bool _isLoadingMore = false;
+  int _cancelOutcomeNonce = 0;
 
   Future<void> _onLoadOrders(
     LoadOrders event,
@@ -208,25 +209,68 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     Emitter<OrdersState> emit,
   ) async {
     developer.log('📋 Cancelling order: ${event.orderId}');
-    
+
     try {
       final result = await cancelOrder(CancelOrderParams(event.orderId));
-      
+
       result.fold(
         (failure) {
           developer.log('❌ Failed to cancel order: ${failure.message}');
-          emit(OrdersError(failure.message));
+          final snapshot = _orderDetailsSnapshot(state);
+          if (snapshot != null) {
+            emit(OrderCancelFailure(
+              failure.message,
+              snapshot.$1,
+              deliveryStatus: snapshot.$2,
+              nonce: ++_cancelOutcomeNonce,
+            ));
+          } else {
+            emit(OrdersError(failure.message));
+          }
         },
-        (order) {
-          developer.log('✅ Order cancelled successfully: ${order.orderNumber}');
-          // Reload orders to show the updated status
-          add(LoadOrders());
+        (cancelResult) {
+          developer.log(
+            '✅ Order cancelled successfully: ${cancelResult.order.orderNumber}',
+          );
+          emit(OrderCancelSuccess(
+            cancelResult.apiMessage,
+            cancelResult.order,
+            nonce: ++_cancelOutcomeNonce,
+          ));
         },
       );
     } catch (e) {
       developer.log('💥 Exception while cancelling order: $e');
-      emit(OrdersError('Failed to cancel order: ${e.toString()}'));
+      final snapshot = _orderDetailsSnapshot(state);
+      final msg = 'Failed to cancel order: ${e.toString()}';
+      if (snapshot != null) {
+        emit(OrderCancelFailure(
+          msg,
+          snapshot.$1,
+          deliveryStatus: snapshot.$2,
+          nonce: ++_cancelOutcomeNonce,
+        ));
+      } else {
+        emit(OrdersError(msg));
+      }
     }
+  }
+
+  /// Order + delivery from the current details screen, for cancel error UX.
+  (Order, DeliveryStatusDto?)? _orderDetailsSnapshot(OrdersState s) {
+    if (s is OrderDetailsLoaded) {
+      return (s.order, s.deliveryStatus);
+    }
+    if (s is DeliveryStatusLoading) {
+      return (s.order, null);
+    }
+    if (s is OrderCancelFailure) {
+      return (s.order, s.deliveryStatus);
+    }
+    if (s is OrderDetailsError && s.cachedOrder != null) {
+      return (s.cachedOrder!, null);
+    }
+    return null;
   }
 
   Future<void> _onRefreshOrders(

@@ -830,6 +830,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get confirmCancelOrder => 'نعم، إلغاء الطلب';
 
   @override
+  String get orderCancelSuccessFallback => 'تم إلغاء الطلب.';
+
+  @override
   String get orderStatus => 'حالة الطلب';
 
   @override

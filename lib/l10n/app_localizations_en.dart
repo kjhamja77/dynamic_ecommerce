@@ -813,6 +813,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmCancelOrder => 'Yes, cancel order';
 
   @override
+  String get orderCancelSuccessFallback => 'Order was cancelled.';
+
+  @override
   String get orderStatus => 'Order Status';
 
   @override

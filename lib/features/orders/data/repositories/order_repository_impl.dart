@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart' as dartz;
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
+import '../../domain/entities/cancel_order_result.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/entities/refund_request.dart';
 import '../../domain/repositories/order_repository.dart';
@@ -139,11 +140,12 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<dartz.Either<Failure, Order>> cancelOrder(String orderId) async {
+  Future<dartz.Either<Failure, CancelOrderResult>> cancelOrder(
+      String orderId) async {
     try {
       final orderResult = await getOrderById(orderId);
       final parsedOrderId = int.tryParse(orderId);
-      
+
       return orderResult.fold(
         (failure) => dartz.Left(failure),
         (order) async {
@@ -151,12 +153,15 @@ class OrderRepositoryImpl implements OrderRepository {
             return dartz.Left(CacheFailure('Order cannot be cancelled'));
           }
 
-          // First, attempt to cancel the order on the backend if possible.
+          var apiMessage = '';
           if (remoteDataSource != null &&
               parsedOrderId != null &&
               await networkInfo.isConnected) {
             try {
-              await remoteDataSource!.cancelOrder(orderId: parsedOrderId);
+              apiMessage =
+                  await remoteDataSource!.cancelOrder(orderId: parsedOrderId);
+            } on Failure catch (f) {
+              return dartz.Left(f);
             } catch (e) {
               return dartz.Left(
                 ServerFailure('Failed to cancel order: ${e.toString()}'),
@@ -167,7 +172,9 @@ class OrderRepositoryImpl implements OrderRepository {
           final cancelledOrder = order.copyWith(status: OrderStatus.cancelled);
           final orderModel = OrderModel.fromEntity(cancelledOrder);
           await localDataSource.saveOrder(orderModel);
-          return dartz.Right(cancelledOrder);
+          return dartz.Right(
+            CancelOrderResult(order: cancelledOrder, apiMessage: apiMessage),
+          );
         },
       );
     } catch (e) {

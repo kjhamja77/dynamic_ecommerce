@@ -113,7 +113,8 @@ abstract class OrderRemoteDataSource {
   Future<List<OrderModel>> getOrderHistory({int page, int limit});
   Future<OrderModel> getOrderDetails({required int orderId});
   Future<DeliveryStatusDto> getDeliveryStatus({required int orderId});
-  Future<void> cancelOrder({required int orderId});
+  /// Returns trimmed success [message] from RPC envelope (any language); may be empty.
+  Future<String> cancelOrder({required int orderId});
   Future<RefundRequestModel> createRefundRequest({
     required int orderId,
     required List<Map<String, dynamic>> refundLines,
@@ -406,8 +407,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   }
 
   @override
-  Future<void> cancelOrder({required int orderId}) async {
+  Future<String> cancelOrder({required int orderId}) async {
     try {
+      debugPrint('[OrderAPI] cancelOrder → request payload: {\"order_id\": $orderId}');
       final response = await apiClient.requestRpc(
         Endpoints.cancelOrder,
         method: 'POST',
@@ -417,6 +419,11 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       );
 
       final envelope = apiClient.parseRpcEnvelope(response.data);
+      debugPrint(
+        '[OrderAPI] cancelOrder → status=${response.statusCode} '
+        'envelope.status=${envelope.status} envelope.message=${envelope.message} '
+        'raw=${response.data}',
+      );
 
       if (response.statusCode != 200 ||
           envelope.status.toLowerCase() != 'success') {
@@ -424,10 +431,15 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             'Failed to cancel order (${response.statusCode})';
         throw ServerFailure(message);
       }
+      final msg = (envelope.message ?? '').trim();
+      debugPrint('[OrderAPI] cancelOrder → success message: \"$msg\"');
+      return msg;
     } on DioException catch (e) {
       throw ServerFailure(
         e.message ?? 'Network error while cancelling order',
       );
+    } on Failure {
+      rethrow;
     } catch (e) {
       throw ServerFailure(
         'Unexpected error while cancelling order: $e',

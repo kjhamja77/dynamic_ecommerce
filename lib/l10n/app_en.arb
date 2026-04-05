@@ -1326,6 +1326,11 @@
     "description": "Confirm cancel order button label"
   },
 
+  "orderCancelSuccessFallback": "Order was cancelled.",
+  "@orderCancelSuccessFallback": {
+    "description": "Snackbar when cancel succeeds but API returned no message"
+  },
+
   "backToOrders": "Back to Orders",
   "@backToOrders": {
     "description": "Back to orders button label"
